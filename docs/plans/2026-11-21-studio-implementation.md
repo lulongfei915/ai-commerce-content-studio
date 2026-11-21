@@ -43,12 +43,12 @@
 
 ### 00 · 确认仓库和实施条件
 
-- [ ] 核对现有文档与原型，确认 Git 仓库、开发分支和项目基线。记录设计决议、供应商接入门槛和试点待确认项。
+- [x] 核对现有文档与原型，确认 Git 仓库、开发分支和项目基线。记录设计决议、供应商接入门槛和试点待确认项。
 - **依赖与材料**　D1～D8、R1、R3、R5。检查 `git rev-parse --show-toplevel`、`git status --short --branch`、`git remote -v` 和远端分支。当前 checkout 已有 `.git` 但仍处于无提交状态，需先确认远端 URL、`master` 初始提交归属和凭据，再从 `master` 创建并推送 `develop`。当前目录若来自导出，拿到正确仓库后核对文件差异，再在正式 checkout 上继续。
 - **输出**　实施基线、设计评审记录、模型能力矩阵和验收环境清单。把画布目标设备、真实媒体负载、费用授权及初检阈值列入对应实施任务。火山方舟最小烟测须用 Seedream 5.5 生成一张 1K PNG 图片，并用 Seedance 2.0 生成一条 5 秒、16:9、720p 视频。记录供应商任务 ID、轮询终态、结果下载和费用。
 - **验证与推送**　仓库、`master` 基线、`develop` 分支及推送权限可核对。图片与视频烟测分别验证 API Key 从环境变量读取、模型参数、私有文件通过短时签名 URL 提供给供应商、超时后使用原任务 ID 查询、结果归档和成本记录。架构与功能范围分歧有记录，未确认条件标明责任方和影响。以 `docs: record implementation baseline` 提交评审记录与本清单并推送到 `develop`。
 
-Seedance 2.0 补测按 [REST 接入决议](../adr/0001-use-rest-for-ark-video.md) 执行。先在 `apps/server/tests/test_ark_video.py` 验证创建请求、同一任务查询及限流处理，运行 `uv run --project apps/server pytest apps/server/tests/test_ark_video.py` 确认缺少实现时失败。再实现 `apps/server/app/adapters/ark_video.py`、配置 `ARK_VIDEO_MODEL`，补充 `apps/server/app/entrypoints/smoke_video.py`。本地回归通过后创建一次文生视频任务，用 `ffprobe` 验证下载文件。将实测及未覆盖项写入基线验收记录，独立提交并推送到 `develop`。短时签名输入和业务执行恢复在对应集成模块单独验证。
+模块 00 的图片与视频最小烟测已完成，证据见[实施基线记录](../验收/00-实施基线.md)。视频按 [REST 接入决议](../adr/0001-use-rest-for-ark-video.md) 完成单次提交、原任务查单及 MP4 验证。短时签名输入和业务执行恢复在对应集成模块单独验证。
 
 ### 01 · 建立正式工程、契约与 CI
 
