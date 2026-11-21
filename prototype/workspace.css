@@ -1,0 +1,293 @@
+/* Compact production workspace: mode navigation, progressive configuration,
+   bounded desktop panels, and a dedicated canvas with a contextual inspector. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.studio-active{--workspace-text:#66735c;--workspace-muted:#78866e}
+.studio-active .topbar{height:48px;flex-shrink:0;padding:0 22px}
+.studio-active .content-shell{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+.studio-page.page{padding:0 20px 16px;max-width:none;width:100%;flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
+.studio-taskbar{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:64px;flex-shrink:0;border-bottom:1px solid var(--line)}
+.task-context{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.task-context-icon{width:33px;height:33px;background:#ebf0e3;border-radius:8px;color:#7d945f;display:grid;place-items:center;flex-shrink:0}
+.studio-taskbar .task-select{max-width:100%;font-size:12px;display:block;cursor:pointer}
+.task-context-meta{display:flex;align-items:center;gap:5px;padding:0;font-size:10px;color:var(--workspace-muted);margin-top:2px}
+.task-context-meta svg{width:11px;height:11px}
+.creation-modes{display:flex;gap:4px;border:1px solid #dce3d3;padding:4px;border-radius:9px;background:#e9ede2;flex-shrink:0}
+.creation-modes button{display:flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 17px;border-radius:6px;font-size:12px;color:#758269;font-weight:550}
+.creation-modes button.active{background:#fff;color:#34472a;box-shadow:0 2px 5px #27351d0d}
+.creation-modes button.active svg{color:#5f853e}
+.creation-modes svg{width:16px;height:16px}
+.taskbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:13px;flex:1;min-width:0}
+.delivery-summary{display:flex;align-items:center;gap:7px;color:var(--workspace-muted);font-size:10px;padding:4px 0;white-space:nowrap}
+.delivery-summary strong{color:#566b43;font-size:11px;font-weight:600}
+.delivery-summary>svg{width:14px;height:14px}.delivery-summary>svg:last-child{width:11px;height:11px}
+.taskbar-actions>.icon-button{border:1px solid var(--line);background:#fff;color:#677b55}
+.studio-shell{flex:1;min-height:0;min-width:0;display:grid;gap:20px;align-items:stretch;grid-template-columns:minmax(0,.38fr) minmax(0,.62fr)}
+.studio-shell .composer{position:static;top:auto;height:100%;min-height:0;max-height:none;display:flex;flex-direction:column;border-radius:11px}
+.studio-shell .composer-heading{height:43px;flex-shrink:0;padding:0 15px;background:#fff}
+.studio-shell .composer-heading h3{font-size:12px}
+.studio-shell .composer-heading .row{gap:3px}
+.studio-shell .composer-body{flex:1;min-height:0;display:flex;flex-direction:column;gap:16px;padding:15px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#d4dec9 transparent}
+.studio-shell .product-select{padding:8px;gap:9px;min-height:57px}
+.studio-shell .product-select .product-thumb{width:38px;height:38px}
+.studio-shell .product-select strong{font-size:11px;line-height:1.5;white-space:normal}
+.studio-shell .product-select small{font-size:9px;color:var(--workspace-muted);margin-top:2px}
+.source-summary{display:flex;align-items:center;justify-content:space-between;gap:5px;font-size:10px;padding:8px 1px 0;width:100%;color:#788a64}
+.source-summary .row{gap:4px}.source-summary svg{width:12px;height:12px}
+.source-summary>.row:last-child{color:#87977a;font-size:9px}
+.source-detail{margin-top:10px;border-radius:7px;background:#f7f9f2;padding:9px}
+.studio-shell .source-strip{display:flex;margin-bottom:8px;gap:7px}
+.studio-shell .source-thumb{height:54px;flex:1;max-width:76px;min-width:0}
+.studio-shell .source-detail .text-button{font-size:10px}
+.studio-shell .section-label{font-size:11px;margin-bottom:7px;color:#536247;font-weight:550}
+.studio-shell .section-label label{font-size:11px}
+.studio-shell .section-label .muted{font-size:9px;font-weight:400;color:var(--workspace-muted)}
+.studio-shell .purpose-picker{margin:0;gap:5px}
+.studio-shell .purpose-picker button{font-size:10px;height:34px;padding:0 4px;color:#7b8872}
+.studio-shell .purpose-picker button.active{color:#4c6c34;background:#f0f7e6;border-color:#b0ca93}
+.preset-label{font-weight:400;font-size:9px;color:#839476}
+.studio-shell .template-select{height:35px;font-size:11px;color:#66795a;background:#fafcf7;padding:0 8px}
+.studio-shell .optional{font-size:9px;font-weight:400;color:#95a28a;margin-left:6px}
+#intent{width:100%;height:160px;min-height:120px;max-height:480px;resize:vertical;display:block;padding:9px 10px;background:#fff;font-size:12px;line-height:1.85;border-color:#d5dfcb}
+#intent::placeholder{color:#a0aa96;font-size:10px}
+.detail-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:#7b8b6c;padding:7px 0;border-top:1px solid #edf0e7}
+.detail-toggle>span{display:flex;align-items:center;gap:5px}.detail-toggle svg{width:13px;height:13px}
+.reference-count{font-size:9px;background:#edf3e5;color:#6d8654;padding:1px 4px;border-radius:4px;margin-left:2px}
+.studio-shell .prompt-details{padding-top:3px}.studio-shell .prompt-quick{margin:5px 0 10px}.studio-shell .prompt-quick button{font-size:10px}
+.studio-shell .prompt-box{padding:10px;background:#fafcf7}
+.studio-shell .prompt-box .field-label{font-size:10px;color:#7d8e6e;margin-bottom:7px}
+.studio-shell .prompt-box textarea{font-size:11px;min-height:112px;line-height:1.8;color:#697b5b}
+.studio-shell .prompt-tools button{font-size:10px}.studio-shell .reference-tools{display:flex;align-items:center;justify-content:space-between;margin:13px 0 5px;gap:8px}
+.studio-shell .reference-tools .text-button{font-size:10px}
+.studio-shell .advanced-toggle{font-size:10px;padding:11px 0 2px}
+.studio-shell .advanced-fields select{font-size:10px}
+.studio-shell .generation-footer{flex-shrink:0;padding:10px 15px 13px;display:block;background:#fcfdf9;border-top:1px solid var(--line)}
+.studio-shell .output-settings{font-size:10px;margin:0 0 8px;color:#7b8c6c;gap:8px}
+.studio-shell .stepper{gap:5px}.studio-shell .stepper button{width:23px;height:23px;min-height:0}
+.studio-shell .generate-button{height:38px;width:100%!important;letter-spacing:.3px;font-size:12px;gap:8px}
+.studio-shell .generate-button svg:last-child{margin-left:auto;width:14px}.studio-shell .generate-button svg:first-child{margin-left:auto;width:16px}
+.studio-shell .results{min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.results-heading{height:49px;min-height:49px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-top:1px}
+.results-heading h2{font-size:14px;letter-spacing:0;font-weight:600;display:flex;align-items:center;gap:7px}
+.results-heading h2>span{font-size:10px;border-radius:4px;background:#e9efdf;color:#8a9c75;padding:0 5px;font-weight:500}
+.results-heading p{font-size:9px;margin-top:2px;color:#829075}
+.results-heading select,.results-controls select,.canvas-toolbar select{height:29px;border:1px solid #e1e7d9;padding:0 7px;background:#fff;font-size:10px;color:#6c805a;max-width:140px}
+.results-heading select{margin-top:2px;min-width:97px}
+.results-controls{height:39px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);margin-bottom:14px;gap:12px}
+.studio-shell .result-tabs{height:100%;gap:17px}
+.studio-shell .result-tabs button{font-size:11px;color:#819073;gap:5px}
+.studio-shell .result-tabs button.active{color:#3d542f}
+.studio-shell .result-tabs small{font-size:9px;font-weight:400;background:transparent;padding:0;color:#96a387}
+.results-controls .row{gap:5px}.results-controls .icon-button{height:29px;width:29px}
+.results-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 4px 7px 0;scrollbar-width:thin;scrollbar-color:#d6e0cc transparent;outline-offset:-2px}
+.studio-shell .result-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.studio-shell .asset-card{border-radius:9px}
+.studio-shell .asset-preview{aspect-ratio:auto;height:clamp(158px,calc((100dvh - 220px)*.41),300px)}
+.studio-shell .asset-footer{padding:11px 12px 12px}
+.studio-shell .asset-footer h4{font-size:11px;line-height:1.5}
+.studio-shell .asset-footer .meta{font-size:9px;gap:3px;margin-top:6px;flex-direction:column}
+.studio-shell .asset-footer .meta>span:last-child{font-size:9px;letter-spacing:.15px;color:#7a8d69}
+.studio-shell .asset-footer .between{margin-top:8px}
+.studio-shell .asset-footer .badge{font-size:9px}
+.studio-shell .asset-version{font-size:9px}
+.studio-shell .artwork.minimal .art-sub{font-size:clamp(13px,1.25vw,22px);letter-spacing:1px;white-space:nowrap;left:13px}
+.studio-shell .artwork.minimal .art-letter{font-size:8px;letter-spacing:1.4px;left:13px;top:31px}
+.studio-shell .artwork.editorial .art-letter{font-size:clamp(24px,2.25vw,38px);top:31px;left:13px;line-height:.91}
+.studio-shell .artwork.detail .art-letter{font-size:12px;left:12px;letter-spacing:0;white-space:nowrap}
+.studio-shell .artwork.square .art-letter{font-size:8px;top:33px;left:12px}
+.results-bottom{height:32px;min-height:32px;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;font-size:9px;color:#8c9a7d}
+.results-bottom>.row{gap:5px}.results-bottom svg{width:12px;height:12px}.results-bottom .text-button{font-size:10px}
+.results-bottom:has(.selection-bar){height:54px;min-height:54px;align-items:center}
+.results-bottom .selection-bar{position:static;margin:0;width:100%;padding:7px 12px;font-size:10px;border-radius:8px}
+.results-bottom .selection-bar .icon-button{color:#dde9d1;width:25px;height:25px}
+.results-bottom .selection-bar .icon-button:hover{color:#486136}
+.studio-shell .empty-state{min-height:0;gap:9px;padding:24px;align-items:flex-start;text-align:left;background:#ffffff50;border-color:#e0e5d9}
+.studio-shell .empty-state>svg{width:24px;height:24px}
+.studio-shell .empty-state p{max-width:none}
+.studio-shell .empty-state .btn{margin-top:2px}
+.studio-shell .empty-state h3{font-size:14px}.studio-shell .empty-state p{font-size:11px;line-height:1.8}
+.studio-shell .loading-card{aspect-ratio:auto;min-height:275px}
+/* Canvas has its own toolbar. The shared taskbar is the only mode switch. */
+.studio-shell.canvas-mode{display:flex;gap:14px}
+.canvas-workspace{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;background:#fff;border:1px solid #e0e7d7;border-radius:11px;overflow:hidden}
+.canvas-toolbar{height:46px;flex-shrink:0;padding:0 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);gap:12px}
+.canvas-status{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:550;color:#627853}.canvas-status svg{width:15px;height:15px}
+.canvas-node-count{font-size:10px;color:#97a58b}
+.canvas-product-context{display:flex;align-items:center;gap:4px;font-size:10px;color:#768c63;max-width:155px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 0}
+.canvas-product-context svg{width:11px;height:11px}
+.canvas-toolbar select{background:#fafcf6}.canvas-toolbar .btn{height:29px}
+.canvas-workspace .canvas{height:auto;flex:1;min-height:0;border:0;border-radius:0;overflow:hidden;position:relative;background-color:#f0f3eb;background-image:radial-gradient(#c9d2bd 1px,transparent 1px);background-size:18px 18px}
+.canvas-viewport{height:100%;width:100%;overflow:auto;position:relative;padding:12px 14px 35px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#bacba8 transparent;outline-offset:-3px}
+.canvas-world{position:relative;min-height:0;min-width:0;margin:0 auto}
+.canvas-workspace .canvas-stage{position:relative;transform-origin:0 0}
+.canvas-workspace .node{width:210px;border-radius:9px;box-shadow:0 4px 12px #3546220b;border-color:#ccd9be}
+.canvas-workspace .node.active{outline:2px solid #99b877;outline-offset:3px}
+.canvas-workspace .node-header{padding:7px 11px;min-height:38px;font-size:11px;gap:6px}
+.canvas-workspace .node-header .row{gap:6px}.canvas-workspace .node-header .icon-button{height:24px;width:24px}
+.canvas-workspace .node-body{padding:11px 12px;font-size:11px}
+.node-product{display:flex;align-items:center;gap:7px;text-align:left;width:100%;padding:0 0 12px;margin-bottom:10px;border-bottom:1px solid #eef2e8}
+.node-product>img{width:31px;height:31px;border-radius:5px}
+.node-product strong{font-size:10px;display:block;line-height:1.5;font-weight:550}
+.node-product small{display:block;font-size:9px;color:#899c77;margin-top:2px}
+.node-prompt{font-size:10px;line-height:1.8;color:#7b8f6a;margin:9px 0;min-height:36px}
+.canvas-workspace .node-badge{font-size:10px}.canvas-workspace .node-badge svg{width:12px;height:12px}
+.canvas-workspace .node-ports{min-height:36px;padding:5px 9px}.canvas-workspace .port{font-size:10px}
+.canvas-workspace .node-ports .text-button{font-size:10px}
+.source-node-image{height:62px;border-radius:5px;overflow:hidden;margin-bottom:8px}
+.source-node .node-body>strong{font-size:11px;font-weight:550;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.source-node-meta{font-size:9px;color:#899b78;margin-top:3px}
+.canvas-workspace .source-node .node-header{cursor:default}
+.canvas-workspace .canvas-hint{position:absolute;left:14px;bottom:13px;font-size:9px;background:#f9fcf0e8;color:#8a9a77;padding:5px 7px;border-radius:5px;pointer-events:none;display:flex;align-items:center;gap:5px;max-width:calc(100% - 205px)}
+.canvas-hint svg{width:12px;height:12px}
+.canvas-workspace .canvas-controls{position:absolute;left:auto;bottom:11px;right:12px;display:flex;padding:3px;border-color:#dbe4d0}
+.canvas-controls .icon-button{height:27px;width:27px}.canvas-controls>span{font-size:10px;width:35px}
+.canvas-workspace .canvas-connecting{position:absolute;left:12px;bottom:55px;font-size:11px;max-width:calc(100% - 24px);padding:9px 11px;display:flex;gap:9px;align-items:center}
+.canvas-workspace .canvas-connecting .btn{height:26px;font-size:10px}
+.canvas-bottom{height:31px;flex-shrink:0;padding:0 13px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);font-size:9px;color:#8c9e7a}
+.canvas-bottom>span:first-child{display:flex;gap:5px;align-items:center}.canvas-bottom svg{width:11px;height:11px}
+.node-inspector{flex-shrink:0;width:286px;height:100%;min-height:0;min-width:0}
+.inspector-scrim{display:none}
+@media(min-width:701px) and (max-height:740px){
+ .studio-active .sidebar{padding-top:20px;overflow-y:auto;scrollbar-width:thin}
+ .studio-active .sidebar .brand{padding-bottom:17px}
+ .studio-active .company-switch{margin-bottom:17px}
+ .studio-active .sidebar-bottom{padding-top:18px}
+ .studio-active .sidebar .storage,.studio-active .sidebar .profile{display:none}
+ .studio-shell .composer-body{padding:12px;gap:10px}
+ .studio-shell .composer-heading{height:38px;padding:0 12px}
+ .studio-shell .product-select{min-height:50px;padding:6px 8px}
+ .studio-shell .product-select .product-thumb{width:34px;height:34px}
+ .studio-shell .source-summary{padding-top:6px}
+ .studio-shell .section-label{margin-bottom:5px;font-size:10px}
+ .studio-shell .template-select{height:31px;font-size:10px}
+ .studio-shell .purpose-picker button{height:31px;font-size:10px}
+ #intent{height:120px;min-height:120px;padding:9px 10px;font-size:11px}
+ .detail-toggle{padding-top:6px;padding-bottom:3px}
+ .studio-shell .generation-footer{padding:8px 12px 10px}
+ .studio-shell .generate-button{height:35px}
+ .studio-shell .output-settings{margin-bottom:6px}
+ .studio-shell .composer-heading h3{font-size:11px}
+ .studio-shell .composer-heading .icon-button{height:27px;width:27px}
+}
+@media(min-width:1600px){.studio-page.page{padding-left:25px;padding-right:25px}.studio-shell{grid-template-columns:minmax(0,.38fr) minmax(0,.62fr);gap:22px}.node-inspector{width:300px}.studio-shell .asset-footer h4{font-size:12px}.studio-shell .asset-footer .meta{font-size:10px}}
+@media(min-width:701px) and (max-width:1100px){.studio-taskbar{gap:10px}.creation-modes button{padding:0 11px;font-size:11px}.taskbar-actions{gap:9px;flex:0}.delivery-summary>svg:first-child{display:none}.studio-shell{grid-template-columns:minmax(0,.40fr) minmax(0,.60fr);gap:14px}.studio-shell .result-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.studio-taskbar .task-select{font-size:11px}.task-context-icon{display:none}.node-inspector{width:260px}.canvas-mode:has(.node-inspector) .canvas-node-count{display:none}.canvas-mode:has(.node-inspector) .canvas-toolbar{flex-wrap:wrap;height:76px;padding-top:9px;padding-bottom:9px}.canvas-bottom>span:last-child{display:none}}
+@media(max-width:700px){
+ .studio-active .content-shell{height:auto;min-height:100dvh;overflow:visible}
+ .studio-active .topbar{padding:0 13px;height:48px}
+ .studio-page.page{padding:0 13px 18px;gap:13px}
+ .studio-taskbar{flex-wrap:wrap;gap:10px;padding:12px 0;min-height:0}
+ .task-context{order:0;flex:1;max-width:calc(100% - 99px);gap:8px}
+ .task-context-icon{width:29px;height:29px}.task-context-icon svg{width:15px;height:15px}
+ .studio-taskbar .task-select{font-size:11px;max-width:100%}
+ .task-context-meta{font-size:9px}
+ .taskbar-actions{order:1;flex:0;gap:9px}
+ .delivery-summary{font-size:9px;gap:3px}.delivery-summary strong{font-size:10px}
+ .delivery-summary>svg{display:none}.delivery-summary>span{display:flex;flex-direction:column;line-height:1.5}
+ .taskbar-actions>.icon-button{width:28px;height:28px}
+ .creation-modes{order:2;width:100%;gap:4px;padding:3px;border-radius:8px}
+ .creation-modes button{flex:1;height:34px;font-size:12px}
+ .studio-shell{display:flex;flex-direction:column;gap:20px;overflow:visible}
+ .studio-shell .composer{height:auto;min-height:0;max-height:none}
+ .studio-shell .composer-heading{height:40px;padding:0 13px}
+ .studio-shell .composer-body{padding:13px;display:flex;gap:13px;overflow:visible;flex:none}
+ .studio-shell .product-select{min-height:53px}.studio-shell .product-select strong{font-size:12px}
+ .studio-shell .purpose-picker button{font-size:11px;height:35px}
+ .studio-shell .section-label{font-size:11px}
+ .studio-shell .template-select{font-size:11px;height:35px}
+ .studio-shell .generation-footer{padding:11px 13px 13px;display:flex;align-items:center;gap:12px}
+ .studio-shell .output-settings{margin:0;min-width:0;flex:none;flex-direction:column;gap:3px;align-items:flex-start;font-size:9px}
+ .studio-shell .stepper{gap:5px}.studio-shell .stepper button{width:23px;height:23px}
+ .studio-shell .generate-button{flex:1;width:auto!important;height:39px;font-size:12px}
+ .studio-shell .generate-button svg:first-child,.studio-shell .generate-button svg:last-child{margin:0}
+ .studio-shell .generate-button svg:last-child{margin-left:auto}
+ .studio-shell .generate-button svg:first-child{margin-left:auto}
+ #intent{height:144px;max-height:400px;font-size:12px}
+ .studio-shell .results{overflow:visible;min-height:350px}
+ .results-heading{height:48px;min-height:48px}.results-controls{margin-bottom:12px}
+ .results-scroll{overflow:visible;padding:0;flex:none}
+ .studio-shell .result-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+ .studio-shell .asset-preview{height:auto;aspect-ratio:1/1.12}
+ .studio-shell .asset-footer{padding:10px}.studio-shell .asset-footer h4{font-size:10px}
+ .studio-shell .asset-footer .meta{font-size:9px;gap:2px;margin-top:5px}
+ .studio-shell .asset-footer .meta>span:last-child{font-size:8px}
+ .studio-shell .artwork.minimal .art-sub{font-size:12px;left:10px;bottom:17px}
+ .studio-shell .artwork.minimal .art-letter{font-size:6px;letter-spacing:1px;left:10px}
+ .studio-shell .artwork.editorial .art-letter{font-size:25px;left:10px;top:31px}
+ .studio-shell .artwork.detail .art-letter{font-size:9px;left:8px}
+ .studio-shell .artwork.square .art-letter{font-size:6px}
+ .results-bottom{margin-top:10px}
+ .studio-shell .empty-state{min-height:0;padding:20px 14px}
+ .studio-shell.canvas-mode{display:block;position:relative;min-height:450px}
+ .canvas-workspace{height:calc(100dvh - 192px);min-height:410px}
+ .canvas-toolbar{height:45px;padding:0 9px;gap:8px}.canvas-toolbar>.row{gap:6px}
+ .canvas-node-count,.canvas-product-context{display:none}.canvas-toolbar select{max-width:87px;min-width:0;padding:0 4px;font-size:9px}
+ .canvas-toolbar .btn{font-size:10px;padding:0 8px;gap:4px;height:29px}
+ .canvas-toolbar .btn svg{width:13px;height:13px}
+ .canvas-workspace .canvas-hint{display:none}.canvas-workspace .canvas-controls{bottom:11px;right:11px}
+ .canvas-bottom{font-size:8px;padding:0 9px}.canvas-bottom>span:last-child{display:none}
+ .node-inspector{position:fixed;z-index:60;right:12px;left:12px;bottom:12px;top:auto;width:auto;max-height:76dvh;height:650px;box-shadow:0 12px 60px #25341b30;border-radius:12px}
+ .studio-shell .node-inspector .composer{height:100%;max-height:100%;overflow:hidden}
+ .studio-shell .node-inspector .composer-body{flex:1;overflow-y:auto;min-height:0}
+ .inspector-scrim{display:block;position:fixed;inset:0;z-index:59;background:#25351c45;backdrop-filter:blur(2px)}
+}
+@media(min-width:701px) and (max-height:520px){.studio-active .content-shell{height:100dvh;min-height:460px}.studio-shell .composer-body{gap:8px}.studio-shell .results-heading{height:40px;min-height:40px}.studio-shell .asset-preview{height:136px}}
+
+/* Give creative expression priority while retaining an accessible generation action. */
+.creation-config{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:end}
+.creation-config>div{min-width:0}
+.studio-shell .creation-config .purpose-picker button{white-space:nowrap;font-size:10px;height:33px;padding:0 3px}
+.studio-shell .creation-config .template-select{display:block;height:33px;font-size:10px;text-overflow:ellipsis}
+.studio-shell .intent-section>.section-label label{font-size:12px;font-weight:600;color:#405235}
+.intent-expand{display:inline-flex;gap:4px;align-items:center;font-size:10px;font-weight:400;color:#7a8d6b}
+.intent-expand svg{width:12px;height:12px}
+.intent-section.expanded #intent{height:280px}
+.intent-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;min-height:23px}
+.intent-tools .row{gap:8px}
+.intent-tools .text-button{font-size:10px;color:#6a8257;gap:4px;white-space:nowrap}
+.intent-tools .text-button:disabled{opacity:.45;cursor:default}
+.intent-tools svg{width:13px;height:13px}
+.intent-tools .reference-count{margin:0;min-width:19px;height:19px;display:grid;place-items:center}
+.studio-shell .creative-details{margin-top:0}
+.studio-shell .generation-footer{display:flex;align-items:center;gap:16px;padding:13px 15px}
+.studio-shell .generation-footer .output-settings{flex:none;margin:0;display:flex;align-items:flex-start;flex-direction:column;gap:3px;font-size:9px}
+.studio-shell .generation-footer .generate-button{width:auto!important;flex:1;min-width:0;height:40px}
+.studio-shell .results{container-type:inline-size}
+@container (max-width:700px){.studio-shell .result-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.node-inspector{width:340px}
+.node-inspector .creation-config{grid-template-columns:1fr}
+@media(min-width:701px) and (max-height:740px){
+ .studio-shell .composer-body{gap:5px;padding:10px}
+ .studio-shell .generation-footer{padding:9px 12px;gap:12px}
+ .studio-shell .generation-footer .generate-button{height:36px}
+ .studio-shell .creation-config .purpose-picker button,.studio-shell .creation-config .template-select{height:31px}
+ .intent-tools{margin-top:5px;min-height:21px}
+ .intent-section.expanded #intent{height:240px}
+}
+@media(min-width:701px) and (max-width:1100px){
+ .node-inspector{width:300px}
+ .studio-shell .composer-body{padding:12px;gap:8px}
+ .studio-shell .generation-footer{padding:10px 12px;gap:10px}
+}
+@media(max-width:700px){
+ .creation-config{gap:9px}
+ .studio-shell .intent-section>.section-label label{font-size:13px}
+ .intent-tools .text-button,.intent-expand{font-size:11px}
+ .intent-tools{min-height:30px}
+ .intent-section.expanded #intent{height:260px}
+ .node-inspector{width:auto}
+ .node-inspector .creation-config{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+}
+
+@media(min-width:701px) and (max-width:950px){.creation-config{grid-template-columns:1fr;gap:9px}}
+@media(min-width:951px) and (max-width:1100px) and (max-height:740px){.studio-shell .composer-body{padding:10px;gap:5px}}
+
+/* The task bar is the desktop workspace header; avoid repeating it above. */
+@media(min-width:701px){
+ .studio-active .topbar{display:none}
+ .studio-page.page{padding:0 16px 10px;gap:8px}
+ .studio-taskbar{min-height:48px;gap:14px}
+ .task-context-icon{width:28px;height:28px}
+ .task-context-meta{font-size:9px;margin-top:0;line-height:1.4}
+ .creation-modes{padding:3px}
+ .creation-modes button{height:29px;padding:0 12px;font-size:11px}
+ .taskbar-actions>.icon-button{height:28px;width:28px}
+}

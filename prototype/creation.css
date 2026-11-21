@@ -1,0 +1,97 @@
+/* Compact creation entry and product onboarding, scoped to the existing workbench. */
+.studio-task-actions { grid-column: 3; grid-row: 1; justify-self: end; display: flex; align-items: center; gap: 10px; }
+.studio-task-actions > .btn { height: 32px; font-size: 11px; padding: 0 10px; white-space: nowrap; }
+.studio-page .studio-taskbar .studio-task-actions .task-next { display: inline-flex; padding: 4px 0; }
+.task-name-edit { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex-shrink: 0; color: #73806c; border-radius: 4px; }
+.task-name-edit:hover { background: #eaf2e2; }
+.task-name-edit svg { width: 12px; height: 12px; }
+.task-switch-footer { justify-content: flex-end; }
+.creation-dialog.modal { display: flex; flex-direction: column; width: 690px; max-height: min(90dvh,860px); overflow: hidden; }
+.creation-dialog .modal-header { flex-shrink: 0; padding: 20px 24px 14px; }
+.creation-dialog .modal-header h2 { font-size: 18px; }
+.creation-dialog .modal-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 24px 18px; }
+.creation-dialog .modal-footer { flex-shrink: 0; padding: 12px 24px; align-items: center; flex-wrap: wrap; }
+.creation-dialog .modal-footer .btn { min-height: 36px; font-size: 12px; }
+.creation-dialog .creation-intro, .creation-intro { color: #626d66; font-size: 12px; line-height: 1.8; margin-bottom: 16px; overflow-wrap: anywhere; }
+.creation-section + .creation-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid #e5e9e1; }
+.creation-section h3 { font-size: 13px; color: #344131; line-height: 1.7; }
+.creation-section h3 small { color: #74806f; font-size: 11px; font-weight: 400; margin-left: 4px; }
+.creation-section-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 10px; }
+.creation-section-heading .text-button { font-size: 11px; color: #496638; flex-shrink: 0; }
+.creation-section-heading .text-button svg { width: 13px; }
+.creation-search.search { display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 10px; border: 1px solid #dfe4df; border-radius: 6px; padding: 0 10px; background: #fff; }
+.creation-search.search > svg { display: block; width: 15px; height: 15px; color: #74806f; flex-shrink: 0; }
+.creation-dialog .creation-search input { border: 0; height: 36px; background: transparent; box-shadow: none; padding-left: 0; }
+.creation-products { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; max-height: 242px; overflow-y: auto; padding: 2px; }
+.creation-dialog label.creation-product-option { display: flex; align-items: center; gap: 9px; border: 1px solid #e0e5dd; border-radius: 8px; padding: 10px; margin: 0; cursor: pointer; min-width: 0; font-size: 12px; color: #43503f; }
+.creation-product-option:has(input:checked) { background: #f2f7ec; border-color: #97b77d; }
+.creation-dialog .creation-product-option input { width: 15px; height: 15px; padding: 0; margin: 0; flex-shrink: 0; accent-color: #6b914c; }
+.creation-product-option img { width: 42px; height: 48px; object-fit: contain; background: #f0f1ec; border-radius: 4px; flex-shrink: 0; }
+.creation-product-option > span { min-width: 0; flex: 1; }
+.creation-product-option strong { display: block; font-weight: 500; font-size: 12px; overflow-wrap: anywhere; }
+.creation-product-option small { display: block; font-size: 10px; color: #626d66; overflow-wrap: anywhere; margin-top: 4px; }
+.creation-product-option > svg { display: none; }
+.creation-selection { font-size: 11px; line-height: 1.6; color: #626d66; margin-top: 8px; overflow-wrap: anywhere; }
+.creation-no-results { grid-column: 1 / -1; color: #74806f; padding: 18px 6px; font-size: 12px; line-height: 1.8; }
+.creation-purpose-options { display: flex; gap: 8px; margin-top: 10px; }
+.creation-dialog .creation-purpose-options label { margin: 0; cursor: pointer; flex: 1; }
+.creation-purpose-options input { position: absolute; opacity: 0; width: 1px!important; height: 1px!important; }
+.creation-purpose-options span { display: flex; justify-content: center; align-items: center; gap: 6px; border: 1px solid #e0e5dd; border-radius: 6px; min-height: 38px; padding: 6px; font-size: 12px; color: #53634e; }
+.creation-purpose-options svg { width: 15px; }
+.creation-purpose-options input:checked + span { border-color: #97b77d; background: #f2f7ec; color: #3f642c; }
+.creation-purpose-options input:focus-visible + span { outline: 2px solid #76a64c; outline-offset: 2px; }
+.creation-scope-note { font-size: 11px; color: #74806f; line-height: 1.7; margin-top: 8px; }
+.creation-naming { margin-top: 16px; color: #626d66; font-size: 11px; }
+.creation-naming summary { cursor: pointer; line-height: 1.8; }
+.creation-naming summary span { margin-left: 8px; color: #74806f; overflow-wrap: anywhere; }
+.creation-naming input { margin-top: 8px; }
+.creation-dialog .field-error { margin-top: 8px; min-height: 0; }
+.creation-dialog .field-error:empty { display: none; }
+.creation-add-current { display: flex; align-items: center; gap: 6px; padding: 12px 0 4px; color: #496638; font-size: 12px; }
+.creation-add-current svg { width: 14px; }
+.creation-dialog label.product-upload { position: relative; display: flex; gap: 14px; align-items: center; cursor: pointer; padding: 14px; border: 1px dashed #b5c4a9; border-radius: 8px; background: #f8faf5; margin: 0 0 14px; }
+.product-upload > span:first-child { width: 64px; height: 64px; flex-shrink: 0; display: grid; place-items: center; border-radius: 5px; background: #edf2e7; overflow: hidden; }
+.product-upload svg { width: 24px; height: 24px; }
+.product-upload img { width: 100%; height: 100%; object-fit: contain; }
+.product-upload strong { display: block; color: #43503f; font-size: 12px; }
+.product-upload small { display: block; margin-top: 6px; font-size: 10px; color: #626d66; line-height: 1.6; }
+.creation-dialog #product-photo { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; }
+.product-upload:focus-within { outline: 2px solid #76a64c; outline-offset: 2px; }
+.creation-product-fields > div + div { margin-top: 10px; }
+.creation-product-fields label:not(.checkbox-label) { display: block; margin: 0 0 6px; font-size: 11px; color: #53634e; }
+.creation-product-fields label > span { color: #a45d44; }
+.creation-dialog .creation-product-fields input:not([type=checkbox]), .creation-dialog .creation-product-fields select { height: 36px; }
+.creation-dialog #product-spec { min-height: 65px; }
+.creation-product-fields .checkbox-label { color: #53634e; font-size: 11px; line-height: 1.7; }
+.creation-product-fields .checkbox-label input { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; }
+@media (max-width:1200px) and (min-width:701px) {
+ .studio-task-actions { gap: 6px; }
+ .studio-task-actions > .btn { padding: 0 7px; font-size: 10px; }
+ .studio-page .studio-taskbar .studio-task-actions .task-next { font-size: 10px; }
+}
+@media (max-width:700px) {
+ .studio-task-actions { grid-column: 2; grid-row: 1; gap: 5px; }
+ .studio-task-actions > .btn { height: 32px; padding: 0 8px; font-size: 10px; }
+ .studio-task-actions > .btn svg { width: 12px; }
+ .studio-page .studio-taskbar .studio-task-actions .task-next { font-size: 10px; }
+ .studio-task-context .task-name-edit { width: 20px; }
+ .creation-dialog.modal { max-height: calc(100dvh - 24px); }
+ .creation-dialog .modal-header { padding: 16px 16px 12px; }
+ .creation-dialog .modal-body { padding: 0 16px 16px; }
+ .creation-dialog .modal-footer { padding: 10px 16px; gap: 6px; }
+ .creation-dialog .modal-footer .btn { min-height: 40px; padding: 0 10px; font-size: 11px; }
+ .creation-dialog .creation-intro { font-size: 11px; }
+ .creation-products { grid-template-columns: minmax(0,1fr); max-height: 228px; }
+ .creation-purpose-options { gap: 5px; }
+ .creation-purpose-options span { gap: 4px; font-size: 11px; padding: 5px; }
+ .creation-purpose-options svg { display: none; }
+ .creation-naming summary span { display: block; margin-left: 12px; }
+ .product-upload > span:first-child { width: 48px; height: 56px; }
+ .creation-product-fields .form-grid { grid-template-columns: minmax(0,1fr); gap: 10px; }
+}
+@media (max-width:380px) {
+ .studio-page .studio-taskbar { grid-template-columns: minmax(0,1fr) auto; }
+ .studio-task-actions > .btn { padding: 0 6px; }
+ .studio-task-actions > .btn svg { display: none; }
+ .studio-page .studio-taskbar .studio-task-actions .task-next svg { display: none; }
+}

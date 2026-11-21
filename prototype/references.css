@@ -1,0 +1,17 @@
+/* Reference picker reuses the same controls in quick creation and canvas. */
+.case-picker-toolbar{display:grid;grid-template-columns:minmax(0,1fr) 110px 100px;gap:8px;align-items:center}
+.case-picker-toolbar .search{min-width:0;width:auto;margin:0;height:36px}
+.case-picker-toolbar input{min-width:0;width:100%}
+.case-picker-toolbar select{min-width:0;width:100%;height:36px;padding:0 8px;font-size:12px}
+.case-picker-count{font-size:11px;color:var(--muted);margin:10px 0}
+.choice-card>.case-picker-preview{padding:0;flex-shrink:0;width:64px;height:64px;border-radius:7px;overflow:hidden}
+.choice-card>.case-picker-preview img{width:100%;height:100%;object-fit:contain}
+button.batch-reference-preview{display:block;padding:0;width:100%;flex-shrink:0}
+@media(max-width:700px){.case-picker-toolbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.case-picker-toolbar .search{grid-column:1/-1}.batch-reference-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.batch-reference-filters .batch-field:first-child{grid-column:1/-1}}
+
+@media(max-width:700px){
+ .case-picker-card{display:grid;grid-template-columns:48px minmax(0,1fr);gap:10px;align-items:center}
+ .choice-card.case-picker-card>.case-picker-preview{width:48px;height:64px}
+ .case-picker-card>.grow{min-width:0}
+ .case-picker-card>.case-reference{grid-column:1/-1;justify-self:end}
+}
