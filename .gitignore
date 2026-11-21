@@ -25,3 +25,4 @@ venv/
 
 # Local logs
 *.log
+.artifacts/
