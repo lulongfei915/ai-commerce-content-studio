@@ -50,10 +50,12 @@
 
 ### 01 · 建立正式工程、契约与 CI
 
-- [ ] 搭建 `apps/web/`、`apps/server/`、`deploy/`。配置 React 应用外壳、FastAPI 健康检查、MySQL/Alembic、Redis/Celery、私有存储测试配置、日志和 CI。建立通过 OpenAPI 生成前端类型的流程。
+- [x] 搭建 `apps/web/`、`apps/server/`、`deploy/`。配置 React 应用外壳、FastAPI 健康检查、MySQL/Alembic、Redis/Celery、私有存储测试配置、日志和 CI。建立通过 OpenAPI 生成前端类型的流程。
 - **依赖与材料**　00；D1、D2 §2～3、§7、D5、R4 测试环境。
 - **输出**　锁文件、环境配置示例、开发启动与检查命令、首次迁移、CI。前端 feature、后端领域和进程入口按设计组织，CI 检查类型和源码行数。
 - **验证与推送**　从干净 checkout 按文档启动，前端构建和类型检查通过，API/调度器/Worker 可启动，空库可迁移，生成契约无未提交差异。提交 `chore: bootstrap studio applications and ci` 并推送。
+
+模块 01 已完成，验收证据见 [模块 01 工程基础记录](../验收/01-工程基础.md)。
 
 ### 02 · 身份、租户与私有媒体
 
