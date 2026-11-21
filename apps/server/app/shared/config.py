@@ -3,6 +3,8 @@ from functools import lru_cache
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_ARK_VIDEO_MODEL = "doubao-seedance-2-0-260128"
+
 
 class Settings(BaseSettings):
     app_name: str = "studio-api"
@@ -16,6 +18,7 @@ class Settings(BaseSettings):
     ark_api_key: SecretStr | None = None
     ark_base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
     ark_image_model: str = "doubao-seedream-5-5-261028"
+    ark_video_model: str = DEFAULT_ARK_VIDEO_MODEL
     ark_timeout_seconds: float = 60.0
 
     model_config = SettingsConfigDict(
