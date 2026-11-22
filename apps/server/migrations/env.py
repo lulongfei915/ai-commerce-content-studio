@@ -9,6 +9,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.modules.assets import models as assets_models  # noqa: E402, F401
 from app.modules.identity import models as identity_models  # noqa: E402, F401
+from app.modules.products import models as product_models  # noqa: E402, F401
+from app.modules.tasks import models as task_models  # noqa: E402, F401
 from app.shared import models  # noqa: E402, F401
 from app.shared.config import get_settings  # noqa: E402
 from app.shared.db import Base  # noqa: E402

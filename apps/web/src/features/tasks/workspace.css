@@ -1,0 +1,238 @@
+.workspace,
+.studio-dialog {
+  --work-surface: #111c2d;
+  --work-field: #0a1423;
+  --work-line: #354459;
+  --work-text: #f1f5f9;
+  --work-muted: #bbc9da;
+  --work-accent: #67e8f9;
+  color: var(--work-text);
+}
+.workspace {
+  display: grid;
+  gap: 20px;
+}
+.workspace :is(h1, h2, h3, p),
+.studio-dialog :is(h2, p) {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.work-company {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--work-line);
+}
+.work-company h1 {
+  font-size: 1.3rem;
+}
+.work-company p {
+  margin-top: 6px;
+}
+.work-title h2 {
+  font-size: clamp(1.35rem, 4vw, 2rem);
+}
+.work-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.work-actions,
+.work-options,
+.work-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.work-actions {
+  justify-content: flex-end;
+}
+.work-search {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  min-width: min(100%, 220px);
+}
+.work-search input {
+  flex: 1;
+}
+.work-form {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+.work-form label:not(.work-check) {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.work-form fieldset {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--work-line);
+  border-radius: 8px;
+}
+.work-form legend {
+  padding: 0 5px;
+}
+.work-grid,
+.work-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.work-card {
+  padding: 16px;
+  background: var(--work-surface);
+  border: 1px solid var(--work-line);
+  border-radius: 10px;
+}
+.work-card > * + * {
+  margin-top: 10px;
+}
+.work-card.work-row > * {
+  margin-top: 0;
+}
+.workspace .work-muted,
+.studio-dialog .work-muted,
+.workspace small {
+  color: var(--work-muted);
+}
+.workspace .work-error,
+.studio-dialog .work-error {
+  color: #fca5a5;
+}
+.workspace button,
+.studio-dialog button,
+.workspace input,
+.studio-dialog input,
+.studio-dialog select {
+  min-height: 40px;
+  padding: 6px 12px;
+  border: 1px solid var(--work-line);
+  border-radius: 6px;
+  color: inherit;
+  background: var(--work-field);
+  font: inherit;
+  min-width: 0;
+}
+.workspace button,
+.studio-dialog button {
+  cursor: pointer;
+}
+.workspace button:disabled,
+.studio-dialog button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.workspace :is(button, input, summary):focus-visible,
+.studio-dialog :is(button, input, select):focus-visible {
+  outline: 2px solid var(--work-accent);
+  outline-offset: 2px;
+}
+.workspace .work-primary,
+.studio-dialog .work-primary {
+  color: #0a1423;
+  background: var(--work-accent);
+  border-color: transparent;
+  font-weight: 650;
+}
+.work-nav button[aria-current='page'] {
+  border-color: var(--work-accent);
+  color: var(--work-accent);
+}
+.studio-dialog {
+  width: min(720px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: clamp(14px, 4vw, 24px);
+  border: 1px solid var(--work-line);
+  border-radius: 12px;
+  background: var(--work-surface);
+  box-shadow: 0 12px 56px #020617b3;
+  overscroll-behavior: contain;
+}
+.studio-dialog::backdrop {
+  background: #020617a6;
+}
+.studio-dialog > header {
+  margin-bottom: 16px;
+}
+.studio-dialog h2 {
+  font-size: 1.25rem;
+}
+.work-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 36px;
+}
+.studio-dialog input[type='checkbox'] {
+  width: 17px;
+  min-height: 0;
+  height: 17px;
+  accent-color: var(--work-accent);
+}
+.product-option {
+  min-width: 0;
+  background: var(--work-field);
+  border-radius: 6px;
+  padding: 4px 8px;
+  overflow-wrap: anywhere;
+}
+.product-option small {
+  display: block;
+  color: var(--work-muted);
+}
+.product-heading {
+  justify-content: flex-start;
+}
+.product-heading img,
+.photo-list img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: var(--work-field);
+}
+.photo-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.photo-list li {
+  display: grid;
+  gap: 4px;
+  max-width: 140px;
+  overflow-wrap: anywhere;
+}
+.position-list {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 0;
+}
+.position-list li {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--work-line);
+}
+.position-list small {
+  flex-basis: 100%;
+}
+@media (max-width: 600px) {
+  .work-grid,
+  .work-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .workspace {
+    gap: 14px;
+  }
+}

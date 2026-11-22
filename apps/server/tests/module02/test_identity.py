@@ -1,8 +1,9 @@
 import pytest
-from conftest import ORIGIN, PASSWORD, login
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+from .conftest import ORIGIN, PASSWORD, login
 
 
 def test_session_is_scoped_to_active_membership(client: TestClient, db: Session) -> None:

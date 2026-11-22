@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 
 import { ApiError } from '../../shared/api/client';
 import { LoginForm } from './LoginForm';
-import { getSession, roleLabel, signIn, signOut } from './session';
+import { Workspace } from '../tasks/Workspace';
+import { getSession, signIn, signOut } from './session';
 import type { Credentials, Session } from './session';
 
 export function SessionGate() {
@@ -13,15 +14,18 @@ export function SessionGate() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void getSession(controller.signal).then((current) => {
-      if (!controller.signal.aborted) setSession(current);
-    }).catch((cause: unknown) => {
-      if (!controller.signal.aborted && !(cause instanceof ApiError && cause.status === 401)) {
-        setError('暂时无法连接工作台，请重试。');
-      }
-    }).finally(() => {
-      if (!controller.signal.aborted) setLoading(false);
-    });
+    void getSession(controller.signal)
+      .then((current) => {
+        if (!controller.signal.aborted) setSession(current);
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted && !(cause instanceof ApiError && cause.status === 401)) {
+          setError('暂时无法连接工作台，请重试。');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
   }, []);
 
@@ -55,17 +59,25 @@ export function SessionGate() {
   }
 
   if (loading) return <p role="status">正在检查登录状态…</p>;
-  if (!session) return <LoginForm busy={busy} error={error} onSubmit={(value) => { void login(value); }} />;
+  if (!session)
+    return (
+      <LoginForm
+        busy={busy}
+        error={error}
+        onSubmit={(value) => {
+          void login(value);
+        }}
+      />
+    );
   return (
-    <section className="auth-card">
-      <h1>{session.tenant.name}</h1>
-      <dl className="auth-identity">
-        <div><dt>账号</dt><dd>{session.email}</dd></div>
-        <div><dt>角色</dt><dd>{roleLabel[session.role]}</dd></div>
-        <div><dt>原件下载</dt><dd>{session.permissions.includes('download') ? '已授权' : '未授权'}</dd></div>
-      </dl>
-      {error && <p className="auth-error" role="alert">{error}</p>}
-      <button className="auth-primary" type="button" disabled={busy} onClick={() => { void logout(session); }}>退出登录</button>
-    </section>
+    <Workspace
+      key={`${session.tenant.id}:${session.user_id}`}
+      session={session}
+      busy={busy}
+      error={error}
+      onLogout={() => {
+        void logout(session);
+      }}
+    />
   );
 }

@@ -3,11 +3,12 @@ from io import BytesIO
 from typing import BinaryIO
 
 import pytest
-from conftest import login
 from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.main import app
+
+from .conftest import login
 
 
 @dataclass
