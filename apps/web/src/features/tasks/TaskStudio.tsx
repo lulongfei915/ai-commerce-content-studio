@@ -1,5 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import {
+  ArrowLeftOutlined,
+  ApartmentOutlined,
+  PlusOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons';
 
 import type { Session } from '../auth/session';
 import { actionError, createDraft, listDrafts } from '../creation/api';
@@ -18,12 +24,16 @@ export function TaskStudio({
   task,
   categories,
   onDirty,
+  onBack,
+  onNew,
   children,
 }: {
   session: Session;
   task: Task;
   categories: Category[];
   onDirty: (dirty: boolean) => void;
+  onBack: () => void;
+  onNew: () => void;
   children: ReactNode;
 }) {
   const [mode, setMode] = useState<'quick' | 'canvas'>('quick');
@@ -93,27 +103,40 @@ export function TaskStudio({
 
   return (
     <section className="task-studio">
-      <nav className="work-nav" aria-label="创作入口">
-        <button
-          type="button"
-          disabled={busy}
-          aria-current={mode === 'quick' ? 'page' : undefined}
-          onClick={() => setMode('quick')}
-        >
-          {canCreate ? '快捷创作' : '任务详情'}
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          aria-current={mode === 'canvas' ? 'page' : undefined}
-          onClick={() => {
-            setOpened(true);
-            setMode('canvas');
-          }}
-        >
-          画布
-        </button>
-      </nav>
+      <header className="task-studio-bar">
+        <div className="task-studio-title">
+          <button type="button" onClick={onBack} aria-label="返回全部任务" title="返回全部任务">
+            <ArrowLeftOutlined />
+          </button>
+          <h2 title={task.name}>{task.name}</h2>
+        </div>
+        <nav className="work-nav task-studio-modes" aria-label="创作入口">
+          <button
+            type="button"
+            disabled={busy}
+            aria-current={mode === 'quick' ? 'page' : undefined}
+            onClick={() => setMode('quick')}
+          >
+            <ThunderboltOutlined aria-hidden="true" /> {canCreate ? '生成' : '任务详情'}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            aria-current={mode === 'canvas' ? 'page' : undefined}
+            onClick={() => {
+              setOpened(true);
+              setMode('canvas');
+            }}
+          >
+            <ApartmentOutlined aria-hidden="true" /> 画布
+          </button>
+        </nav>
+        {canCreate && (
+          <button type="button" className="task-studio-new" onClick={onNew}>
+            <PlusOutlined aria-hidden="true" /> 新建制作
+          </button>
+        )}
+      </header>
       {error && (
         <p role="alert" className="work-error">
           {error}{' '}

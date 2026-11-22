@@ -1,5 +1,7 @@
 import {
   Background,
+  NodeToolbar,
+  Position,
   ReactFlow,
   ReactFlowProvider,
   SelectionMode,
@@ -15,8 +17,9 @@ import '@xyflow/react/dist/style.css';
 import { actionError, removeReference } from '../creation/api';
 import type { Draft } from '../creation/api';
 import type { CanvasProps, SaveQueue } from './CanvasPage';
+import { CanvasHeader } from './CanvasHeader';
 import { CanvasPanelContent } from './CanvasPanelContent';
-import { AddChoices, CanvasTools, SaveNotice, ToolButton } from './CanvasTools';
+import { AddChoices, CanvasTools, ToolButton } from './CanvasTools';
 import type { AddKind } from './CanvasTools';
 import { nodePreview } from './api';
 import type { Canvas, CanvasNode, Positions, Viewport } from './api';
@@ -78,7 +81,7 @@ function Board(props: BoardProps) {
   const [selectedEdge, setSelectedEdge] = useState('');
   const [relations, setRelations] = useState(false);
   const [moving, setMoving] = useState(false);
-  const [menu, setMenu] = useState<{ position?: XYPosition }>();
+  const [menu, setMenu] = useState<{ position?: XYPosition; screen?: XYPosition }>();
   const [linking, setLinking] = useState('');
   const [panel, setPanel] = useState<PanelState>();
   const [error, setError] = useState('');
@@ -123,6 +126,14 @@ function Board(props: BoardProps) {
   useEffect(() => {
     if (background.current) background.current.inert = Boolean(panel);
   }, [panel]);
+  useEffect(() => {
+    if (!menu) return;
+    function dismiss(event: KeyboardEvent) {
+      if (event.key === 'Escape') setMenu(undefined);
+    }
+    document.addEventListener('keydown', dismiss);
+    return () => document.removeEventListener('keydown', dismiss);
+  }, [menu]);
 
   const visibleNodes = useMemo(
     () =>
@@ -204,7 +215,13 @@ function Board(props: BoardProps) {
           y: bounds.top + bounds.height / 2,
         })
       : { x: 100, y: 70 };
-    const next = freePosition(requested ?? { x: center.x - 100, y: center.y - 70 }, nodes);
+    const initialPosition = id.startsWith('creation:')
+      ? {
+          x: center.x + (nodes.length && bounds && bounds.width > 700 ? 120 : -100),
+          y: center.y - 135,
+        }
+      : { x: center.x - 100, y: center.y - 70 };
+    const next = freePosition(requested ?? initialPosition, nodes);
     layout.save(movePositions(layout.value, [{ id, ...next }]));
     setFocused(id);
   }
@@ -245,56 +262,42 @@ function Board(props: BoardProps) {
 
   return (
     <section className="canvas-shell" aria-label="制作画布">
-      <header className="canvas-top">
-        <label>
-          商品{' '}
-          <select
-            aria-label="画布 SKU"
-            value={sku}
-            onChange={(event) => {
-              setSku(event.target.value);
-              setFocused('');
-              setLinking('');
-              setRelations(false);
-              requestAnimationFrame(() => void camera('fit'));
-            }}
-          >
-            {task.products.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.sku}
-              </option>
-            ))}
-            <option value="">全部 SKU</option>
-          </select>
-        </label>
-        <div className="canvas-saves">
-          <SaveNotice
-            title="布局"
-            state={layout.state}
-            retry={() => void layout.retry()}
-            reload={() => {
-              void reload()
-                .then((next) => layout.reset(next.layout.positions ?? [], next.layout.version ?? 0))
-                .catch((cause: unknown) => setError(actionError(cause)));
-            }}
-          />
-          <SaveNotice
-            title="视口"
-            state={viewport.state}
-            retry={() => void viewport.retry()}
-            reload={() => {
-              void reload()
-                .then((next) => {
-                  const { version, ...view } = next.viewport ?? { x: 0, y: 0, zoom: 1, version: 0 };
-                  viewport.reset(view, version);
-                  void flow.setViewport(view);
-                })
-                .catch((cause: unknown) => setError(actionError(cause)));
-            }}
-          />
-        </div>
-      </header>
-      <div className="canvas-stage" ref={stage}>
+      <CanvasHeader
+        products={task.products}
+        sku={sku}
+        count={visibleIds.size}
+        layout={layout}
+        viewport={viewport}
+        reload={reload}
+        onError={setError}
+        onSku={(next) => {
+          setSku(next);
+          setFocused('');
+          setLinking('');
+          setRelations(false);
+          requestAnimationFrame(() => void camera('fit'));
+        }}
+      />
+      <div
+        className="canvas-stage"
+        ref={stage}
+        onDoubleClick={(event) => {
+          if (
+            !editable ||
+            moving ||
+            panel ||
+            !(event.target instanceof HTMLElement) ||
+            !event.target.classList.contains('react-flow__pane')
+          )
+            return;
+          const bounds = event.currentTarget.getBoundingClientRect();
+          const point = { x: event.clientX, y: event.clientY };
+          setMenu({
+            position: flow.screenToFlowPosition(point),
+            screen: { x: point.x - bounds.left, y: point.y - bounds.top },
+          });
+        }}
+      >
         <div ref={background} className="canvas-background">
           <ReactFlow<FlowNode>
             nodes={visibleNodes}
@@ -322,15 +325,11 @@ function Board(props: BoardProps) {
               setSelectedEdge(edge.id);
               setRelations(false);
             }}
-            onPaneClick={(event) => {
+            onPaneClick={() => {
               setFocused('');
               setSelectedEdge('');
               setRelations(false);
-              setMenu(
-                editable && event.detail >= 2
-                  ? { position: flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }) }
-                  : undefined,
-              );
+              setMenu(undefined);
             }}
             nodesDraggable={editable && !moving && !busy}
             nodesConnectable={editable && !moving && !busy}
@@ -348,7 +347,61 @@ function Board(props: BoardProps) {
             colorMode="dark"
             aria-label="节点画布"
           >
-            <Background gap={22} size={1.4} color="#3a4855" />
+            <Background gap={22} size={1.5} color="#44464a" />
+            {focusedNode && visibleIds.has(focused) && !menu && (
+              <NodeToolbar
+                nodeId={focused}
+                isVisible
+                position={Position.Top}
+                offset={9}
+                className="canvas-context"
+                aria-label="节点操作"
+              >
+                <span>{focusedNode.label}</span>
+                {(focusedNode.kind !== 'creation' || editable) && (
+                  <ToolButton
+                    label={focusedNode.kind === 'creation' ? '编辑节点' : '预览节点'}
+                    onClick={() => open(focusedNode)}
+                  >
+                    {focusedNode.kind === 'creation' ? <EditOutlined /> : <EyeOutlined />}
+                  </ToolButton>
+                )}
+                {editable && focusedNode.kind !== 'creation' && (
+                  <ToolButton
+                    label="引用节点"
+                    disabled={!focusedNode.referenceable || busy}
+                    onClick={() => {
+                      setLinking(focused);
+                      setError('');
+                    }}
+                  >
+                    <LinkOutlined />
+                  </ToolButton>
+                )}
+                {editable && linking && focusedNode.kind === 'creation' && (
+                  <ToolButton label="输入引用" onClick={() => connect(linking, focused)}>
+                    <LinkOutlined />
+                  </ToolButton>
+                )}
+                {editable && canRemoveNode && (
+                  <ToolButton
+                    label="移除素材节点"
+                    onClick={() => {
+                      if (window.confirm('从画布移除此素材？')) {
+                        layout.save(
+                          layout.value.filter(
+                            (point) => point.id !== focused && accepted.has(point.id),
+                          ),
+                        );
+                        setFocused('');
+                      }
+                    }}
+                  >
+                    <DeleteOutlined />
+                  </ToolButton>
+                )}
+              </NodeToolbar>
+            )}
           </ReactFlow>
           {!visibleIds.size && !menu && editable && (
             <AddChoices start onChoose={(kind) => setPanel({ kind })} />
@@ -356,61 +409,15 @@ function Board(props: BoardProps) {
           {!visibleIds.size && !editable && <p className="canvas-empty">当前没有节点</p>}
           {menu && (
             <AddChoices
+              point={menu.screen}
               onChoose={(kind) => {
                 setPanel({ kind, position: menu.position });
                 setMenu(undefined);
               }}
             />
           )}
-          {focusedNode && visibleIds.has(focused) && !menu && (
-            <div className="canvas-context" aria-label="节点操作">
-              <span>{focusedNode.label}</span>
-              {(focusedNode.kind !== 'creation' || editable) && (
-                <ToolButton
-                  label={focusedNode.kind === 'creation' ? '编辑节点' : '预览节点'}
-                  onClick={() => open(focusedNode)}
-                >
-                  {focusedNode.kind === 'creation' ? <EditOutlined /> : <EyeOutlined />}
-                </ToolButton>
-              )}
-              {editable && focusedNode.kind !== 'creation' && (
-                <ToolButton
-                  label="引用节点"
-                  disabled={!focusedNode.referenceable || busy}
-                  onClick={() => {
-                    setLinking(focused);
-                    setError('');
-                  }}
-                >
-                  <LinkOutlined />
-                </ToolButton>
-              )}
-              {editable && linking && focusedNode.kind === 'creation' && (
-                <ToolButton label="输入引用" onClick={() => connect(linking, focused)}>
-                  <LinkOutlined />
-                </ToolButton>
-              )}
-              {editable && canRemoveNode && (
-                <ToolButton
-                  label="移除素材节点"
-                  onClick={() => {
-                    if (window.confirm('从画布移除此素材？')) {
-                      layout.save(
-                        layout.value.filter(
-                          (point) => point.id !== focused && accepted.has(point.id),
-                        ),
-                      );
-                      setFocused('');
-                    }
-                  }}
-                >
-                  <DeleteOutlined />
-                </ToolButton>
-              )}
-            </div>
-          )}
           {editable && edgeDraft && canRemoveEdge && (
-            <div className="canvas-context">
+            <div className="canvas-edge-context">
               <button
                 type="button"
                 disabled={busy}

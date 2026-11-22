@@ -62,7 +62,11 @@ async function upload(name, filename) {
 }
 
 async function openTask(name, client = page) {
-  await client.getByRole('button', { name: '全部任务', exact: true }).click();
+  await expect(client.locator('.workspace')).toBeVisible();
+  const tasks = client.getByRole('button', { name: '全部任务', exact: true });
+  if (!(await tasks.isVisible()))
+    await client.getByRole('button', { name: '打开工作区导航' }).click();
+  await tasks.click();
   const search = client.getByRole('searchbox', { name: '搜索任务、商品或 SKU' });
   await search.fill(name);
   await search.press('Enter');
@@ -154,8 +158,10 @@ async function measure(client) {
       const x = bounds.x + bounds.width / 2;
       const y = bounds.y + bounds.height / 2;
       if (
-        x >= canvasBox.x && x < canvasBox.x + canvasBox.width - 35 &&
-        y >= canvasBox.y && y < canvasBox.y + canvasBox.height - 30 &&
+        x >= canvasBox.x &&
+        x < canvasBox.x + canvasBox.width - 35 &&
+        y >= canvasBox.y &&
+        y < canvasBox.y + canvasBox.height - 30 &&
         card.contains(document.elementFromPoint(x, y))
       ) {
         const wrapper = card.closest('.react-flow__node');
@@ -169,7 +175,10 @@ async function measure(client) {
   await client.mouse.down();
   await client.mouse.move(drag.x + 32, drag.y + 18, { steps: 16 });
   await client.mouse.up();
-  assert.notEqual(await node(drag.id, client).evaluate((item) => item.style.transform), drag.transform);
+  assert.notEqual(
+    await node(drag.id, client).evaluate((item) => item.style.transform),
+    drag.transform,
+  );
   return client.evaluate(() => window.finishCanvasMeasure());
 }
 
@@ -226,6 +235,21 @@ try {
   const scenario = await createTask('M1-05 图片和视频');
   const benchmark = await createTask('M1-05 容量验证');
   await openTask(scenario.name);
+  await expect(page.getByRole('navigation', { name: '工作区' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '返回全部任务' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '生成', exact: true })).toBeVisible();
+  await expect(page.getByLabel('缩放倍率')).toHaveText(/%/);
+  const stage = page.locator('.canvas-stage');
+  const stageBox = await stage.boundingBox();
+  await page.mouse.dblclick(stageBox.x + stageBox.width - 12, stageBox.y + stageBox.height - 110);
+  const pointerMenu = page.getByRole('group', { name: '添加节点' });
+  await expect(pointerMenu).toBeVisible();
+  const menuBox = await pointerMenu.boundingBox();
+  assert(menuBox.x > stageBox.x + stageBox.width / 2);
+  assert(menuBox.x + menuBox.width <= stageBox.x + stageBox.width);
+  assert(menuBox.y + menuBox.height <= stageBox.y + stageBox.height);
+  await page.keyboard.press('Escape');
+  await expect(pointerMenu).toHaveCount(0);
   await shoot('01-empty');
   await page.getByRole('button', { name: '添加商品素材', exact: true }).click();
   await panel()
@@ -254,7 +278,7 @@ try {
   const canvasPath = `/tasks/${scenario.id}/canvas`;
   const firstDraft = (await api(canvasPath)).creations[0];
   await expect(node(`creation:${firstDraft.id}`)).toBeFocused();
-  await page.getByRole('button', { name: '快捷创作', exact: true }).click();
+  await page.getByRole('button', { name: '生成', exact: true }).click();
   await expect(page.getByLabel('提示词')).toHaveValue(prompt);
   await page.getByRole('button', { name: '保存草稿', exact: true }).click();
   await expect(page.getByText('草稿已保存', { exact: true })).toBeVisible();
@@ -262,11 +286,15 @@ try {
   await page.getByRole('button', { name: '适应全部', exact: true }).click();
   await expect(page.getByText('视口已保存', { exact: true })).toBeVisible();
   await node(`upload:${redPhoto.id}`).click();
+  const nodeBox = await node(`upload:${redPhoto.id}`).boundingBox();
+  const toolBox = await page.getByLabel('节点操作').boundingBox();
+  assert(Math.abs(toolBox.x + toolBox.width / 2 - nodeBox.x - nodeBox.width / 2) < 30);
   await page.getByRole('button', { name: '引用节点', exact: true }).click();
   await node(`creation:${firstDraft.id}`).click();
   await panel().getByRole('button', { name: '连接参考', exact: true }).click();
   await expect(page.locator('.react-flow__edge')).toHaveCount(1);
   await node(`creation:${firstDraft.id}`).dblclick();
+  await expect(panel().getByRole('button', { name: '保存草稿', exact: true })).toBeInViewport();
   await panel().getByRole('button', { name: '插入参考 1 标签' }).click();
   await panel().getByRole('button', { name: '保存草稿', exact: true }).click();
   await expect(panel().getByText('草稿已保存')).toBeVisible();
@@ -424,7 +452,7 @@ try {
   await mobilePage.getByRole('button', { name: '适应全部', exact: true }).click();
   await mobileNode.dblclick();
   const mobilePanel = mobilePage.getByRole('dialog');
-  await expect(mobilePanel.getByLabel('提示词')).toBeVisible();
+  await expect(mobilePanel.getByLabel('提示词')).toBeInViewport();
   await mobilePanel
     .getByRole('button', { name: '核对生成输入', exact: true })
     .scrollIntoViewIfNeeded();

@@ -109,220 +109,249 @@ export function CreationEditor({
       .catch((cause: unknown) => setError(actionError(cause)))
       .finally(() => setBusy(false));
   }
+  const promptField = (
+    <label className="work-form creative-prompt">
+      提示词
+      <textarea
+        ref={text}
+        rows={5}
+        maxLength={6000}
+        value={prompt}
+        disabled={busy}
+        onChange={(event) => edit({ ...values, prompt: event.target.value })}
+      />
+    </label>
+  );
+  const outputSettings = (
+    <fieldset className="work-form creative-output-settings" disabled={busy}>
+      <legend>{isVideo ? '视频参数' : '图片参数'}</legend>
+      {isVideo && video ? (
+        <VideoFields value={video} onChange={(value) => edit({ ...values, video: value })} />
+      ) : (
+        <ParametersFields
+          value={parameters}
+          onChange={(value) => edit({ ...values, parameters: value })}
+        />
+      )}
+    </fieldset>
+  );
+
   return (
     <article
       className={`work-form creative-editor${inCanvas ? ' creative-in-canvas' : ' work-card'}`}
       aria-label="创作编辑器"
     >
-      <div className="work-row">
-        {!inCanvas && <h3>快捷创作</h3>}
-        <span className="work-muted">
-          {product.sku} · {isVideo ? '视频' : draft.purpose === 'main' ? '主图' : '详情素材'}
-        </span>
-      </div>
-      <div className="photo-list" aria-label="已绑定商品实拍">
-        {product.photos.map((photo, index) => (
-          <img
-            key={photo.file_id}
-            loading="lazy"
-            src={photoPreviewUrl(product.id, photo.file_id)}
-            alt={`${product.name}实拍 ${index + 1}`}
-          />
-        ))}
-      </div>
-      <label className="work-form creative-prompt">
-        提示词
-        <textarea
-          ref={text}
-          rows={5}
-          maxLength={6000}
-          value={prompt}
-          disabled={busy}
-          onChange={(event) => edit({ ...values, prompt: event.target.value })}
-        />
-      </label>
-      <fieldset className="work-form" disabled={busy}>
-        <legend>{isVideo ? '视频参数' : '图片参数'}</legend>
-        {isVideo && video ? (
-          <VideoFields value={video} onChange={(value) => edit({ ...values, video: value })} />
-        ) : (
-          <ParametersFields
-            value={parameters}
-            onChange={(value) => edit({ ...values, parameters: value })}
-          />
+      <div className="creative-body work-form">
+        <div className="creative-product-context">
+          <div className="work-row">
+            {!inCanvas && <h3>快捷创作</h3>}
+            <span className="work-muted">
+              {product.sku} · {isVideo ? '视频' : draft.purpose === 'main' ? '主图' : '详情素材'}
+            </span>
+          </div>
+          <div className="photo-list" aria-label="已绑定商品实拍">
+            {product.photos.map((photo, index) => (
+              <img
+                key={photo.file_id}
+                loading="lazy"
+                src={photoPreviewUrl(product.id, photo.file_id)}
+                alt={`${product.name}实拍 ${index + 1}`}
+              />
+            ))}
+          </div>
+        </div>
+        {!inCanvas && (
+          <>
+            {promptField}
+            {outputSettings}
+          </>
         )}
-      </fieldset>
-      <div className="work-actions">
-        {!isVideo && (
+        <div className="work-actions creative-reference-actions">
+          {!isVideo && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setError('');
+                setPicker('template');
+              }}
+            >
+              {draft.template_version ? `切换模板 · V${draft.template_version}` : '应用模板'}
+            </button>
+          )}
+          {draft.template_id && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                run(() => draftWrite(draft, token, '/template/clear', {}), 'references')
+              }
+            >
+              取消应用模板
+            </button>
+          )}
           <button
             type="button"
             disabled={busy}
             onClick={() => {
               setError('');
-              setPicker('template');
+              setPicker('case');
             }}
           >
-            {draft.template_version ? `切换模板 · V${draft.template_version}` : '应用模板'}
+            添加案例
           </button>
-        )}
-        {draft.template_id && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => run(() => draftWrite(draft, token, '/template/clear', {}), 'references')}
+          <label className="creative-upload">
+            上传参考图
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={busy}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = '';
+                if (!file) return;
+                if (file.size > 10 * 1024 * 1024) {
+                  setError('参考图片不能超过 10 MB。');
+                  return;
+                }
+                run(
+                  async () =>
+                    draftWrite(draft, token, '/references', {
+                      kind: 'upload',
+                      source_id: await uploadMedia(file, token),
+                    }),
+                  'references',
+                );
+              }}
+            />
+          </label>
+        </div>
+        {!!draft.references.length && (
+          <ul
+            className="creative-references"
+            aria-label="参考素材"
+            tabIndex={inCanvas && draft.references.length > 1 ? 0 : undefined}
           >
-            取消应用模板
-          </button>
-        )}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            setError('');
-            setPicker('case');
-          }}
-        >
-          添加案例
-        </button>
-        <label className="creative-upload">
-          上传参考图
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            disabled={busy}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              event.target.value = '';
-              if (!file) return;
-              if (file.size > 10 * 1024 * 1024) {
-                setError('参考图片不能超过 10 MB。');
-                return;
-              }
-              run(
-                async () =>
-                  draftWrite(draft, token, '/references', {
-                    kind: 'upload',
-                    source_id: await uploadMedia(file, token),
-                  }),
-                'references',
-              );
-            }}
-          />
-        </label>
-      </div>
-      {!!draft.references.length && (
-        <ul className="creative-references">
-          {draft.references.map((ref, index) => {
-            const src =
-              previewUrl?.(ref) ??
-              (ref.kind === 'case' && !inCanvas ? casePreview(ref.source_id) : undefined);
-            return (
-              <li key={ref.id}>
-                {src && ref.media !== 'video' && <img src={src} loading="lazy" alt="" />}
-                <span>
-                  参考 {index + 1} · {ref.label}{' '}
-                  <small>
-                    {usageLabel[ref.usage ?? 'expression']} · 文件 V{ref.file_version}
-                  </small>
-                </span>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    const at = text.current?.selectionStart ?? prompt.length;
-                    const end = text.current?.selectionEnd ?? at;
-                    const tag = `[[ref:${ref.id}]]`;
-                    const next = `${prompt.slice(0, at)}${tag}${prompt.slice(end)}`;
-                    if (next.length > 6000) return;
-                    edit({ ...values, prompt: next });
-                    requestAnimationFrame(() => {
-                      text.current?.focus();
-                      text.current?.setSelectionRange(at + tag.length, at + tag.length);
-                    });
-                  }}
-                  aria-label={`插入参考 ${index + 1} 标签`}
-                >
-                  插入标签
-                </button>
-                {onLocateReference && (
-                  <button type="button" onClick={() => onLocateReference(ref)}>
-                    定位
+            {draft.references.map((ref, index) => {
+              const src =
+                previewUrl?.(ref) ??
+                (ref.kind === 'case' && !inCanvas ? casePreview(ref.source_id) : undefined);
+              return (
+                <li key={ref.id}>
+                  {src && ref.media !== 'video' && <img src={src} loading="lazy" alt="" />}
+                  <span>
+                    参考 {index + 1} · {ref.label}{' '}
+                    <small>
+                      {usageLabel[ref.usage ?? 'expression']} · 文件 V{ref.file_version}
+                    </small>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      const at = text.current?.selectionStart ?? prompt.length;
+                      const end = text.current?.selectionEnd ?? at;
+                      const tag = `[[ref:${ref.id}]]`;
+                      const next = `${prompt.slice(0, at)}${tag}${prompt.slice(end)}`;
+                      if (next.length > 6000) return;
+                      edit({ ...values, prompt: next });
+                      requestAnimationFrame(() => {
+                        text.current?.focus();
+                        text.current?.setSelectionRange(at + tag.length, at + tag.length);
+                      });
+                    }}
+                    aria-label={`插入参考 ${index + 1} 标签`}
+                  >
+                    插入标签
                   </button>
-                )}
-                {ref.origin === 'independent' && (
-                  <>
-                    <select
-                      aria-label={`参考 ${index + 1} 用途`}
-                      value={ref.usage ?? 'expression'}
-                      disabled={busy}
-                      onChange={(event) =>
-                        run(
-                          () =>
-                            draftWrite(
-                              draft,
-                              token,
-                              `/references/${ref.id}`,
-                              { usage: event.target.value },
-                              'PATCH',
-                            ),
-                          'references',
-                        )
-                      }
-                    >
-                      {Object.entries(usageLabel)
-                        .filter(
-                          ([usage]) =>
-                            usage === ref.usage ||
-                            (usage !== 'product' &&
-                              (isVideo || !['first_frame', 'last_frame'].includes(usage))),
-                        )
-                        .map(([usage, label]) => (
-                          <option key={usage} value={usage}>
-                            {label}
-                          </option>
-                        ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => run(() => removeReference(draft, token, ref.id), 'references')}
-                      aria-label={`移除参考 ${index + 1}`}
-                    >
-                      移除
+                  {onLocateReference && (
+                    <button type="button" onClick={() => onLocateReference(ref)}>
+                      定位
                     </button>
-                  </>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {dangling && (
-        <p role="alert" className="work-error">
-          提示词含已移除的引用标签。
-        </p>
-      )}
-      {!picker && error && (
-        <p role="alert" className="work-error">
-          {error}
-        </p>
-      )}
-      {notice && (
-        <p role="status" className="work-muted">
-          {notice}
-        </p>
-      )}
-      {issues &&
-        (issues.length ? (
-          <ul className="work-error" aria-label="生成前检查结果">
-            {issues.map((issue) => (
-              <li key={`${issue.field}:${issue.code}`}>{issueText(issue)}</li>
-            ))}
+                  )}
+                  {ref.origin === 'independent' && (
+                    <>
+                      <select
+                        aria-label={`参考 ${index + 1} 用途`}
+                        value={ref.usage ?? 'expression'}
+                        disabled={busy}
+                        onChange={(event) =>
+                          run(
+                            () =>
+                              draftWrite(
+                                draft,
+                                token,
+                                `/references/${ref.id}`,
+                                { usage: event.target.value },
+                                'PATCH',
+                              ),
+                            'references',
+                          )
+                        }
+                      >
+                        {Object.entries(usageLabel)
+                          .filter(
+                            ([usage]) =>
+                              usage === ref.usage ||
+                              (usage !== 'product' &&
+                                (isVideo || !['first_frame', 'last_frame'].includes(usage))),
+                          )
+                          .map(([usage, label]) => (
+                            <option key={usage} value={usage}>
+                              {label}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          run(() => removeReference(draft, token, ref.id), 'references')
+                        }
+                        aria-label={`移除参考 ${index + 1}`}
+                      >
+                        移除
+                      </button>
+                    </>
+                  )}
+                </li>
+              );
+            })}
           </ul>
-        ) : (
-          <p role="status">已保存的草稿通过生成前检查。</p>
-        ))}
-      <footer className="work-actions">
+        )}
+        {inCanvas && (
+          <>
+            {promptField}
+            {outputSettings}
+          </>
+        )}
+        {dangling && (
+          <p role="alert" className="work-error">
+            提示词含已移除的引用标签。
+          </p>
+        )}
+        {!picker && error && (
+          <p role="alert" className="work-error">
+            {error}
+          </p>
+        )}
+        {notice && (
+          <p role="status" className="work-muted">
+            {notice}
+          </p>
+        )}
+        {issues &&
+          (issues.length ? (
+            <ul className="work-error" aria-label="生成前检查结果">
+              {issues.map((issue) => (
+                <li key={`${issue.field}:${issue.code}`}>{issueText(issue)}</li>
+              ))}
+            </ul>
+          ) : (
+            <p role="status">已保存的草稿通过生成前检查。</p>
+          ))}
+      </div>
+      <footer className="work-actions creative-footer">
         {inCanvas && (
           <button
             type="button"

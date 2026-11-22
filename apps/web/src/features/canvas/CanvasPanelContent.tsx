@@ -93,7 +93,14 @@ export function CanvasPanelContent({
   }
 
   return (
-    <CanvasPanel title={title} onClose={onClose} stage={stage} anchor={anchor} busy={busy}>
+    <CanvasPanel
+      title={title}
+      onClose={onClose}
+      stage={stage}
+      anchor={anchor}
+      busy={busy}
+      editor={panel.kind === 'edit'}
+    >
       {error && (
         <p role="alert" className="work-error">
           {error}

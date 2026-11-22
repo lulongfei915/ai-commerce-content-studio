@@ -1,16 +1,94 @@
 .workspace,
 .studio-dialog {
-  --work-surface: #111c2d;
-  --work-field: #0a1423;
-  --work-line: #354459;
-  --work-text: #f1f5f9;
-  --work-muted: #bbc9da;
-  --work-accent: #67e8f9;
+  --work-surface: #fff;
+  --work-field: #fff;
+  --work-line: #d8ded9;
+  --work-text: #262d29;
+  --work-muted: #56615a;
+  --work-accent: #c3ed8a;
+  --work-focus: #527e3d;
   color: var(--work-text);
+  color-scheme: light;
+}
+.studio-shell:has(.workspace) {
+  background: #f6f7f6;
+}
+.studio-shell:has(.workspace) > .studio-header {
+  display: none;
+}
+.studio-content:has(.workspace) {
+  width: 100%;
+  padding: 0;
+}
+.studio-content .workspace :is(h2, p) {
+  color: inherit;
 }
 .workspace {
   display: grid;
+  grid-template-columns: 208px minmax(0, 1fr);
+  min-height: 100dvh;
+  font-size: 13px;
+}
+.work-main {
+  display: grid;
+  align-content: start;
   gap: 20px;
+  min-width: 0;
+  padding: 12px 28px 20px;
+}
+.work-sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  gap: 24px;
+  padding: 22px 16px 16px;
+  overflow: auto;
+  background: #20241f;
+  color: #e1e8dc;
+  --work-muted: #c4cec0;
+  --work-line: #40473e;
+  --work-field: #20241f;
+  --work-focus: #c3ed8a;
+}
+.work-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  line-height: 1.2;
+  color: #fff;
+}
+.work-brand strong {
+  display: block;
+  font-size: 17px;
+}
+.work-brand small {
+  font-size: 10px;
+}
+.work-sidebar-nav {
+  display: grid;
+  gap: 4px;
+}
+.workspace .work-sidebar-nav button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  text-align: left;
+}
+.workspace .work-sidebar-nav button:hover {
+  background: #343c32;
+}
+.workspace .work-sidebar-nav button[aria-current='page'] {
+  background: var(--work-accent);
+  color: #25371a;
+  font-weight: 650;
+}
+.workspace :is(.work-mobile-bar, .work-sidebar-close, .work-sidebar-scrim) {
+  display: none;
 }
 .workspace :is(h1, h2, h3, p),
 .studio-dialog :is(h2, p) {
@@ -18,17 +96,85 @@
   overflow-wrap: anywhere;
 }
 .work-company {
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--work-line);
-}
-.work-company h1 {
-  font-size: 1.3rem;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--work-line);
+  overflow-wrap: anywhere;
 }
 .work-company p {
-  margin-top: 6px;
+  margin-top: 4px;
+  font-size: 11px;
+}
+.work-company h1 {
+  font-size: 13px;
+}
+.workspace .work-company button {
+  margin-top: 10px;
+  min-height: 32px;
+  font-size: 11px;
 }
 .work-title h2 {
-  font-size: clamp(1.35rem, 4vw, 2rem);
+  font-size: 22px;
+}
+.task-studio {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+.task-studio-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  min-height: 44px;
+  gap: 10px;
+}
+.task-studio-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+}
+.task-studio-title h2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+.workspace .task-studio-title button {
+  flex: 0 0 34px;
+  padding: 0;
+  min-height: 34px;
+  border-color: transparent;
+  background: transparent;
+}
+.task-studio-modes {
+  padding: 3px;
+  border: 1px solid #dce2da;
+  border-radius: 8px;
+  background: #e9ede7;
+}
+.workspace .task-studio-modes button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 82px;
+  min-height: 32px;
+  border-color: transparent;
+  background: transparent;
+  color: #465442;
+}
+.workspace .task-studio-modes button[aria-current='page'] {
+  color: #23311f;
+  background: #fff;
+  border-color: transparent;
+  box-shadow: 0 1px 2px #25371a12;
+}
+.workspace .task-studio-new {
+  justify-self: end;
+  min-height: 34px;
+  white-space: nowrap;
 }
 .work-row {
   display: flex;
@@ -102,7 +248,7 @@
 }
 .workspace .work-error,
 .studio-dialog .work-error {
-  color: #fca5a5;
+  color: var(--work-error, #a1392f);
 }
 .workspace button,
 .studio-dialog button,
@@ -129,12 +275,12 @@
 }
 .workspace :is(button, input, summary):focus-visible,
 .studio-dialog :is(button, input, select):focus-visible {
-  outline: 2px solid var(--work-accent);
+  outline: 2px solid var(--work-focus);
   outline-offset: 2px;
 }
 .workspace .work-primary,
 .studio-dialog .work-primary {
-  color: #0a1423;
+  color: #25371a;
   background: var(--work-accent);
   border-color: transparent;
   font-weight: 650;
@@ -151,11 +297,11 @@
   border: 1px solid var(--work-line);
   border-radius: 12px;
   background: var(--work-surface);
-  box-shadow: 0 12px 56px #020617b3;
+  box-shadow: 0 12px 56px #20241f42;
   overscroll-behavior: contain;
 }
 .studio-dialog::backdrop {
-  background: #020617a6;
+  background: #20241f66;
 }
 .studio-dialog > header {
   margin-bottom: 16px;
@@ -227,12 +373,64 @@
 .position-list small {
   flex-basis: 100%;
 }
-@media (max-width: 600px) {
+@media (max-width: 700px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+  .work-main {
+    padding: 8px 12px 12px;
+    gap: 14px;
+  }
+  .workspace .work-mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    border-bottom: 1px solid var(--work-line);
+  }
+  .workspace .work-mobile-bar button,
+  .workspace .work-sidebar-close {
+    width: 36px;
+    min-height: 36px;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+  }
+  .workspace .work-sidebar-close {
+    display: block;
+    margin-left: auto;
+  }
+  .work-sidebar {
+    display: none;
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(225px, 85vw);
+    z-index: 50;
+  }
+  .work-sidebar[data-open='true'] {
+    display: flex;
+  }
+  .workspace .work-sidebar-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 49;
+    border: 0;
+    border-radius: 0;
+    background: #20241f66;
+  }
+  .task-studio-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+  .task-studio-modes {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
   .work-grid,
   .work-cards {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .workspace {
-    gap: 14px;
   }
 }

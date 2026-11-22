@@ -15,6 +15,10 @@
 .creative-editor {
   border-top: 2px solid var(--work-accent);
 }
+.creative-product-context {
+  display: grid;
+  gap: 8px;
+}
 .creative-prompt textarea,
 .studio-dialog textarea {
   width: 100%;

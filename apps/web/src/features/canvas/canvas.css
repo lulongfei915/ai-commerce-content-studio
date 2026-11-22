@@ -1,56 +1,27 @@
-.task-studio {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-
-.studio-content:has(.canvas-shell) {
-  width: min(1680px, 100%);
-  padding: 10px 24px;
-}
-.studio-shell:has(.canvas-shell) .studio-header {
-  height: 48px;
-  line-height: 1.2;
-}
-.workspace:has(.canvas-shell) {
-  gap: 8px;
-}
-.workspace:has(.canvas-shell) .work-company {
-  padding-bottom: 6px;
-}
-.workspace:has(.canvas-shell) .work-company h1 {
-  font-size: 1.05rem;
-}
-.workspace:has(.canvas-shell) .work-company p {
-  margin-top: 2px;
-}
-.workspace:has(.canvas-shell) :is(.work-company, .work-nav) button {
-  min-height: 34px;
-}
-.workspace:has(.canvas-shell) .work-title h2 {
-  font-size: 1.25rem;
-}
-.task-studio:has(.canvas-shell) {
-  gap: 8px;
-}
-
 .canvas-shell {
-  --canvas-ground: #161d21;
-  --canvas-panel: #20282c;
-  --canvas-border: #485459;
-  --canvas-muted: #acbac1;
-  --canvas-accent: #79e2c0;
+  --canvas-ground: #1b1c1e;
+  --canvas-panel: #282a2d;
+  --canvas-border: #45484c;
+  --canvas-muted: #b7babc;
+  --canvas-accent: #c3ed8a;
+  --work-field: #25272a;
+  --work-surface: var(--canvas-panel);
+  --work-line: var(--canvas-border);
+  --work-text: #f2f3ef;
+  --work-muted: var(--canvas-muted);
+  --work-focus: var(--canvas-accent);
+  --work-error: #ffb8ad;
   border: 1px solid var(--canvas-border);
   border-radius: 8px;
   overflow: hidden;
   background: var(--canvas-ground);
-  color: #f0f5f4;
+  color: var(--work-text);
+  color-scheme: dark;
   font-size: 13px;
 }
 .canvas-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
   min-height: 46px;
@@ -58,14 +29,26 @@
   border-bottom: 1px solid var(--canvas-border);
   background: var(--canvas-panel);
 }
+.canvas-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
 .workspace .canvas-top select {
   min-height: 32px;
   padding: 4px 7px;
+  max-width: 145px;
+}
+.canvas-count {
+  color: var(--canvas-muted);
+  white-space: nowrap;
 }
 .canvas-saves {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 15px;
+  margin-left: auto;
 }
 .canvas-save {
   display: inline-flex;
@@ -74,7 +57,7 @@
   color: var(--canvas-muted);
 }
 .canvas-save-saved {
-  color: #b4cec6;
+  color: #c1d3ad;
 }
 .canvas-save-error,
 .canvas-save-conflict {
@@ -87,7 +70,7 @@
 
 .canvas-stage {
   position: relative;
-  height: max(290px, calc(100dvh - 300px));
+  height: max(340px, calc(100dvh - 136px));
   isolation: isolate;
   overflow: hidden;
 }
@@ -99,7 +82,7 @@
   --xy-background-color: var(--canvas-ground);
 }
 .canvas-background .react-flow__edge-path {
-  stroke: #87a19a;
+  stroke: #858b85;
   stroke-width: 1.9;
 }
 .canvas-background .react-flow__edge-text {
@@ -107,7 +90,7 @@
   font-size: 10px;
 }
 .canvas-background .react-flow__edge-textbg {
-  fill: #263c36;
+  fill: #333a32;
   fill-opacity: 1;
 }
 .canvas-background .canvas-edge-active .react-flow__edge-path {
@@ -127,13 +110,13 @@
   grid-template-rows: 30px 83px 27px;
   width: 198px;
   min-width: 0;
-  border: 1px solid #526368;
+  border: 1px solid #4b4e52;
   border-radius: 8px;
   background: var(--canvas-panel);
-  box-shadow: 0 5px 12px #080b0c70;
+  box-shadow: 0 5px 12px #0a0b0c55;
 }
 .canvas-node-creation {
-  border-color: #548b7c;
+  border-color: #70776a;
 }
 .canvas-node-result {
   border-color: #9c7955;
@@ -169,7 +152,7 @@
 .canvas-node-media {
   display: grid;
   place-items: center;
-  background: #12191b;
+  background: #222326;
   overflow: hidden;
 }
 .canvas-node-media img {
@@ -178,13 +161,13 @@
   object-fit: contain;
 }
 .canvas-media-symbol {
-  color: #a4c4b9;
+  color: #a1a79a;
   font-size: 26px;
 }
 .canvas-background .react-flow__handle {
   width: 12px;
   height: 12px;
-  border: 2px solid #20332f;
+  border: 2px solid var(--canvas-panel);
   background: var(--canvas-accent);
 }
 .canvas-background .react-flow__handle:not(.connectable) {
@@ -192,7 +175,7 @@
 }
 
 .canvas-tools,
-.canvas-context,
+.canvas-edge-context,
 .canvas-start,
 .canvas-add-menu,
 .canvas-link-status,
@@ -213,6 +196,7 @@
 }
 .canvas-tool-group,
 .canvas-context,
+.canvas-edge-context,
 .canvas-add-menu,
 .canvas-link-status {
   display: flex;
@@ -223,6 +207,20 @@
   border-radius: 8px;
   background: var(--canvas-panel);
   pointer-events: auto;
+}
+.canvas-tool-group[aria-label='画布工具'] {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+}
+.canvas-tool-group[aria-label='视口工具'] {
+  margin-right: auto;
+}
+.canvas-zoom {
+  width: 40px;
+  text-align: center;
+  color: var(--canvas-muted);
+  font-variant-numeric: tabular-nums;
 }
 .workspace .canvas-tool-button,
 .workspace .canvas-panel-header button {
@@ -238,14 +236,17 @@
 }
 .workspace .canvas-tool-button:is(:hover, [aria-pressed='true']) {
   color: var(--canvas-accent);
-  background: #2e423d;
-  border-color: #4e645e;
+  background: #3b4435;
+  border-color: #515b48;
 }
 .canvas-context {
+  max-width: min(260px, calc(100% - 24px));
+  min-height: 40px;
+  box-shadow: 0 4px 12px #0a0b0c55;
+}
+.canvas-edge-context {
   top: 10px;
   left: 10px;
-  max-width: calc(100% - 20px);
-  min-height: 40px;
 }
 .canvas-context > span {
   padding-inline: 6px;
@@ -281,13 +282,53 @@
   gap: 8px;
 }
 .workspace .canvas-start button {
-  min-height: 46px;
+  min-height: 54px;
+  min-width: 142px;
+  justify-content: center;
   background: var(--canvas-panel);
+}
+.workspace .canvas-start button:hover,
+.workspace .canvas-add-menu button:hover {
+  background: #353b32;
+  border-color: #6d7a61;
+}
+.canvas-start button .anticon {
+  color: var(--canvas-accent);
+  font-size: 17px;
 }
 .canvas-add-menu {
   display: grid;
-  left: 10px;
-  bottom: 60px;
+  left: clamp(8px, calc(50% - 98px), calc(100% - 204px));
+  bottom: 62px;
+  width: 196px;
+  max-height: calc(100% - 74px);
+  overflow: auto;
+  padding: 6px;
+  box-shadow: 0 10px 22px #090a0b66;
+}
+.canvas-add-menu-at-point {
+  top: clamp(8px, var(--menu-y), calc(100% - 232px));
+  left: clamp(8px, var(--menu-x), calc(100% - 204px));
+  bottom: auto;
+  max-height: calc(100% - 16px);
+}
+.canvas-menu-group {
+  display: grid;
+}
+.canvas-menu-group + .canvas-menu-group {
+  border-top: 1px solid var(--canvas-border);
+  padding-top: 3px;
+}
+.canvas-menu-group > span {
+  padding: 4px 7px;
+  color: var(--canvas-muted);
+  font-size: 11px;
+}
+.workspace .canvas-add-menu button {
+  min-height: 31px;
+  padding: 4px 7px;
+  border-color: transparent;
+  background: transparent;
 }
 .canvas-error {
   bottom: 62px;
@@ -302,7 +343,7 @@
   position: absolute;
   inset: 0;
   z-index: 20;
-  background: #0a121542;
+  background: #15151733;
 }
 .canvas-panel {
   position: absolute;
@@ -310,12 +351,12 @@
   left: var(--panel-left);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  width: min(555px, calc(100% - 20px));
-  max-height: calc(100% - var(--panel-top) - 10px);
-  border: 1px solid #63736e;
+  width: var(--panel-width);
+  max-height: calc(100% - var(--panel-top) - 12px);
+  border: 1px solid #5a5c60;
   border-radius: 8px;
   background: var(--canvas-panel);
-  box-shadow: 0 10px 32px #070c0c9c;
+  box-shadow: 0 10px 32px #0a0b0c9c;
 }
 .canvas-panel-header {
   display: flex;
@@ -334,21 +375,71 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
+.canvas-panel-editor .canvas-panel-content {
+  display: grid;
+  padding: 0;
+  overflow: hidden;
+}
 .canvas-panel .creative-in-canvas {
   border: 0;
-  gap: 10px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-content: stretch;
+  gap: 0;
+  min-height: 0;
+}
+.canvas-panel .creative-body {
+  gap: 8px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px;
+}
+.canvas-panel .creative-reference-actions {
+  justify-content: flex-start;
+  gap: 6px;
+}
+.canvas-panel .creative-reference-actions button,
+.canvas-panel .creative-upload {
+  min-height: 31px;
+  padding: 4px 8px;
+}
+.canvas-panel .creative-product-context {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.canvas-panel .creative-footer {
+  padding: 8px 12px;
+  border-top: 1px solid var(--canvas-border);
+  background: var(--canvas-panel);
+  gap: 6px;
+}
+.workspace .canvas-panel .creative-footer button {
+  min-height: 34px;
+  padding-inline: 8px;
 }
 .canvas-panel .creative-in-canvas .photo-list img {
-  width: 42px;
-  height: 42px;
+  width: 33px;
+  height: 33px;
 }
 .canvas-panel .creative-prompt textarea {
-  min-height: 76px;
+  height: 82px;
+  min-height: 68px;
   resize: vertical;
 }
 .canvas-panel .creative-references li {
   flex-wrap: wrap;
   gap: 5px;
+}
+.canvas-panel .creative-references {
+  margin: 0;
+  max-height: 144px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.canvas-panel .creative-references:focus-visible {
+  outline: 2px solid var(--work-focus);
+  outline-offset: -2px;
 }
 .canvas-panel .creative-references li span {
   flex: 1 1 95px;
@@ -363,8 +454,29 @@
 .canvas-panel .creative-parameters {
   grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
 }
-.canvas-panel .creative-upload {
-  max-width: min(170px, 100%);
+.workspace .canvas-panel .creative-upload {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--work-line);
+  border-radius: 6px;
+  background: var(--work-field);
+}
+.canvas-panel .creative-upload:focus-within {
+  outline: 2px solid var(--work-focus);
+  outline-offset: 2px;
+}
+.canvas-panel .creative-upload input {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  min-height: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.workspace .canvas-panel .creative-output-settings :is(input, select) {
+  min-height: 34px;
+  padding: 4px 6px;
 }
 .canvas-photo-picker {
   display: flex;
@@ -388,20 +500,31 @@
 .studio-dialog-in-canvas {
   position: fixed;
   inset: auto;
+  --work-field: #25272a;
+  --work-surface: #282a2d;
+  --work-line: #45484c;
+  --work-text: #f2f3ef;
+  --work-muted: #b7babc;
+  --work-focus: #c3ed8a;
+  --work-error: #ffb8ad;
+  color-scheme: dark;
 }
 
-@media (max-width: 600px) {
-  .studio-content:has(.canvas-shell) {
-    padding: 12px;
+@media (max-width: 940px) {
+  .canvas-tool-group[aria-label='画布工具'] {
+    position: static;
+    translate: none;
   }
-  .workspace:has(.canvas-shell) .work-company h1 {
-    font-size: 1rem;
+  .canvas-tool-group[aria-label='视口工具'] {
+    margin: 0;
   }
-  .workspace:has(.canvas-shell) .work-company p {
-    font-size: 12px;
+  .canvas-add-menu:not(.canvas-add-menu-at-point) {
+    left: 8px;
   }
+}
+@media (max-width: 700px) {
   .canvas-stage {
-    height: max(380px, calc(100dvh - 332px));
+    height: max(360px, calc(100dvh - 226px));
   }
   .canvas-panel {
     top: auto;
@@ -420,8 +543,12 @@
     padding: 3px;
   }
   .workspace .canvas-tool-button {
-    width: 32px;
-    flex-basis: 32px;
+    width: 29px;
+    flex-basis: 29px;
+  }
+  .canvas-zoom {
+    width: 33px;
+    font-size: 11px;
   }
   .canvas-start {
     flex-wrap: wrap;
@@ -429,5 +556,17 @@
   }
   .canvas-panel .work-cards {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 370px) {
+  .canvas-tools {
+    gap: 4px;
+  }
+  .workspace .canvas-tool-button {
+    width: 24px;
+    flex-basis: 24px;
+  }
+  .canvas-zoom {
+    width: 29px;
   }
 }
