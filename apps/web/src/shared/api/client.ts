@@ -4,6 +4,7 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly code?: string,
+    readonly field?: string,
   ) {
     super(`API request failed with status ${status}`);
   }
@@ -31,7 +32,11 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
             typeof detail.code === 'string'
           ? detail.code
           : undefined;
-    throw new ApiError(response.status, code);
+    const field =
+      detail && typeof detail === 'object' && 'field' in detail && typeof detail.field === 'string'
+        ? detail.field
+        : undefined;
+    throw new ApiError(response.status, code, field);
   }
   return response.json() as Promise<T>;
 }
@@ -43,4 +48,12 @@ export async function apiDelete(path: string, csrfToken: string): Promise<void> 
     headers: { 'X-CSRF-Token': csrfToken },
   });
   if (!response.ok) throw new ApiError(response.status);
+}
+
+export function apiWrite<T>(path: string, token: string, body?: unknown, method = 'POST') {
+  return apiFetch<T>(path, {
+    method,
+    headers: { 'X-CSRF-Token': token },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
 }

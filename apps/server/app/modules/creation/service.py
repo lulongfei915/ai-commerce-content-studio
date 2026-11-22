@@ -1,0 +1,125 @@
+from fastapi import HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.modules.products.models import Product
+from app.modules.products.service import get_fact, get_product, require_generation_inputs
+from app.modules.tasks.models import TaskProduct
+from app.modules.templates.service import find_template, version_content
+from app.shared.studio_errors import FieldIssue, reject
+
+from .capabilities import ImageParameters, validate_parameters
+from .models import Creation
+from .references import resolve_reference, validate_references
+from .schemas import ApplyTemplate, CreationView, ReferenceInput, ReferenceView
+
+
+def get_creation(db: Session, tenant: str, identifier: str, *, lock: bool = False) -> Creation:
+    query = select(Creation).where(Creation.tenant_id == tenant, Creation.id == identifier)
+    item = db.scalar(query.with_for_update() if lock else query)
+    if item is None:
+        raise HTTPException(404, "creation_not_found")
+    return item
+
+
+def member_product(db: Session, tenant: str, task: str, product: str) -> Product:
+    member = db.scalar(
+        select(TaskProduct.id).where(
+            TaskProduct.tenant_id == tenant,
+            TaskProduct.task_id == task,
+            TaskProduct.product_id == product,
+        )
+    )
+    if member is None:
+        raise HTTPException(404, "task_product_not_found")
+    return get_product(db, tenant, product)
+
+
+def view(item: Creation) -> CreationView:
+    return CreationView.model_validate(item, from_attributes=True)
+
+
+def save(
+    db: Session,
+    item: Creation,
+    product: Product,
+    references: list[ReferenceView],
+    parameters: ImageParameters,
+    *,
+    validate_sources: bool = True,
+) -> CreationView:
+    fact = get_fact(db, product, product.fact_version)
+    files = {ref.file_id for ref in references} | {str(photo["file_id"]) for photo in fact.photos}
+    if validate_sources:
+        validate_references(db, product, references, item.purpose)
+    validate_parameters(parameters, len(files))
+    item.references = [ref.model_dump() for ref in references]
+    item.parameters = parameters.model_dump()
+    item.version += 1
+    db.commit()
+    return view(item)
+
+
+def apply_template(
+    db: Session, item: Creation, product: Product, data: ApplyTemplate
+) -> CreationView:
+    template = find_template(db, item.tenant_id, data.template_id)
+    if not template.enabled:
+        reject("template_id", "template_disabled")
+    content = version_content(db, template, data.template_version)
+    if content.category != product.category or content.purpose != item.purpose:
+        reject("template_id", "template_incompatible")
+    refs = [ref for ref in view(item).references if ref.origin == "independent"]
+    for index, case_id in enumerate(content.case_ids):
+        ref = resolve_reference(
+            db,
+            product,
+            ReferenceInput(kind="case", source_id=case_id),
+            f"case_ids.{index}",
+            item.purpose,
+            "template",
+        )
+        if all(item.file_id != ref.file_id for item in refs):
+            refs.append(ref)
+    item.template_id, item.template_version = template.id, data.template_version
+    if data.prompt_action == "replace":
+        item.prompt = content.prompt
+    return save(db, item, product, refs, content.parameters)
+
+
+def template_check(db: Session, item: Creation) -> None:
+    if (
+        item.template_id is not None
+        and not find_template(db, item.tenant_id, item.template_id).enabled
+    ):
+        reject("template_id", "template_disabled")
+
+
+def require_ready(db: Session, item: Creation) -> CreationView:
+    """Shared submission guard for execution services."""
+    template_check(db, item)
+    draft = view(item)
+    product = get_product(db, item.tenant_id, item.product_id)
+    if not draft.prompt.strip():
+        reject("prompt", "prompt_required")
+    photos = require_generation_inputs(db, product, draft.purpose)
+    validate_references(db, product, draft.references, item.purpose)
+    files = {photo.file_id for photo in photos} | {ref.file_id for ref in draft.references}
+    validate_parameters(draft.parameters, len(files))
+    return draft
+
+
+def readiness(db: Session, item: Creation) -> list[FieldIssue]:
+    try:
+        require_ready(db, item)
+    except HTTPException as exc:
+        if isinstance(exc.detail, dict):
+            if "fields" in exc.detail:
+                return [
+                    FieldIssue(field=f"product.{field}", code=exc.detail["code"])
+                    for field in exc.detail["fields"]
+                ]
+            if "field" in exc.detail:
+                return [FieldIssue.model_validate(exc.detail)]
+        raise
+    return []

@@ -984,10 +984,1463 @@
           }
         }
       }
+    },
+    "/api/v1/cases": {
+      "get": {
+        "tags": [
+          "案例"
+        ],
+        "summary": "List Cases",
+        "operationId": "list_cases_api_v1_cases_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "apparel",
+                    "beauty",
+                    "home",
+                    "digital"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "media",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "image",
+                    "video"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Media"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 36
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CasePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "案例"
+        ],
+        "summary": "Create Case",
+        "operationId": "create_case_api_v1_cases_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cases/{case_id}": {
+      "get": {
+        "tags": [
+          "案例"
+        ],
+        "summary": "Get Case",
+        "operationId": "get_case_api_v1_cases__case_id__get",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "案例"
+        ],
+        "summary": "Update Case License",
+        "operationId": "update_case_license_api_v1_cases__case_id__patch",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseLicense"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cases/{case_id}/preview": {
+      "get": {
+        "tags": [
+          "案例"
+        ],
+        "summary": "Case Preview",
+        "operationId": "case_preview_api_v1_cases__case_id__preview_get",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/creation-capabilities": {
+      "get": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Get Creation Capabilities",
+        "operationId": "get_creation_capabilities_api_v1_creation_capabilities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/creations": {
+      "get": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "List Creations",
+        "operationId": "list_creations_api_v1_tasks__task_id__creations_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "primary",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Primary"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 36,
+              "default": "",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CreationView"
+                  },
+                  "title": "Response List Creations Api V1 Tasks  Task Id  Creations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Create Creation",
+        "operationId": "create_creation_api_v1_tasks__task_id__creations_post",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreationView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/creations/{creation_id}": {
+      "get": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Read Creation",
+        "operationId": "read_creation_api_v1_creations__creation_id__get",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreationView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Edit Creation",
+        "operationId": "edit_creation_api_v1_creations__creation_id__patch",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreationEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreationView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/creations/{creation_id}/template": {
+      "post": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Apply Creation Template",
+        "operationId": "apply_creation_template_api_v1_creations__creation_id__template_post",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyTemplate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreationView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/creations/{creation_id}/readiness": {
+      "get": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Creation Readiness",
+        "operationId": "creation_readiness_api_v1_creations__creation_id__readiness_get",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/creations/{creation_id}/references": {
+      "post": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Add Creation Reference",
+        "operationId": "add_creation_reference_api_v1_creations__creation_id__references_post",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferenceCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreationView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/creations/{creation_id}/references/{reference_id}": {
+      "patch": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Edit Creation Reference",
+        "operationId": "edit_creation_reference_api_v1_creations__creation_id__references__reference_id__patch",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          },
+          {
+            "name": "reference_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Reference Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferenceEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreationView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Delete Creation Reference",
+        "operationId": "delete_creation_reference_api_v1_creations__creation_id__references__reference_id__delete",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          },
+          {
+            "name": "reference_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Reference Id"
+            }
+          },
+          {
+            "name": "expected_version",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Expected Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreationView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/creations/{creation_id}/template/clear": {
+      "post": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Clear Creation Template",
+        "operationId": "clear_creation_template_api_v1_creations__creation_id__template_clear_post",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreationView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates": {
+      "get": {
+        "tags": [
+          "公司模板"
+        ],
+        "summary": "List Templates",
+        "operationId": "list_templates_api_v1_templates_get",
+        "parameters": [
+          {
+            "name": "manage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Manage"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "apparel",
+                    "beauty",
+                    "home",
+                    "digital"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "purpose",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "main",
+                    "detail"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Purpose"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 36
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplatePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "公司模板"
+        ],
+        "summary": "Create Template",
+        "operationId": "create_template_api_v1_templates_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateContent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates/{template_id}": {
+      "patch": {
+        "tags": [
+          "公司模板"
+        ],
+        "summary": "Edit Template",
+        "operationId": "edit_template_api_v1_templates__template_id__patch",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates/{template_id}/publish": {
+      "post": {
+        "tags": [
+          "公司模板"
+        ],
+        "summary": "Publish Template",
+        "operationId": "publish_template_api_v1_templates__template_id__publish_post",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates/{template_id}/status": {
+      "post": {
+        "tags": [
+          "公司模板"
+        ],
+        "summary": "Set Template Status",
+        "operationId": "set_template_status_api_v1_templates__template_id__status_post",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateStatus"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates/{template_id}/versions/{number}": {
+      "get": {
+        "tags": [
+          "公司模板"
+        ],
+        "summary": "Get Template Version",
+        "operationId": "get_template_version_api_v1_templates__template_id__versions__number__get",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Template Id"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateContent"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "ApplyTemplate": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "template_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Template Id"
+          },
+          "template_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Template Version"
+          },
+          "prompt_action": {
+            "type": "string",
+            "enum": [
+              "keep",
+              "replace"
+            ],
+            "title": "Prompt Action"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "template_id",
+          "template_version",
+          "prompt_action"
+        ],
+        "title": "ApplyTemplate"
+      },
+      "Capabilities": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "max_outputs": {
+            "type": "integer",
+            "title": "Max Outputs"
+          },
+          "sizes": {
+            "items": {
+              "$ref": "#/components/schemas/SizeOption"
+            },
+            "type": "array",
+            "title": "Sizes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "max_outputs",
+          "sizes"
+        ],
+        "title": "Capabilities"
+      },
+      "CaseCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "apparel",
+              "beauty",
+              "home",
+              "digital"
+            ],
+            "title": "Category"
+          },
+          "file_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "File Id"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Source"
+          },
+          "usage_scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage Scope"
+          },
+          "usage_purposes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "main",
+                "detail",
+                "video"
+              ]
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Usage Purposes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "category",
+          "file_id",
+          "source"
+        ],
+        "title": "CaseCreate"
+      },
+      "CaseLicense": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "usage_scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage Scope"
+          },
+          "usage_purposes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "main",
+                "detail",
+                "video"
+              ]
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Usage Purposes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "usage_scope"
+        ],
+        "title": "CaseLicense"
+      },
+      "CasePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CaseView"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "CasePage"
+      },
+      "CaseView": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "apparel",
+              "beauty",
+              "home",
+              "digital"
+            ],
+            "title": "Category"
+          },
+          "file_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "File Id"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Source"
+          },
+          "usage_scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage Scope"
+          },
+          "usage_purposes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "main",
+                "detail",
+                "video"
+              ]
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Usage Purposes"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "media": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video"
+            ],
+            "title": "Media"
+          },
+          "file_version": {
+            "type": "integer",
+            "title": "File Version"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "category",
+          "file_id",
+          "source",
+          "id",
+          "media",
+          "file_version",
+          "version"
+        ],
+        "title": "CaseView"
+      },
       "CategoryFields": {
         "properties": {
           "id": {
@@ -1042,6 +2495,165 @@
           "evidence"
         ],
         "title": "ConfirmedFact"
+      },
+      "CreationCreate": {
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Product Id"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "main",
+              "detail"
+            ],
+            "title": "Purpose"
+          },
+          "prompt": {
+            "type": "string",
+            "maxLength": 6000,
+            "title": "Prompt",
+            "default": ""
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/ImageParameters"
+          },
+          "primary": {
+            "type": "boolean",
+            "title": "Primary",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "product_id",
+          "purpose"
+        ],
+        "title": "CreationCreate"
+      },
+      "CreationEdit": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 6000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "parameters": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageParameters"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version"
+        ],
+        "title": "CreationEdit"
+      },
+      "CreationView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          },
+          "product_id": {
+            "type": "string",
+            "title": "Product Id"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "main",
+              "detail"
+            ],
+            "title": "Purpose"
+          },
+          "slot": {
+            "type": "string",
+            "title": "Slot"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/ImageParameters"
+          },
+          "references": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceView"
+            },
+            "type": "array",
+            "title": "References"
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Id"
+          },
+          "template_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template Version"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "task_id",
+          "product_id",
+          "purpose",
+          "slot",
+          "prompt",
+          "parameters",
+          "references",
+          "template_id",
+          "template_version",
+          "version"
+        ],
+        "title": "CreationView"
       },
       "Credentials": {
         "properties": {
@@ -1204,6 +2816,24 @@
         ],
         "title": "FactsUpdate"
       },
+      "FieldIssue": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "field",
+          "code"
+        ],
+        "title": "FieldIssue"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1216,6 +2846,33 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ImageParameters": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "seedream-5.5"
+          },
+          "ratio": {
+            "type": "string",
+            "title": "Ratio",
+            "default": "1:1"
+          },
+          "resolution": {
+            "type": "string",
+            "title": "Resolution",
+            "default": "1K"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ImageParameters"
       },
       "MediaFile": {
         "properties": {
@@ -1513,6 +3170,157 @@
         ],
         "title": "ProductUpdate"
       },
+      "Readiness": {
+        "properties": {
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/FieldIssue"
+            },
+            "type": "array",
+            "title": "Issues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "issues"
+        ],
+        "title": "Readiness"
+      },
+      "ReferenceCreate": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "case",
+              "upload"
+            ],
+            "title": "Kind"
+          },
+          "source_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Source Id"
+          },
+          "usage": {
+            "type": "string",
+            "enum": [
+              "expression",
+              "composition",
+              "lighting"
+            ],
+            "title": "Usage",
+            "default": "expression"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "kind",
+          "source_id"
+        ],
+        "title": "ReferenceCreate"
+      },
+      "ReferenceEdit": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "usage": {
+            "type": "string",
+            "enum": [
+              "expression",
+              "composition",
+              "lighting"
+            ],
+            "title": "Usage"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "usage"
+        ],
+        "title": "ReferenceEdit"
+      },
+      "ReferenceView": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "case",
+              "upload"
+            ],
+            "title": "Kind"
+          },
+          "source_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Source Id"
+          },
+          "usage": {
+            "type": "string",
+            "enum": [
+              "expression",
+              "composition",
+              "lighting"
+            ],
+            "title": "Usage",
+            "default": "expression"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "independent",
+              "template"
+            ],
+            "title": "Origin"
+          },
+          "file_id": {
+            "type": "string",
+            "title": "File Id"
+          },
+          "file_version": {
+            "type": "integer",
+            "title": "File Version"
+          },
+          "source_version": {
+            "type": "integer",
+            "title": "Source Version"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "source_id",
+          "id",
+          "origin",
+          "file_id",
+          "file_version",
+          "source_version",
+          "label"
+        ],
+        "title": "ReferenceView"
+      },
       "Role": {
         "type": "string",
         "enum": [
@@ -1522,6 +3330,34 @@
           "viewer"
         ],
         "title": "Role"
+      },
+      "SizeOption": {
+        "properties": {
+          "ratio": {
+            "type": "string",
+            "title": "Ratio"
+          },
+          "resolution": {
+            "type": "string",
+            "title": "Resolution"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ratio",
+          "resolution",
+          "width",
+          "height"
+        ],
+        "title": "SizeOption"
       },
       "TaskCreate": {
         "properties": {
@@ -1719,6 +3555,229 @@
         ],
         "title": "TaskUpdate"
       },
+      "TemplateContent": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "apparel",
+              "beauty",
+              "home",
+              "digital"
+            ],
+            "title": "Category"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "main",
+              "detail"
+            ],
+            "title": "Purpose"
+          },
+          "prompt": {
+            "type": "string",
+            "maxLength": 6000,
+            "title": "Prompt",
+            "default": ""
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/ImageParameters"
+          },
+          "case_ids": {
+            "items": {
+              "type": "string",
+              "maxLength": 36,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Case Ids"
+          },
+          "check_rules": {
+            "items": {
+              "type": "string",
+              "maxLength": 500,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Check Rules"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "category",
+          "purpose"
+        ],
+        "title": "TemplateContent"
+      },
+      "TemplateEdit": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "apparel",
+              "beauty",
+              "home",
+              "digital"
+            ],
+            "title": "Category"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "main",
+              "detail"
+            ],
+            "title": "Purpose"
+          },
+          "prompt": {
+            "type": "string",
+            "maxLength": 6000,
+            "title": "Prompt",
+            "default": ""
+          },
+          "parameters": {
+            "$ref": "#/components/schemas/ImageParameters"
+          },
+          "case_ids": {
+            "items": {
+              "type": "string",
+              "maxLength": 36,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Case Ids"
+          },
+          "check_rules": {
+            "items": {
+              "type": "string",
+              "maxLength": 500,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Check Rules"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "name",
+          "category",
+          "purpose"
+        ],
+        "title": "TemplateEdit"
+      },
+      "TemplatePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TemplateView"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "TemplatePage"
+      },
+      "TemplateStatus": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "enabled"
+        ],
+        "title": "TemplateStatus"
+      },
+      "TemplateView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "published_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Version"
+          },
+          "content": {
+            "$ref": "#/components/schemas/TemplateContent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "enabled",
+          "published_version",
+          "content"
+        ],
+        "title": "TemplateView"
+      },
       "TenantInfo": {
         "properties": {
           "id": {
@@ -1850,6 +3909,21 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VersionInput": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version"
+        ],
+        "title": "VersionInput"
       }
     }
   }

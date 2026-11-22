@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 
 import { roleLabel } from '../auth/session';
 import type { Session } from '../auth/session';
+import { CaseLibrary } from '../cases/CaseLibrary';
+import { QuickCreation } from '../creation/QuickCreation';
+import { TemplateManager } from '../templates/TemplateManager';
 import { ProductCatalog } from '../products/ProductCatalog';
 import { ProductEditor } from '../products/ProductEditor';
 import { productCategories } from '../products/api';
@@ -13,7 +16,7 @@ import { TaskList } from './TaskList';
 import { TaskSetup } from './TaskSetup';
 import './workspace.css';
 
-type View = 'workbench' | 'tasks' | 'products' | 'current';
+type View = 'workbench' | 'tasks' | 'products' | 'current' | 'templates' | 'cases';
 
 export function Workspace({
   session,
@@ -37,6 +40,8 @@ export function Workspace({
   const [taskError, setTaskError] = useState(false);
   const [loadingTask, setLoadingTask] = useState(false);
   const taskRequest = useRef<AbortController>();
+  const [creativeDirty, setCreativeDirty] = useState(false);
+  const canManage = session.permissions.includes('manage');
   const canCreate = session.permissions.includes('create');
 
   useEffect(() => {
@@ -52,7 +57,12 @@ export function Workspace({
   }, [categoryRetry]);
   useEffect(() => () => taskRequest.current?.abort(), []);
 
+  function canLeave() {
+    return !creativeDirty || window.confirm('当前创作草稿有未保存的编辑或正在处理。确定离开？');
+  }
+
   function navigate(next: View) {
+    if (view !== next && !canLeave()) return;
     taskRequest.current?.abort();
     setLoadingTask(false);
     setTaskError(false);
@@ -60,6 +70,7 @@ export function Workspace({
   }
 
   function openTask(id: string) {
+    if (!canLeave()) return;
     taskRequest.current?.abort();
     const request = new AbortController();
     taskRequest.current = request;
@@ -90,7 +101,13 @@ export function Workspace({
             {session.permissions.includes('download') ? '已授权' : '未授权'}
           </p>
         </div>
-        <button type="button" onClick={onLogout} disabled={busy}>
+        <button
+          type="button"
+          onClick={() => {
+            if (canLeave()) onLogout();
+          }}
+          disabled={busy}
+        >
           退出登录
         </button>
       </header>
@@ -116,6 +133,22 @@ export function Workspace({
         >
           商品资料
         </button>
+        <button
+          type="button"
+          aria-current={view === 'cases' ? 'page' : undefined}
+          onClick={() => navigate('cases')}
+        >
+          案例库
+        </button>
+        {canManage && (
+          <button
+            type="button"
+            aria-current={view === 'templates' ? 'page' : undefined}
+            onClick={() => navigate('templates')}
+          >
+            公司模板
+          </button>
+        )}
         {current && (
           <button
             type="button"
@@ -134,7 +167,11 @@ export function Workspace({
               ? '全部任务'
               : view === 'products'
                 ? '商品资料'
-                : current?.name}
+                : view === 'cases'
+                  ? '案例库'
+                  : view === 'templates'
+                    ? '公司模板'
+                    : current?.name}
         </h2>
         {canCreate && (view === 'workbench' || view === 'tasks') && (
           <button type="button" className="work-primary" onClick={() => setSetup({})}>
@@ -178,6 +215,27 @@ export function Workspace({
         </div>
       )}
       {view === 'tasks' && <TaskList onOpen={openTask} />}
+      {view === 'cases' && (
+        <CaseLibrary
+          categories={categories}
+          token={session.csrf_token}
+          canManage={canManage}
+          canPlayVideo={session.permissions.includes('download')}
+        />
+      )}
+      {view === 'templates' && canManage && (
+        <TemplateManager categories={categories} token={session.csrf_token} />
+      )}
+      {view === 'current' && current && canCreate && (
+        <QuickCreation
+          key={`creative-${current.id}`}
+          task={current}
+          categories={categories}
+          token={session.csrf_token}
+          onDirty={setCreativeDirty}
+        />
+      )}
+
       {view === 'current' && current && (
         <TaskDetail
           key={current.id}

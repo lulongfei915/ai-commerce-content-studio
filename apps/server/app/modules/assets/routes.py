@@ -21,6 +21,7 @@ from app.modules.identity.security import (
     require_permission,
 )
 
+from .models import PrivateFile
 from .schemas import MediaFile, UploadRequest, UploadReservation
 from .service import (
     FileError,
@@ -165,6 +166,21 @@ def download(
 ) -> StreamingResponse:
     try:
         item = find_file(db, identity.tenant.id, file_id)
+    except FileError as exc:
+        raise HTTPException(exc.status, exc.code) from exc
+    return stream_private_file(item, request, identity, db, storage)
+
+
+def stream_private_file(
+    item: PrivateFile,
+    request: Request,
+    identity: ActiveIdentity,
+    db: Database,
+    storage: Storage,
+    *,
+    inline: bool = False,
+) -> StreamingResponse:
+    try:
         media = metadata(item)
         if item.object_key is None:
             raise FileError(404, "file_not_found")
@@ -179,10 +195,11 @@ def download(
         body = storage.read(key, byte_range)
     except StorageUnavailable as exc:
         raise HTTPException(503, "storage_unavailable") from exc
+    disposition = "inline" if inline else "attachment"
     headers = {
         "Accept-Ranges": "bytes",
         "Cache-Control": "private, no-store",
-        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(media.filename, safe='')}",
+        "Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(media.filename, safe='')}",
         "Content-Length": str(media.size_bytes),
         "X-Content-Type-Options": "nosniff",
     }

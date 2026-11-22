@@ -39,30 +39,4 @@ export function updateFacts(id: string, input: Schema['FactsUpdate'], token: str
   });
 }
 
-export async function uploadPhoto(file: File, token: string): Promise<string> {
-  const headers = { 'X-CSRF-Token': token };
-  const upload = await apiFetch<Schema['UploadReservation']>('/files/uploads', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      filename: file.name,
-      content_type: file.type,
-      size_bytes: file.size,
-    }),
-  });
-  const response = await fetch(upload.upload_path, {
-    method: 'PUT',
-    credentials: 'same-origin',
-    body: file,
-    headers: { ...headers, 'Content-Type': file.type },
-  });
-  if (!response.ok) throw new Error('实拍上传失败，请重新选择有效图片。');
-  const ready = await apiFetch<Schema['MediaFile']>(
-    `/files/${encodeURIComponent(upload.id)}/complete`,
-    {
-      method: 'POST',
-      headers,
-    },
-  );
-  return ready.id;
-}
+export { uploadMedia as uploadPhoto } from '../../shared/api/upload';

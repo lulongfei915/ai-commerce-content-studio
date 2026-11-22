@@ -1,0 +1,77 @@
+.workspace select,
+.studio-dialog select,
+.workspace textarea,
+.studio-dialog textarea {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--work-line);
+  border-radius: 6px;
+  color: inherit;
+  background: var(--work-field);
+  font: inherit;
+  min-width: 0;
+  max-width: 100%;
+}
+.creative-editor {
+  border-top: 2px solid var(--work-accent);
+}
+.creative-prompt textarea,
+.studio-dialog textarea {
+  width: 100%;
+  resize: vertical;
+}
+.creative-parameters {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(160px, 2fr) minmax(75px, 0.6fr);
+  gap: 10px;
+}
+.creative-parameters input {
+  width: 100%;
+}
+.creative-prewrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.creative-case img,
+.creative-case video {
+  width: 100%;
+  height: 140px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: var(--work-field);
+}
+.creative-references {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.creative-references li {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 6px;
+  border-bottom: 1px solid var(--work-line);
+}
+.creative-references li small {
+  display: block;
+}
+.creative-references img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}
+.creative-references li button {
+  margin-left: auto;
+}
+.creative-upload {
+  max-width: 220px;
+}
+.creative-upload input {
+  width: 100%;
+}
+@media (max-width: 570px) {
+  .creative-parameters {
+    grid-template-columns: 1fr;
+  }
+}
