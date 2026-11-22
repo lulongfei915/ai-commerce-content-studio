@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - run: pnpm --ignore-workspace install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm check:lines
+
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    env:
+      DATABASE_URL: mysql+pymysql://studio:studio@127.0.0.1:3306/studio
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: studio
+          MYSQL_USER: studio
+          MYSQL_PASSWORD: studio
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.12.14"
+      - run: uv sync --frozen --dev
+      - run: uv run --frozen ruff check app tests
+      - run: uv run --frozen mypy app
+      - run: uv run --frozen pytest
+      - run: uv run --frozen alembic upgrade head
