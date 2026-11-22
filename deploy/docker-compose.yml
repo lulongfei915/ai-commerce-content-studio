@@ -1,30 +1,32 @@
 services:
   mysql:
-    image: mysql:8.4
+    image: "${STUDIO_MYSQL_IMAGE:-mysql:8.4}"
     environment:
       MYSQL_DATABASE: studio
       MYSQL_USER: studio
       MYSQL_PASSWORD: studio
       MYSQL_ROOT_PASSWORD: root
     ports:
-      - "3306:3306"
+      - "127.0.0.1:${STUDIO_MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql-data:/var/lib/mysql
 
   redis:
-    image: redis:7.4-alpine
+    image: "${STUDIO_REDIS_IMAGE:-redis:7.4-alpine}"
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
   minio:
-    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    build:
+      context: .
+      dockerfile: Dockerfile.minio
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: studio
       MINIO_ROOT_PASSWORD: studio-secret
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
       - minio-data:/data
 
