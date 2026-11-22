@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..', 'apps');
 const ignored = new Set(['node_modules', 'dist', 'coverage', '.venv']);
+const generated = resolve(root, 'web', 'src', 'shared', 'api', 'generated.ts');
 const extensions = new Set(['.ts', '.tsx', '.py']);
 const violations = [];
 
@@ -10,6 +11,7 @@ function visit(directory) {
   for (const entry of readdirSync(directory)) {
     if (ignored.has(entry)) continue;
     const path = join(directory, entry);
+    if (path === generated) continue; // Regenerated from the server's OpenAPI schema.
     const stats = statSync(path);
     if (stats.isDirectory()) visit(path);
     else if (extensions.has(path.slice(path.lastIndexOf('.')))) {

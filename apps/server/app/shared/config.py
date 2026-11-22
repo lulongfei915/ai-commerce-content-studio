@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_ARK_VIDEO_MODEL = "doubao-seedance-2-0-260128"
@@ -14,6 +14,14 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     storage_endpoint: str = "http://localhost:9000"
     storage_bucket: str = "studio-private"
+    storage_access_key: SecretStr | None = None
+    storage_secret_key: SecretStr | None = None
+    auth_public_origin: str | None = None
+    auth_totp_key: SecretStr | None = None
+    session_ttl_seconds: int = Field(default=28800, ge=60, le=86400)
+    upload_ttl_seconds: int = Field(default=3600, ge=60, le=86400)
+    max_image_bytes: int = Field(default=20 * 1024 * 1024, gt=0)
+    max_video_bytes: int = Field(default=100 * 1024 * 1024, gt=0)
     log_level: str = "INFO"
     ark_api_key: SecretStr | None = None
     ark_base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
