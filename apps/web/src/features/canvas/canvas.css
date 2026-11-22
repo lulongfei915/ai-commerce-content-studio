@@ -1,0 +1,433 @@
+.task-studio {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.studio-content:has(.canvas-shell) {
+  width: min(1680px, 100%);
+  padding: 10px 24px;
+}
+.studio-shell:has(.canvas-shell) .studio-header {
+  height: 48px;
+  line-height: 1.2;
+}
+.workspace:has(.canvas-shell) {
+  gap: 8px;
+}
+.workspace:has(.canvas-shell) .work-company {
+  padding-bottom: 6px;
+}
+.workspace:has(.canvas-shell) .work-company h1 {
+  font-size: 1.05rem;
+}
+.workspace:has(.canvas-shell) .work-company p {
+  margin-top: 2px;
+}
+.workspace:has(.canvas-shell) :is(.work-company, .work-nav) button {
+  min-height: 34px;
+}
+.workspace:has(.canvas-shell) .work-title h2 {
+  font-size: 1.25rem;
+}
+.task-studio:has(.canvas-shell) {
+  gap: 8px;
+}
+
+.canvas-shell {
+  --canvas-ground: #161d21;
+  --canvas-panel: #20282c;
+  --canvas-border: #485459;
+  --canvas-muted: #acbac1;
+  --canvas-accent: #79e2c0;
+  border: 1px solid var(--canvas-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--canvas-ground);
+  color: #f0f5f4;
+  font-size: 13px;
+}
+.canvas-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 46px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--canvas-border);
+  background: var(--canvas-panel);
+}
+.workspace .canvas-top select {
+  min-height: 32px;
+  padding: 4px 7px;
+}
+.canvas-saves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 15px;
+}
+.canvas-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--canvas-muted);
+}
+.canvas-save-saved {
+  color: #b4cec6;
+}
+.canvas-save-error,
+.canvas-save-conflict {
+  color: #ffbdab;
+}
+.workspace .canvas-save button {
+  min-height: 28px;
+  padding: 2px 6px;
+}
+
+.canvas-stage {
+  position: relative;
+  height: max(290px, calc(100dvh - 300px));
+  isolation: isolate;
+  overflow: hidden;
+}
+.canvas-background {
+  position: absolute;
+  inset: 0;
+}
+.canvas-background .react-flow {
+  --xy-background-color: var(--canvas-ground);
+}
+.canvas-background .react-flow__edge-path {
+  stroke: #87a19a;
+  stroke-width: 1.9;
+}
+.canvas-background .react-flow__edge-text {
+  fill: #f4f7f7;
+  font-size: 10px;
+}
+.canvas-background .react-flow__edge-textbg {
+  fill: #263c36;
+  fill-opacity: 1;
+}
+.canvas-background .canvas-edge-active .react-flow__edge-path {
+  stroke: var(--canvas-accent);
+  stroke-width: 3;
+}
+.canvas-background .canvas-result-edge .react-flow__edge-path {
+  stroke: #d6ad78;
+  stroke-dasharray: 5 4;
+}
+.canvas-dim {
+  opacity: 0.42;
+}
+
+.canvas-node {
+  display: grid;
+  grid-template-rows: 30px 83px 27px;
+  width: 198px;
+  min-width: 0;
+  border: 1px solid #526368;
+  border-radius: 8px;
+  background: var(--canvas-panel);
+  box-shadow: 0 5px 12px #080b0c70;
+}
+.canvas-node-creation {
+  border-color: #548b7c;
+}
+.canvas-node-result {
+  border-color: #9c7955;
+}
+.canvas-focused .canvas-node,
+.react-flow__node.selected .canvas-node {
+  outline: 2px solid var(--canvas-accent);
+}
+.canvas-node-heading,
+.canvas-node-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px;
+  min-width: 0;
+}
+.canvas-node-heading b,
+.canvas-node-meta span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.canvas-node-heading span,
+.canvas-node-meta {
+  font-size: 11px;
+  color: var(--canvas-muted);
+}
+.canvas-node-heading span,
+.canvas-node-meta span:last-child {
+  flex-shrink: 0;
+}
+.canvas-node-media {
+  display: grid;
+  place-items: center;
+  background: #12191b;
+  overflow: hidden;
+}
+.canvas-node-media img {
+  width: 100%;
+  height: 83px;
+  object-fit: contain;
+}
+.canvas-media-symbol {
+  color: #a4c4b9;
+  font-size: 26px;
+}
+.canvas-background .react-flow__handle {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #20332f;
+  background: var(--canvas-accent);
+}
+.canvas-background .react-flow__handle:not(.connectable) {
+  background: #839494;
+}
+
+.canvas-tools,
+.canvas-context,
+.canvas-start,
+.canvas-add-menu,
+.canvas-link-status,
+.canvas-filter-status,
+.canvas-error,
+.canvas-empty {
+  position: absolute;
+  z-index: 10;
+}
+.canvas-tools {
+  bottom: 12px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+.canvas-tool-group,
+.canvas-context,
+.canvas-add-menu,
+.canvas-link-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--canvas-border);
+  border-radius: 8px;
+  background: var(--canvas-panel);
+  pointer-events: auto;
+}
+.workspace .canvas-tool-button,
+.workspace .canvas-panel-header button {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 32px;
+  width: 32px;
+  min-height: 33px;
+  padding: 0;
+  font-size: 16px;
+  background: transparent;
+  border-color: transparent;
+}
+.workspace .canvas-tool-button:is(:hover, [aria-pressed='true']) {
+  color: var(--canvas-accent);
+  background: #2e423d;
+  border-color: #4e645e;
+}
+.canvas-context {
+  top: 10px;
+  left: 10px;
+  max-width: calc(100% - 20px);
+  min-height: 40px;
+}
+.canvas-context > span {
+  padding-inline: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.canvas-link-status,
+.canvas-filter-status {
+  top: 58px;
+  left: 10px;
+  padding: 5px 8px;
+}
+.canvas-filter-status {
+  top: 104px;
+  color: var(--canvas-accent);
+  background: var(--canvas-panel);
+}
+.canvas-start,
+.canvas-empty {
+  display: flex;
+  gap: 8px;
+  top: 48%;
+  left: 50%;
+  translate: -50% -50%;
+  width: max-content;
+  max-width: calc(100% - 24px);
+}
+.canvas-start button,
+.canvas-add-menu button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.workspace .canvas-start button {
+  min-height: 46px;
+  background: var(--canvas-panel);
+}
+.canvas-add-menu {
+  display: grid;
+  left: 10px;
+  bottom: 60px;
+}
+.canvas-error {
+  bottom: 62px;
+  right: 10px;
+  padding: 8px 12px;
+  background: #331f22;
+  border-radius: 6px;
+  max-width: calc(100% - 20px);
+}
+
+.canvas-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: #0a121542;
+}
+.canvas-panel {
+  position: absolute;
+  top: var(--panel-top);
+  left: var(--panel-left);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(555px, calc(100% - 20px));
+  max-height: calc(100% - var(--panel-top) - 10px);
+  border: 1px solid #63736e;
+  border-radius: 8px;
+  background: var(--canvas-panel);
+  box-shadow: 0 10px 32px #070c0c9c;
+}
+.canvas-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px 4px 12px;
+  min-height: 41px;
+  border-bottom: 1px solid var(--canvas-border);
+}
+.canvas-panel-header h3 {
+  font-size: 15px;
+}
+.canvas-panel-content {
+  padding: 10px 12px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.canvas-panel .creative-in-canvas {
+  border: 0;
+  gap: 10px;
+}
+.canvas-panel .creative-in-canvas .photo-list img {
+  width: 42px;
+  height: 42px;
+}
+.canvas-panel .creative-prompt textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+.canvas-panel .creative-references li {
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.canvas-panel .creative-references li span {
+  flex: 1 1 95px;
+  overflow-wrap: anywhere;
+}
+.canvas-panel .creative-references li button {
+  margin-left: 0;
+}
+.canvas-panel .work-actions {
+  flex-wrap: wrap;
+}
+.canvas-panel .creative-parameters {
+  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+}
+.canvas-panel .creative-upload {
+  max-width: min(170px, 100%);
+}
+.canvas-photo-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.workspace .canvas-photo-picker button {
+  display: grid;
+  gap: 5px;
+}
+.canvas-photo-picker img {
+  width: 84px;
+  height: 64px;
+  object-fit: contain;
+}
+.canvas-preview :is(img, video) {
+  width: 100%;
+  max-height: 340px;
+  object-fit: contain;
+}
+.studio-dialog-in-canvas {
+  position: fixed;
+  inset: auto;
+}
+
+@media (max-width: 600px) {
+  .studio-content:has(.canvas-shell) {
+    padding: 12px;
+  }
+  .workspace:has(.canvas-shell) .work-company h1 {
+    font-size: 1rem;
+  }
+  .workspace:has(.canvas-shell) .work-company p {
+    font-size: 12px;
+  }
+  .canvas-stage {
+    height: max(380px, calc(100dvh - 332px));
+  }
+  .canvas-panel {
+    top: auto;
+    left: 4px;
+    bottom: 4px;
+    width: calc(100% - 8px);
+    max-height: calc(100% - 8px);
+  }
+  .canvas-tools {
+    left: 5px;
+    right: 5px;
+    bottom: 7px;
+  }
+  .canvas-tool-group {
+    gap: 1px;
+    padding: 3px;
+  }
+  .workspace .canvas-tool-button {
+    width: 32px;
+    flex-basis: 32px;
+  }
+  .canvas-start {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .canvas-panel .work-cards {
+    grid-template-columns: 1fr;
+  }
+}

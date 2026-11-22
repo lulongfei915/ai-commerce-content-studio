@@ -38,7 +38,7 @@ def licensed_case_file(
         reject(field, "reference_not_ready")
     if not item.usage_scope or purpose not in item.usage_purposes:
         reject(field, "case_not_licensed")
-    if item.category != category or item.media != "image":
+    if item.category != category or (item.media != "image" and purpose != "video"):
         reject(field, "case_incompatible")
     file = ready_file(db, tenant, item.file_id, field)
     if file.version != item.file_version:

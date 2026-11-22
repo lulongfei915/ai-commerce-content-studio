@@ -2,20 +2,30 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.modules.products.schemas import ResourceId, WriteSchema
-from app.modules.templates.schemas import ImagePurpose, VersionInput
+from app.modules.cases.schemas import UsagePurpose
+from app.modules.products.schemas import ProductPhoto, ResourceId, WriteSchema
+from app.modules.templates.schemas import VersionInput
 from app.shared.studio_errors import FieldIssue
 
 from .capabilities import ImageParameters, SizeOption
+
+
+class VideoParameters(WriteSchema):
+    model: Literal["seedance-2.0"] = "seedance-2.0"
+    ratio: Literal["16:9", "9:16", "1:1"] = "16:9"
+    resolution: Literal["720p"] = "720p"
+    duration: Literal[5, 10] = 5
+    count: Literal[1] = 1
 
 
 class CreationCreate(WriteSchema):
     model_config = ConfigDict(str_strip_whitespace=False)
 
     product_id: ResourceId
-    purpose: ImagePurpose
+    purpose: UsagePurpose
     prompt: str = Field(default="", max_length=6000)
     parameters: ImageParameters = Field(default_factory=ImageParameters)
+    video_parameters: VideoParameters | None = None
     primary: bool = True
 
 
@@ -24,6 +34,7 @@ class CreationEdit(VersionInput):
 
     prompt: str | None = Field(default=None, max_length=6000)
     parameters: ImageParameters | None = None
+    video_parameters: VideoParameters | None = None
 
 
 class ApplyTemplate(VersionInput):
@@ -32,18 +43,24 @@ class ApplyTemplate(VersionInput):
     prompt_action: Literal["keep", "replace"]
 
 
+ReferenceUsage = Literal[
+    "product", "expression", "composition", "lighting", "first_frame", "last_frame"
+]
+
+
 class ReferenceInput(WriteSchema):
-    kind: Literal["case", "upload"]
+    kind: Literal["case", "upload", "result"]
     source_id: ResourceId
-    usage: Literal["expression", "composition", "lighting"] = "expression"
+    usage: ReferenceUsage = "expression"
 
 
 class ReferenceCreate(ReferenceInput, VersionInput):
-    pass
+    file_version: int | None = Field(default=None, ge=1)
+    source_version: int | None = Field(default=None, ge=1)
 
 
 class ReferenceEdit(VersionInput):
-    usage: Literal["expression", "composition", "lighting"]
+    usage: ReferenceUsage
 
 
 class ReferenceView(ReferenceInput):
@@ -53,16 +70,18 @@ class ReferenceView(ReferenceInput):
     file_version: int
     source_version: int
     label: str
+    media: Literal["image", "video"] = "image"
 
 
 class CreationView(BaseModel):
     id: str
     task_id: str
     product_id: str
-    purpose: ImagePurpose
+    purpose: UsagePurpose
     slot: str
     prompt: str
     parameters: ImageParameters
+    video_parameters: VideoParameters | None = None
     references: list[ReferenceView]
     template_id: str | None
     template_version: int | None
@@ -71,6 +90,13 @@ class CreationView(BaseModel):
 
 class Readiness(BaseModel):
     issues: list[FieldIssue]
+
+
+class InputSnapshot(BaseModel):
+    draft: CreationView
+    product_fact_version: int
+    product_photos: list[ProductPhoto]
+    references: list[ReferenceView]
 
 
 class Capabilities(BaseModel):

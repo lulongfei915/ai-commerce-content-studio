@@ -7,6 +7,16 @@ export type Parameters = Schema['ImageParameters'];
 export type Capabilities = Schema['Capabilities'];
 export type Issue = Schema['FieldIssue'];
 export type Reference = Schema['ReferenceView'];
+export type VideoParameters = Schema['VideoParameters'];
+export type ReferenceUsage = Reference['usage'];
+export const usageLabel: Record<NonNullable<ReferenceUsage>, string> = {
+  product: '商品实拍',
+  expression: '风格参考',
+  composition: '构图参考',
+  lighting: '光影参考',
+  first_frame: '首帧',
+  last_frame: '尾帧',
+};
 export const defaults: Parameters = {
   model: 'seedream-5.5',
   ratio: '1:1',
@@ -18,15 +28,16 @@ export function loadCapabilities(signal: AbortSignal) {
   return apiFetch<Capabilities>('/creation-capabilities', { signal });
 }
 export function listDrafts(task: string, signal: AbortSignal) {
-  return apiFetch<Draft[]>(`/tasks/${task}/creations`, { signal });
+  return apiFetch<Draft[]>(`/tasks/${task}/creations?primary=false`, { signal });
 }
 export function createDraft(
   task: string,
   product_id: string,
   purpose: Draft['purpose'],
   token: string,
+  primary = true,
 ) {
-  return apiWrite<Draft>(`/tasks/${task}/creations`, token, { product_id, purpose });
+  return apiWrite<Draft>(`/tasks/${task}/creations`, token, { product_id, purpose, primary });
 }
 export function draftWrite(
   draft: Draft,
@@ -53,6 +64,9 @@ export function removeReference(draft: Draft, token: string, id: string) {
 export function checkDraft(draft: Draft) {
   return apiFetch<Schema['Readiness']>(`/creations/${draft.id}/readiness`);
 }
+export function loadSnapshot(draft: Draft) {
+  return apiFetch<Schema['InputSnapshot']>(`/creations/${draft.id}/input-snapshot`);
+}
 
 const messages: Record<string, string> = {
   template_disabled: '模板已停用，请重新选择模板或取消应用。',
@@ -64,6 +78,12 @@ const messages: Record<string, string> = {
   reference_other_sku: '该实拍属于其他 SKU。',
   reference_duplicate: '该文件已被引用。',
   reference_limit: '输入图片合计不能超过 10 张。',
+  reference_cycle: '该连接会形成循环依赖。',
+  reference_result_required: '请选择已批准的结果版本作为参考。',
+  reference_usage_unsupported: '当前来源不支持所选用途。',
+  reference_usage_duplicate: '首帧或尾帧只能使用一个参考。',
+  reference_label_dangling: '提示词含已移除的引用标签，请删除或重新插入。',
+  canvas_node_unknown: '画布中的某个素材已不可用。',
   reference_media_unsupported: '参考需为 10 MB 以内的 JPG、PNG 或 WebP。',
   model_unsupported: '当前模型不可用。',
   ratio_unsupported: '当前模型不支持该比例。',

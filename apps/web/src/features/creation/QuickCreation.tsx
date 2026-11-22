@@ -1,66 +1,50 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import type { Category } from '../products/api';
+import { purposeLabel } from '../tasks/api';
 import type { Task } from '../tasks/api';
 import { CreationEditor } from './CreationEditor';
-import { actionError, createDraft, listDrafts } from './api';
+import type { DraftEdits } from './CreationEditor';
 import type { Draft } from './api';
 
 export function QuickCreation({
   task,
   categories,
   token,
-  onDirty,
+  drafts,
+  selected,
+  edits,
+  busy,
+  loading,
+  onSelect,
+  onCreate,
+  onSaved,
+  onEdit,
+  onBusy,
 }: {
   task: Task;
   categories: Category[];
   token: string;
-  onDirty: (dirty: boolean) => void;
+  drafts: Draft[];
+  selected?: Draft;
+  edits?: DraftEdits;
+  busy: boolean;
+  loading: boolean;
+  onSelect: (id: string) => void;
+  onCreate: (
+    product: string,
+    purpose: Draft['purpose'],
+    primary: boolean,
+  ) => Promise<Draft | undefined>;
+  onSaved: (draft: Draft) => void;
+  onEdit: (id: string, edits: DraftEdits | undefined) => void;
+  onBusy: (busy: boolean) => void;
 }) {
-  const [drafts, setDrafts] = useState<Draft[]>([]);
-  const [dirty, setDirty] = useState(false);
-  const reportDirty = useCallback(
-    (value: boolean) => {
-      setDirty(value);
-      onDirty(value);
-    },
-    [onDirty],
-  );
-  const [selected, setSelected] = useState('');
-  const [position, setPosition] = useState(
-    task.positions.find((item) => item.purpose !== 'video')?.id ?? '',
-  );
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [retry, setRetry] = useState(0);
-  useEffect(() => {
-    const request = new AbortController();
-    void listDrafts(task.id, request.signal)
-      .then((items) => {
-        if (!request.signal.aborted) {
-          setDrafts(items);
-          setLoading(false);
-        }
-      })
-      .catch((cause: unknown) => {
-        if (!request.signal.aborted) {
-          setError(actionError(cause));
-          setLoading(false);
-        }
-      });
-    return () => request.abort();
-  }, [task.id, retry]);
-  const options = task.positions.filter((item) => item.purpose !== 'video');
-  const target = options.find((item) => item.id === position);
-  const picked =
-    target &&
-    drafts.find((item) => item.product_id === target.product_id && item.purpose === target.purpose);
-  const active = drafts.find((item) => item.id === selected);
-  const product = active && task.products.find((item) => item.id === active.product_id);
-  if (!options.length) return null;
+  const [position, setPosition] = useState(task.positions[0]?.id ?? '');
+  const target = task.positions.find((item) => item.id === position);
+  const product = task.products.find((item) => item.id === selected?.product_id);
   return (
-    <section className="work-form" aria-label="图片创作">
+    <section className="work-form" aria-label="快捷创作">
       <div className="work-row">
         <label>
           创作商品与用途{' '}
@@ -69,73 +53,69 @@ export function QuickCreation({
             disabled={busy}
             onChange={(event) => setPosition(event.target.value)}
           >
-            {options.map((item) => (
+            {task.positions.map((item) => (
               <option key={item.id} value={item.id}>
-                {task.products.find((product) => product.id === item.product_id)?.sku} ·{' '}
-                {item.purpose === 'main' ? '主图' : '详情素材'}
+                {task.products.find((entry) => entry.id === item.product_id)?.sku} ·{' '}
+                {purposeLabel[item.purpose]}
               </option>
             ))}
           </select>
         </label>
         <button
           type="button"
-          disabled={loading || busy || !target || Boolean(error)}
+          disabled={busy || loading || !target}
           onClick={() => {
-            if (
-              dirty &&
-              picked?.id !== selected &&
-              !window.confirm('当前草稿有未保存的编辑，确定切换？')
-            )
-              return;
-            if (picked) {
-              setSelected(picked.id);
-              return;
-            }
-            if (!target || target.purpose === 'video') return;
-            setBusy(true);
-            setError('');
-            onDirty(true);
-            void createDraft(task.id, target.product_id, target.purpose, token)
-              .then((draft) => {
-                setDrafts((current) => [...current.filter((item) => item.id !== draft.id), draft]);
-                setSelected(draft.id);
-              })
-              .catch((cause: unknown) => setError(actionError(cause)))
-              .finally(() => {
-                setBusy(false);
-                onDirty(false);
-              });
+            if (!target) return;
+            const existing = drafts.find(
+              (draft) =>
+                draft.slot === 'primary' &&
+                draft.product_id === target.product_id &&
+                draft.purpose === target.purpose,
+            );
+            if (existing) onSelect(existing.id);
+            else void onCreate(target.product_id, target.purpose, true);
           }}
         >
-          {picked ? '打开创作草稿' : '新建创作草稿'}
+          {target &&
+          drafts.some(
+            (draft) =>
+              draft.slot === 'primary' &&
+              draft.product_id === target.product_id &&
+              draft.purpose === target.purpose,
+          )
+            ? '打开创作草稿'
+            : '新建创作草稿'}
         </button>
       </div>
-      {error && (
-        <p role="alert" className="work-error">
-          {error}{' '}
-          <button
-            type="button"
-            onClick={() => {
-              setError('');
-              setLoading(true);
-              setRetry((value) => value + 1);
-            }}
+      {drafts.length > 0 && (
+        <label>
+          当前草稿{' '}
+          <select
+            value={selected?.id ?? ''}
+            disabled={busy}
+            onChange={(event) => onSelect(event.target.value)}
           >
-            重试
-          </button>
-        </p>
+            <option value="">选择草稿</option>
+            {drafts.map((draft, index) => (
+              <option key={draft.id} value={draft.id}>
+                {task.products.find((item) => item.id === draft.product_id)?.sku} ·{' '}
+                {purposeLabel[draft.purpose]} · {index + 1}
+              </option>
+            ))}
+          </select>
+        </label>
       )}
-      {active && product && (
+      {selected && product && (
         <CreationEditor
-          key={active.id}
-          draft={active}
+          key={selected.id}
+          draft={selected}
           product={product}
           categories={categories}
           token={token}
-          onDirty={reportDirty}
-          onSaved={(draft) =>
-            setDrafts((current) => current.map((item) => (item.id === draft.id ? draft : item)))
-          }
+          edits={edits}
+          onEdit={(next) => onEdit(selected.id, next)}
+          onBusy={onBusy}
+          onSaved={onSaved}
         />
       )}
     </section>

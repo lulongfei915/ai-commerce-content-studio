@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { uploadMedia } from '../../shared/api/upload';
 import { Modal } from '../../shared/ui/Modal';
@@ -8,9 +8,21 @@ import type { Category, Product } from '../products/api';
 import { photoPreviewUrl } from '../products/preview';
 import { TemplatePicker } from '../templates/TemplatePicker';
 import { ParametersFields } from './ParametersFields';
-import { actionError, checkDraft, defaults, draftWrite, issueText, removeReference } from './api';
-import type { Draft, Issue, Parameters } from './api';
+import { VideoFields } from './VideoFields';
+import {
+  actionError,
+  checkDraft,
+  defaults,
+  draftWrite,
+  issueText,
+  loadSnapshot,
+  removeReference,
+  usageLabel,
+} from './api';
+import type { Draft, Issue, Parameters, Reference, VideoParameters } from './api';
 import './creation.css';
+
+export type DraftEdits = { prompt: string; parameters: Parameters; video?: VideoParameters };
 
 export function CreationEditor({
   draft,
@@ -18,28 +30,60 @@ export function CreationEditor({
   categories,
   token,
   onSaved,
-  onDirty,
+  onBusy,
+  edits,
+  onEdit,
+  inCanvas = false,
+  previewUrl,
+  onLocateReference,
 }: {
   draft: Draft;
   product: Product;
   categories: Category[];
   token: string;
   onSaved: (draft: Draft) => void;
-  onDirty: (dirty: boolean) => void;
+  onBusy: (busy: boolean) => void;
+  edits?: DraftEdits;
+  onEdit: (edits: DraftEdits | undefined) => void;
+  inCanvas?: boolean;
+  previewUrl?: (reference: Reference) => string | undefined;
+  onLocateReference?: (reference: Reference) => void;
 }) {
-  const [prompt, setPrompt] = useState(draft.prompt);
-  const [parameters, setParameters] = useState<Parameters>(draft.parameters ?? defaults);
+  const values = edits ?? {
+    prompt: draft.prompt,
+    parameters: draft.parameters ?? defaults,
+    video: draft.video_parameters ?? undefined,
+  };
+  const { prompt, parameters, video } = values;
+  const text = useRef<HTMLTextAreaElement>(null);
   const [picker, setPicker] = useState<'case' | 'template'>();
+  const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof loadSnapshot>>>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [issues, setIssues] = useState<Issue[]>();
-  const dirty =
-    prompt !== draft.prompt || JSON.stringify(parameters) !== JSON.stringify(draft.parameters);
+  const dirty = Boolean(edits);
+  const isVideo = draft.purpose === 'video';
+  const known = new Set(draft.references.map((ref) => ref.id));
+  const dangling = [...prompt.matchAll(/\[\[ref:([^\]\r\n]+)\]\]/g)].some(
+    ([, id]) => !known.has(id),
+  );
   useEffect(() => {
-    onDirty(dirty || busy);
-    return () => onDirty(false);
-  }, [dirty, busy, onDirty]);
+    onBusy(busy);
+    return () => onBusy(false);
+  }, [busy, onBusy]);
+
+  function edit(next: DraftEdits) {
+    onEdit(
+      next.prompt === draft.prompt &&
+        JSON.stringify(next.parameters) === JSON.stringify(draft.parameters ?? defaults) &&
+        JSON.stringify(next.video) === JSON.stringify(draft.video_parameters ?? undefined)
+        ? undefined
+        : next,
+    );
+    setNotice('');
+    setIssues(undefined);
+  }
 
   function start() {
     setBusy(true);
@@ -52,8 +96,12 @@ export function CreationEditor({
     start();
     void operation()
       .then((updated) => {
-        if (mode === 'save' || mode === 'replace') setPrompt(updated.prompt);
-        if (mode !== 'references') setParameters(updated.parameters);
+        if (mode === 'save' || mode === 'replace') onEdit(undefined);
+        if (mode === 'keep') {
+          onEdit(
+            prompt === updated.prompt ? undefined : { ...values, parameters: updated.parameters },
+          );
+        }
         onSaved(updated);
         setPicker(undefined);
         setNotice(mode === 'save' ? '草稿已保存' : '配置已更新');
@@ -62,17 +110,21 @@ export function CreationEditor({
       .finally(() => setBusy(false));
   }
   return (
-    <article className="work-card work-form creative-editor" aria-label="快捷创作编辑器">
+    <article
+      className={`work-form creative-editor${inCanvas ? ' creative-in-canvas' : ' work-card'}`}
+      aria-label="创作编辑器"
+    >
       <div className="work-row">
-        <h3>快捷创作</h3>
+        {!inCanvas && <h3>快捷创作</h3>}
         <span className="work-muted">
-          {product.sku} · {draft.purpose === 'main' ? '主图' : '详情素材'}
+          {product.sku} · {isVideo ? '视频' : draft.purpose === 'main' ? '主图' : '详情素材'}
         </span>
       </div>
       <div className="photo-list" aria-label="已绑定商品实拍">
         {product.photos.map((photo, index) => (
           <img
             key={photo.file_id}
+            loading="lazy"
             src={photoPreviewUrl(product.id, photo.file_id)}
             alt={`${product.name}实拍 ${index + 1}`}
           />
@@ -81,39 +133,38 @@ export function CreationEditor({
       <label className="work-form creative-prompt">
         提示词
         <textarea
+          ref={text}
           rows={5}
           maxLength={6000}
           value={prompt}
           disabled={busy}
-          onChange={(event) => {
-            setPrompt(event.target.value);
-            setNotice('');
-            setIssues(undefined);
-          }}
+          onChange={(event) => edit({ ...values, prompt: event.target.value })}
         />
       </label>
       <fieldset className="work-form" disabled={busy}>
-        <legend>图片参数</legend>
-        <ParametersFields
-          value={parameters}
-          onChange={(value) => {
-            setParameters(value);
-            setNotice('');
-            setIssues(undefined);
-          }}
-        />
+        <legend>{isVideo ? '视频参数' : '图片参数'}</legend>
+        {isVideo && video ? (
+          <VideoFields value={video} onChange={(value) => edit({ ...values, video: value })} />
+        ) : (
+          <ParametersFields
+            value={parameters}
+            onChange={(value) => edit({ ...values, parameters: value })}
+          />
+        )}
       </fieldset>
       <div className="work-actions">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            setError('');
-            setPicker('template');
-          }}
-        >
-          {draft.template_version ? `切换模板 · V${draft.template_version}` : '应用模板'}
-        </button>
+        {!isVideo && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setError('');
+              setPicker('template');
+            }}
+          >
+            {draft.template_version ? `切换模板 · V${draft.template_version}` : '应用模板'}
+          </button>
+        )}
         {draft.template_id && (
           <button
             type="button"
@@ -161,28 +212,95 @@ export function CreationEditor({
       </div>
       {!!draft.references.length && (
         <ul className="creative-references">
-          {draft.references.map((ref, index) => (
-            <li key={ref.id}>
-              {ref.kind === 'case' && <img src={casePreview(ref.source_id)} alt="" />}
-              <span>
-                参考 {index + 1} · {ref.label}{' '}
-                <small>
-                  {ref.origin === 'template' ? '模板附带' : '独立参考'} · 文件 V{ref.file_version}
-                </small>
-              </span>
-              {ref.origin === 'independent' && (
+          {draft.references.map((ref, index) => {
+            const src =
+              previewUrl?.(ref) ??
+              (ref.kind === 'case' && !inCanvas ? casePreview(ref.source_id) : undefined);
+            return (
+              <li key={ref.id}>
+                {src && ref.media !== 'video' && <img src={src} loading="lazy" alt="" />}
+                <span>
+                  参考 {index + 1} · {ref.label}{' '}
+                  <small>
+                    {usageLabel[ref.usage ?? 'expression']} · 文件 V{ref.file_version}
+                  </small>
+                </span>
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => run(() => removeReference(draft, token, ref.id), 'references')}
-                  aria-label={`移除参考 ${index + 1}`}
+                  onClick={() => {
+                    const at = text.current?.selectionStart ?? prompt.length;
+                    const end = text.current?.selectionEnd ?? at;
+                    const tag = `[[ref:${ref.id}]]`;
+                    const next = `${prompt.slice(0, at)}${tag}${prompt.slice(end)}`;
+                    if (next.length > 6000) return;
+                    edit({ ...values, prompt: next });
+                    requestAnimationFrame(() => {
+                      text.current?.focus();
+                      text.current?.setSelectionRange(at + tag.length, at + tag.length);
+                    });
+                  }}
+                  aria-label={`插入参考 ${index + 1} 标签`}
                 >
-                  移除
+                  插入标签
                 </button>
-              )}
-            </li>
-          ))}
+                {onLocateReference && (
+                  <button type="button" onClick={() => onLocateReference(ref)}>
+                    定位
+                  </button>
+                )}
+                {ref.origin === 'independent' && (
+                  <>
+                    <select
+                      aria-label={`参考 ${index + 1} 用途`}
+                      value={ref.usage ?? 'expression'}
+                      disabled={busy}
+                      onChange={(event) =>
+                        run(
+                          () =>
+                            draftWrite(
+                              draft,
+                              token,
+                              `/references/${ref.id}`,
+                              { usage: event.target.value },
+                              'PATCH',
+                            ),
+                          'references',
+                        )
+                      }
+                    >
+                      {Object.entries(usageLabel)
+                        .filter(
+                          ([usage]) =>
+                            usage === ref.usage ||
+                            (usage !== 'product' &&
+                              (isVideo || !['first_frame', 'last_frame'].includes(usage))),
+                        )
+                        .map(([usage, label]) => (
+                          <option key={usage} value={usage}>
+                            {label}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => run(() => removeReference(draft, token, ref.id), 'references')}
+                      aria-label={`移除参考 ${index + 1}`}
+                    >
+                      移除
+                    </button>
+                  </>
+                )}
+              </li>
+            );
+          })}
         </ul>
+      )}
+      {dangling && (
+        <p role="alert" className="work-error">
+          提示词含已移除的引用标签。
+        </p>
       )}
       {!picker && error && (
         <p role="alert" className="work-error">
@@ -205,6 +323,44 @@ export function CreationEditor({
           <p role="status">已保存的草稿通过生成前检查。</p>
         ))}
       <footer className="work-actions">
+        {inCanvas && (
+          <button
+            type="button"
+            disabled={busy || dirty || dangling}
+            onClick={() => {
+              start();
+              void loadSnapshot(draft)
+                .then(setSnapshot)
+                .catch((cause: unknown) => setError(actionError(cause)))
+                .finally(() => setBusy(false));
+            }}
+          >
+            核对生成输入
+          </button>
+        )}
+        {inCanvas && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              edit({
+                ...values,
+                parameters: defaults,
+                video: isVideo
+                  ? {
+                      model: 'seedance-2.0',
+                      ratio: '16:9',
+                      resolution: '720p',
+                      duration: 5,
+                      count: 1,
+                    }
+                  : undefined,
+              })
+            }
+          >
+            恢复默认参数
+          </button>
+        )}
         <button
           type="button"
           disabled={busy || dirty}
@@ -223,7 +379,20 @@ export function CreationEditor({
           className="work-primary"
           disabled={busy || !dirty}
           onClick={() =>
-            run(() => draftWrite(draft, token, '', { prompt, parameters }, 'PATCH'), 'save')
+            run(
+              () =>
+                draftWrite(
+                  draft,
+                  token,
+                  '',
+                  {
+                    prompt,
+                    ...(isVideo ? { video_parameters: video } : { parameters }),
+                  },
+                  'PATCH',
+                ),
+              'save',
+            )
           }
         >
           保存草稿
@@ -235,7 +404,8 @@ export function CreationEditor({
             categories={categories}
             category={product.category}
             purpose={draft.purpose}
-            imageOnly
+            imageOnly={!isVideo}
+            allowVideo={isVideo}
             disabled={busy}
             onPick={(item) =>
               run(
@@ -271,6 +441,28 @@ export function CreationEditor({
             );
           }}
         />
+      )}
+      {snapshot && (
+        <Modal title="生成输入核对" onClose={() => setSnapshot(undefined)}>
+          <div className="work-form">
+            <p>
+              {product.sku} · 商品资料 V{snapshot.product_fact_version} · 草稿 V
+              {snapshot.draft.version}
+            </p>
+            <p>
+              {snapshot.draft.video_parameters
+                ? `${snapshot.draft.video_parameters.ratio} · ${snapshot.draft.video_parameters.resolution} · ${snapshot.draft.video_parameters.duration} 秒`
+                : `${snapshot.draft.parameters.ratio} · ${snapshot.draft.parameters.resolution} · ${snapshot.draft.parameters.count} 张`}
+            </p>
+            <p className="creative-prewrap">{snapshot.draft.prompt}</p>
+            <p>商品实拍 {snapshot.product_photos.length} 张</p>
+            {snapshot.references.map((ref) => (
+              <p key={ref.id}>
+                {ref.label} · 文件 V{ref.file_version} · {usageLabel[ref.usage ?? 'expression']}
+              </p>
+            ))}
+          </div>
+        </Modal>
       )}
     </article>
   );

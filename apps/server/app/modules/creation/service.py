@@ -1,3 +1,5 @@
+import re
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,7 +13,9 @@ from app.shared.studio_errors import FieldIssue, reject
 from .capabilities import ImageParameters, validate_parameters
 from .models import Creation
 from .references import resolve_reference, validate_references
-from .schemas import ApplyTemplate, CreationView, ReferenceInput, ReferenceView
+from .schemas import ApplyTemplate, CreationView, InputSnapshot, ReferenceInput, ReferenceView
+
+REFERENCE_TAG = re.compile(r"\[\[ref:([^\]\r\n]+)\]\]")
 
 
 def get_creation(db: Session, tenant: str, identifier: str, *, lock: bool = False) -> Creation:
@@ -51,8 +55,12 @@ def save(
     fact = get_fact(db, product, product.fact_version)
     files = {ref.file_id for ref in references} | {str(photo["file_id"]) for photo in fact.photos}
     if validate_sources:
-        validate_references(db, product, references, item.purpose)
-    validate_parameters(parameters, len(files))
+        validate_references(db, product, references, item)
+    if item.purpose == "video":
+        if len(files) > 10:
+            reject("references", "reference_limit")
+    else:
+        validate_parameters(parameters, len(files))
     item.references = [ref.model_dump() for ref in references]
     item.parameters = parameters.model_dump()
     item.version += 1
@@ -95,18 +103,32 @@ def template_check(db: Session, item: Creation) -> None:
         reject("template_id", "template_disabled")
 
 
-def require_ready(db: Session, item: Creation) -> CreationView:
-    """Shared submission guard for execution services."""
+def build_input_snapshot(db: Session, item: Creation) -> InputSnapshot:
     template_check(db, item)
     draft = view(item)
     product = get_product(db, item.tenant_id, item.product_id)
     if not draft.prompt.strip():
         reject("prompt", "prompt_required")
+    if set(REFERENCE_TAG.findall(draft.prompt)) - {ref.id for ref in draft.references}:
+        reject("prompt", "reference_label_dangling")
     photos = require_generation_inputs(db, product, draft.purpose)
-    validate_references(db, product, draft.references, item.purpose)
+    validate_references(db, product, draft.references, item)
     files = {photo.file_id for photo in photos} | {ref.file_id for ref in draft.references}
-    validate_parameters(draft.parameters, len(files))
-    return draft
+    if item.purpose != "video":
+        validate_parameters(draft.parameters, len(files))
+    elif len(files) > 10:
+        reject("references", "reference_limit")
+    return InputSnapshot(
+        draft=draft,
+        product_fact_version=product.fact_version,
+        product_photos=photos,
+        references=draft.references,
+    )
+
+
+def require_ready(db: Session, item: Creation) -> CreationView:
+    """Shared submission guard for execution services."""
+    return build_input_snapshot(db, item).draft
 
 
 def readiness(db: Session, item: Creation) -> list[FieldIssue]:

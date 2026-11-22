@@ -933,6 +933,221 @@
         }
       }
     },
+    "/api/v1/tasks/{task_id}/canvas": {
+      "get": {
+        "tags": [
+          "画布"
+        ],
+        "summary": "Get Canvas",
+        "operationId": "get_canvas_api_v1_tasks__task_id__canvas_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanvasView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/canvas/layout": {
+      "put": {
+        "tags": [
+          "画布"
+        ],
+        "summary": "Put Layout",
+        "operationId": "put_layout_api_v1_tasks__task_id__canvas_layout_put",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LayoutEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LayoutView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/canvas/viewport": {
+      "put": {
+        "tags": [
+          "画布"
+        ],
+        "summary": "Put Viewport",
+        "operationId": "put_viewport_api_v1_tasks__task_id__canvas_viewport_put",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ViewportEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewportView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/canvas/preview/{node_id}": {
+      "get": {
+        "tags": [
+          "画布"
+        ],
+        "summary": "Preview",
+        "operationId": "preview_api_v1_tasks__task_id__canvas_preview__node_id__get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
+            }
+          },
+          {
+            "name": "file_version",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Version"
+            }
+          },
+          {
+            "name": "source_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/products/{product_id}/photos/{file_id}/preview": {
       "get": {
         "tags": [
@@ -1578,6 +1793,48 @@
         }
       }
     },
+    "/api/v1/creations/{creation_id}/input-snapshot": {
+      "get": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Input Snapshot",
+        "operationId": "input_snapshot_api_v1_creations__creation_id__input_snapshot_get",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InputSnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/creations/{creation_id}/references": {
       "post": {
         "tags": [
@@ -2190,6 +2447,232 @@
         ],
         "title": "ApplyTemplate"
       },
+      "CanvasEdge": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "usage": {
+            "type": "string",
+            "enum": [
+              "product",
+              "expression",
+              "composition",
+              "lighting",
+              "first_frame",
+              "last_frame"
+            ],
+            "title": "Usage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "target",
+          "usage"
+        ],
+        "title": "CanvasEdge"
+      },
+      "CanvasNode": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "creation",
+              "upload",
+              "case",
+              "result"
+            ],
+            "title": "Kind"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "media": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video"
+            ],
+            "title": "Media"
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Id"
+          },
+          "source_creation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Creation Id"
+          },
+          "file_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Id"
+          },
+          "file_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Version"
+          },
+          "source_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "allowed_purposes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "main",
+                    "detail",
+                    "video"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Purposes"
+          },
+          "previewable": {
+            "type": "boolean",
+            "title": "Previewable",
+            "default": false
+          },
+          "referenceable": {
+            "type": "boolean",
+            "title": "Referenceable",
+            "default": false
+          },
+          "execution_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "source_id",
+          "label",
+          "media",
+          "status"
+        ],
+        "title": "CanvasNode"
+      },
+      "CanvasView": {
+        "properties": {
+          "layout": {
+            "$ref": "#/components/schemas/LayoutView"
+          },
+          "viewport": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ViewportView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/CanvasNode"
+            },
+            "type": "array",
+            "title": "Nodes"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/CanvasEdge"
+            },
+            "type": "array",
+            "title": "Edges"
+          },
+          "creations": {
+            "items": {
+              "$ref": "#/components/schemas/CreationView"
+            },
+            "type": "array",
+            "title": "Creations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "layout",
+          "viewport",
+          "nodes",
+          "edges",
+          "creations"
+        ],
+        "title": "CanvasView"
+      },
       "Capabilities": {
         "properties": {
           "model": {
@@ -2508,7 +2991,8 @@
             "type": "string",
             "enum": [
               "main",
-              "detail"
+              "detail",
+              "video"
             ],
             "title": "Purpose"
           },
@@ -2520,6 +3004,16 @@
           },
           "parameters": {
             "$ref": "#/components/schemas/ImageParameters"
+          },
+          "video_parameters": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VideoParameters"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "primary": {
             "type": "boolean",
@@ -2563,6 +3057,16 @@
                 "type": "null"
               }
             ]
+          },
+          "video_parameters": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VideoParameters"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -2590,7 +3094,8 @@
             "type": "string",
             "enum": [
               "main",
-              "detail"
+              "detail",
+              "video"
             ],
             "title": "Purpose"
           },
@@ -2604,6 +3109,16 @@
           },
           "parameters": {
             "$ref": "#/components/schemas/ImageParameters"
+          },
+          "video_parameters": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VideoParameters"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "references": {
             "items": {
@@ -2874,6 +3389,81 @@
         "type": "object",
         "title": "ImageParameters"
       },
+      "InputSnapshot": {
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/CreationView"
+          },
+          "product_fact_version": {
+            "type": "integer",
+            "title": "Product Fact Version"
+          },
+          "product_photos": {
+            "items": {
+              "$ref": "#/components/schemas/ProductPhoto"
+            },
+            "type": "array",
+            "title": "Product Photos"
+          },
+          "references": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceView"
+            },
+            "type": "array",
+            "title": "References"
+          }
+        },
+        "type": "object",
+        "required": [
+          "draft",
+          "product_fact_version",
+          "product_photos",
+          "references"
+        ],
+        "title": "InputSnapshot"
+      },
+      "LayoutEdit": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Version"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/NodePosition"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "title": "Positions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "positions"
+        ],
+        "title": "LayoutEdit"
+      },
+      "LayoutView": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 0
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/NodePosition"
+            },
+            "type": "array",
+            "title": "Positions"
+          }
+        },
+        "type": "object",
+        "title": "LayoutView"
+      },
       "MediaFile": {
         "properties": {
           "id": {
@@ -2934,6 +3524,35 @@
           "duration_seconds"
         ],
         "title": "MediaFile"
+      },
+      "NodePosition": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "maximum": 10000000.0,
+            "minimum": -10000000.0,
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "maximum": 10000000.0,
+            "minimum": -10000000.0,
+            "title": "Y"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^(creation|upload|case|result):[^:]{1,36}$",
+            "title": "Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "id"
+        ],
+        "title": "NodePosition"
       },
       "Permission": {
         "type": "string",
@@ -3197,7 +3816,8 @@
             "type": "string",
             "enum": [
               "case",
-              "upload"
+              "upload",
+              "result"
             ],
             "title": "Kind"
           },
@@ -3210,12 +3830,39 @@
           "usage": {
             "type": "string",
             "enum": [
+              "product",
               "expression",
               "composition",
-              "lighting"
+              "lighting",
+              "first_frame",
+              "last_frame"
             ],
             "title": "Usage",
             "default": "expression"
+          },
+          "file_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Version"
+          },
+          "source_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version"
           }
         },
         "additionalProperties": false,
@@ -3237,9 +3884,12 @@
           "usage": {
             "type": "string",
             "enum": [
+              "product",
               "expression",
               "composition",
-              "lighting"
+              "lighting",
+              "first_frame",
+              "last_frame"
             ],
             "title": "Usage"
           }
@@ -3258,7 +3908,8 @@
             "type": "string",
             "enum": [
               "case",
-              "upload"
+              "upload",
+              "result"
             ],
             "title": "Kind"
           },
@@ -3271,9 +3922,12 @@
           "usage": {
             "type": "string",
             "enum": [
+              "product",
               "expression",
               "composition",
-              "lighting"
+              "lighting",
+              "first_frame",
+              "last_frame"
             ],
             "title": "Usage",
             "default": "expression"
@@ -3305,6 +3959,15 @@
           "label": {
             "type": "string",
             "title": "Label"
+          },
+          "media": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video"
+            ],
+            "title": "Media",
+            "default": "image"
           }
         },
         "additionalProperties": false,
@@ -3924,6 +4587,121 @@
           "expected_version"
         ],
         "title": "VersionInput"
+      },
+      "VideoParameters": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "const": "seedance-2.0",
+            "title": "Model",
+            "default": "seedance-2.0"
+          },
+          "ratio": {
+            "type": "string",
+            "enum": [
+              "16:9",
+              "9:16",
+              "1:1"
+            ],
+            "title": "Ratio",
+            "default": "16:9"
+          },
+          "resolution": {
+            "type": "string",
+            "const": "720p",
+            "title": "Resolution",
+            "default": "720p"
+          },
+          "duration": {
+            "type": "integer",
+            "enum": [
+              5,
+              10
+            ],
+            "title": "Duration",
+            "default": 5
+          },
+          "count": {
+            "type": "integer",
+            "const": 1,
+            "title": "Count",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "VideoParameters"
+      },
+      "ViewportEdit": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "maximum": 10000000.0,
+            "minimum": -10000000.0,
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "maximum": 10000000.0,
+            "minimum": -10000000.0,
+            "title": "Y"
+          },
+          "zoom": {
+            "type": "number",
+            "maximum": 2.0,
+            "minimum": 0.1,
+            "title": "Zoom"
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expected Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "zoom",
+          "expected_version"
+        ],
+        "title": "ViewportEdit"
+      },
+      "ViewportView": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "maximum": 10000000.0,
+            "minimum": -10000000.0,
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "maximum": 10000000.0,
+            "minimum": -10000000.0,
+            "title": "Y"
+          },
+          "zoom": {
+            "type": "number",
+            "maximum": 2.0,
+            "minimum": 0.1,
+            "title": "Zoom"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "zoom",
+          "version"
+        ],
+        "title": "ViewportView"
       }
     }
   }

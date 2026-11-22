@@ -297,6 +297,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks/{task_id}/canvas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Canvas */
+        get: operations["get_canvas_api_v1_tasks__task_id__canvas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/canvas/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Layout */
+        put: operations["put_layout_api_v1_tasks__task_id__canvas_layout_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/canvas/viewport": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Viewport */
+        put: operations["put_viewport_api_v1_tasks__task_id__canvas_viewport_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/canvas/preview/{node_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview */
+        get: operations["preview_api_v1_tasks__task_id__canvas_preview__node_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/products/{product_id}/photos/{file_id}/preview": {
         parameters: {
             query?: never;
@@ -446,6 +514,23 @@ export interface paths {
         };
         /** Creation Readiness */
         get: operations["creation_readiness_api_v1_creations__creation_id__readiness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/creations/{creation_id}/input-snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Input Snapshot */
+        get: operations["input_snapshot_api_v1_creations__creation_id__input_snapshot_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -610,6 +695,76 @@ export interface components {
              */
             prompt_action: "keep" | "replace";
         };
+        /** CanvasEdge */
+        CanvasEdge: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+            /**
+             * Usage
+             * @enum {string}
+             */
+            usage: "product" | "expression" | "composition" | "lighting" | "first_frame" | "last_frame";
+        };
+        /** CanvasNode */
+        CanvasNode: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "creation" | "upload" | "case" | "result";
+            /** Source Id */
+            source_id: string;
+            /** Label */
+            label: string;
+            /**
+             * Media
+             * @enum {string}
+             */
+            media: "image" | "video";
+            /** Product Id */
+            product_id?: string | null;
+            /** Source Creation Id */
+            source_creation_id?: string | null;
+            /** File Id */
+            file_id?: string | null;
+            /** File Version */
+            file_version?: number | null;
+            /** Source Version */
+            source_version?: number | null;
+            /** Status */
+            status: string;
+            /** Allowed Purposes */
+            allowed_purposes?: ("main" | "detail" | "video")[] | null;
+            /**
+             * Previewable
+             * @default false
+             */
+            previewable: boolean;
+            /**
+             * Referenceable
+             * @default false
+             */
+            referenceable: boolean;
+            /** Execution Id */
+            execution_id?: string | null;
+        };
+        /** CanvasView */
+        CanvasView: {
+            layout: components["schemas"]["LayoutView"];
+            viewport: components["schemas"]["ViewportView"] | null;
+            /** Nodes */
+            nodes: components["schemas"]["CanvasNode"][];
+            /** Edges */
+            edges: components["schemas"]["CanvasEdge"][];
+            /** Creations */
+            creations: components["schemas"]["CreationView"][];
+        };
         /** Capabilities */
         Capabilities: {
             /** Model */
@@ -709,13 +864,14 @@ export interface components {
              * Purpose
              * @enum {string}
              */
-            purpose: "main" | "detail";
+            purpose: "main" | "detail" | "video";
             /**
              * Prompt
              * @default
              */
             prompt: string;
             parameters?: components["schemas"]["ImageParameters"];
+            video_parameters?: components["schemas"]["VideoParameters"] | null;
             /**
              * Primary
              * @default true
@@ -729,6 +885,7 @@ export interface components {
             /** Prompt */
             prompt?: string | null;
             parameters?: components["schemas"]["ImageParameters"] | null;
+            video_parameters?: components["schemas"]["VideoParameters"] | null;
         };
         /** CreationView */
         CreationView: {
@@ -742,12 +899,13 @@ export interface components {
              * Purpose
              * @enum {string}
              */
-            purpose: "main" | "detail";
+            purpose: "main" | "detail" | "video";
             /** Slot */
             slot: string;
             /** Prompt */
             prompt: string;
             parameters: components["schemas"]["ImageParameters"];
+            video_parameters?: components["schemas"]["VideoParameters"] | null;
             /** References */
             references: components["schemas"]["ReferenceView"][];
             /** Template Id */
@@ -839,6 +997,33 @@ export interface components {
              */
             count: number;
         };
+        /** InputSnapshot */
+        InputSnapshot: {
+            draft: components["schemas"]["CreationView"];
+            /** Product Fact Version */
+            product_fact_version: number;
+            /** Product Photos */
+            product_photos: components["schemas"]["ProductPhoto"][];
+            /** References */
+            references: components["schemas"]["ReferenceView"][];
+        };
+        /** LayoutEdit */
+        LayoutEdit: {
+            /** Expected Version */
+            expected_version: number;
+            /** Positions */
+            positions: components["schemas"]["NodePosition"][];
+        };
+        /** LayoutView */
+        LayoutView: {
+            /**
+             * Version
+             * @default 0
+             */
+            version: number;
+            /** Positions */
+            positions?: components["schemas"]["NodePosition"][];
+        };
         /** MediaFile */
         MediaFile: {
             /** Id */
@@ -863,6 +1048,15 @@ export interface components {
             height: number;
             /** Duration Seconds */
             duration_seconds: number | null;
+        };
+        /** NodePosition */
+        NodePosition: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** Id */
+            id: string;
         };
         /**
          * Permission
@@ -963,7 +1157,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "case" | "upload";
+            kind: "case" | "upload" | "result";
             /** Source Id */
             source_id: string;
             /**
@@ -971,7 +1165,11 @@ export interface components {
              * @default expression
              * @enum {string}
              */
-            usage: "expression" | "composition" | "lighting";
+            usage: "product" | "expression" | "composition" | "lighting" | "first_frame" | "last_frame";
+            /** File Version */
+            file_version?: number | null;
+            /** Source Version */
+            source_version?: number | null;
         };
         /** ReferenceEdit */
         ReferenceEdit: {
@@ -981,7 +1179,7 @@ export interface components {
              * Usage
              * @enum {string}
              */
-            usage: "expression" | "composition" | "lighting";
+            usage: "product" | "expression" | "composition" | "lighting" | "first_frame" | "last_frame";
         };
         /** ReferenceView */
         ReferenceView: {
@@ -989,7 +1187,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "case" | "upload";
+            kind: "case" | "upload" | "result";
             /** Source Id */
             source_id: string;
             /**
@@ -997,7 +1195,7 @@ export interface components {
              * @default expression
              * @enum {string}
              */
-            usage: "expression" | "composition" | "lighting";
+            usage: "product" | "expression" | "composition" | "lighting" | "first_frame" | "last_frame";
             /** Id */
             id: string;
             /**
@@ -1013,6 +1211,12 @@ export interface components {
             source_version: number;
             /** Label */
             label: string;
+            /**
+             * Media
+             * @default image
+             * @enum {string}
+             */
+            media: "image" | "video";
         };
         /**
          * Role
@@ -1225,6 +1429,61 @@ export interface components {
         VersionInput: {
             /** Expected Version */
             expected_version: number;
+        };
+        /** VideoParameters */
+        VideoParameters: {
+            /**
+             * Model
+             * @default seedance-2.0
+             * @constant
+             */
+            model: "seedance-2.0";
+            /**
+             * Ratio
+             * @default 16:9
+             * @enum {string}
+             */
+            ratio: "16:9" | "9:16" | "1:1";
+            /**
+             * Resolution
+             * @default 720p
+             * @constant
+             */
+            resolution: "720p";
+            /**
+             * Duration
+             * @default 5
+             * @enum {integer}
+             */
+            duration: 5 | 10;
+            /**
+             * Count
+             * @default 1
+             * @constant
+             */
+            count: 1;
+        };
+        /** ViewportEdit */
+        ViewportEdit: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** Zoom */
+            zoom: number;
+            /** Expected Version */
+            expected_version: number;
+        };
+        /** ViewportView */
+        ViewportView: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** Zoom */
+            zoom: number;
+            /** Version */
+            version: number;
         };
     };
     responses: never;
@@ -1881,6 +2140,140 @@ export interface operations {
             };
         };
     };
+    get_canvas_api_v1_tasks__task_id__canvas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanvasView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_layout_api_v1_tasks__task_id__canvas_layout_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LayoutEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_viewport_api_v1_tasks__task_id__canvas_viewport_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ViewportEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewportView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_v1_tasks__task_id__canvas_preview__node_id__get: {
+        parameters: {
+            query: {
+                file_version: number;
+                source_version?: number | null;
+            };
+            header?: never;
+            path: {
+                task_id: string;
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     previewProductPhoto: {
         parameters: {
             query?: never;
@@ -2283,6 +2676,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Readiness"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    input_snapshot_api_v1_creations__creation_id__input_snapshot_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                creation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InputSnapshot"];
                 };
             };
             /** @description Validation Error */

@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import { roleLabel } from '../auth/session';
 import type { Session } from '../auth/session';
 import { CaseLibrary } from '../cases/CaseLibrary';
-import { QuickCreation } from '../creation/QuickCreation';
 import { TemplateManager } from '../templates/TemplateManager';
 import { ProductCatalog } from '../products/ProductCatalog';
 import { ProductEditor } from '../products/ProductEditor';
@@ -14,6 +13,7 @@ import type { Task } from './api';
 import { TaskDetail } from './TaskDetail';
 import { TaskList } from './TaskList';
 import { TaskSetup } from './TaskSetup';
+import { TaskStudio } from './TaskStudio';
 import './workspace.css';
 
 type View = 'workbench' | 'tasks' | 'products' | 'current' | 'templates' | 'cases';
@@ -226,26 +226,23 @@ export function Workspace({
       {view === 'templates' && canManage && (
         <TemplateManager categories={categories} token={session.csrf_token} />
       )}
-      {view === 'current' && current && canCreate && (
-        <QuickCreation
-          key={`creative-${current.id}`}
-          task={current}
-          categories={categories}
-          token={session.csrf_token}
-          onDirty={setCreativeDirty}
-        />
-      )}
-
       {view === 'current' && current && (
-        <TaskDetail
+        <TaskStudio
           key={current.id}
           task={current}
           categories={categories}
-          token={session.csrf_token}
-          canCreate={canCreate}
-          onChange={setCurrent}
-          onAdd={() => setSetup({ task: current })}
-        />
+          session={session}
+          onDirty={setCreativeDirty}
+        >
+          <TaskDetail
+            task={current}
+            categories={categories}
+            token={session.csrf_token}
+            canCreate={canCreate}
+            onChange={setCurrent}
+            onAdd={() => setSetup({ task: current })}
+          />
+        </TaskStudio>
       )}
       {view === 'products' && (
         <ProductCatalog

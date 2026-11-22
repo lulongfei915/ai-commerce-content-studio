@@ -25,11 +25,21 @@ from .schemas import (
     CreationCreate,
     CreationEdit,
     CreationView,
+    InputSnapshot,
     Readiness,
     ReferenceCreate,
     ReferenceEdit,
+    VideoParameters,
 )
-from .service import apply_template, get_creation, member_product, readiness, save, view
+from .service import (
+    apply_template,
+    build_input_snapshot,
+    get_creation,
+    member_product,
+    readiness,
+    save,
+    view,
+)
 
 router = APIRouter(tags=["共用创作草稿"])
 
@@ -82,7 +92,10 @@ def create_creation(
         if existing is not None:
             return view(existing)
     fact = get_fact(db, product, product.fact_version)
-    validate_parameters(data.parameters, len(fact.photos))
+    if data.purpose != "video":
+        if data.video_parameters is not None:
+            reject("video_parameters", "parameters_media_mismatch")
+        validate_parameters(data.parameters, len(fact.photos))
     item = Creation(
         tenant_id=tenant,
         task_id=task_id,
@@ -90,6 +103,9 @@ def create_creation(
         purpose=data.purpose,
         prompt=data.prompt,
         parameters=data.parameters.model_dump(),
+        video_parameters=(data.video_parameters or VideoParameters()).model_dump()
+        if data.purpose == "video"
+        else None,
         slot="primary" if data.primary else new_id(),
     )
     db.add(item)
@@ -119,6 +135,12 @@ def edit_creation(
     product = member_product(db, item.tenant_id, item.task_id, item.product_id)
     if data.prompt is not None:
         item.prompt = data.prompt
+    if data.video_parameters is not None:
+        if item.purpose != "video":
+            reject("video_parameters", "parameters_media_mismatch")
+        item.video_parameters = data.video_parameters.model_dump()
+    if data.parameters is not None and item.purpose == "video":
+        reject("parameters", "parameters_media_mismatch")
     return save(
         db,
         item,
@@ -145,15 +167,29 @@ def creation_readiness(creation_id: str, identity: ActiveIdentity, db: Database)
     return Readiness(issues=readiness(db, get_creation(db, identity.tenant.id, creation_id)))
 
 
+@router.get("/creations/{creation_id}/input-snapshot")
+def input_snapshot(creation_id: str, identity: ActiveIdentity, db: Database) -> InputSnapshot:
+    require_permission(identity, Permission.VIEW)
+    return build_input_snapshot(db, get_creation(db, identity.tenant.id, creation_id))
+
+
 @router.post("/creations/{creation_id}/references")
 def add_creation_reference(
     creation_id: str, data: ReferenceCreate, identity: WriteIdentity, db: Database
 ) -> CreationView:
+    require_permission(identity, Permission.CREATE)
+    target = get_creation(db, identity.tenant.id, creation_id)
+    get_task(db, target.tenant_id, target.task_id, lock=True)
+    db.expire(target)
     item = editable(db, identity, creation_id, data.expected_version)
     draft = view(item)
     product = member_product(db, item.tenant_id, item.task_id, item.product_id)
     field = f"references.{len(draft.references)}"
-    reference = resolve_reference(db, product, data, field, item.purpose)
+    reference = resolve_reference(db, product, data, field, item.purpose, draft=item)
+    if (data.file_version is not None and data.file_version != reference.file_version) or (
+        data.source_version is not None and data.source_version != reference.source_version
+    ):
+        reject(field, "reference_version_invalid")
     if any(ref.file_id == reference.file_id for ref in draft.references):
         reject(field, "reference_duplicate")
     return save(db, item, product, [*draft.references, reference], draft.parameters)
@@ -163,6 +199,10 @@ def add_creation_reference(
 def edit_creation_reference(
     creation_id: str, reference_id: str, data: ReferenceEdit, identity: WriteIdentity, db: Database
 ) -> CreationView:
+    require_permission(identity, Permission.CREATE)
+    target = get_creation(db, identity.tenant.id, creation_id)
+    get_task(db, target.tenant_id, target.task_id, lock=True)
+    db.expire(target)
     item = editable(db, identity, creation_id, data.expected_version)
     draft = view(item)
     reference = next((ref for ref in draft.references if ref.id == reference_id), None)

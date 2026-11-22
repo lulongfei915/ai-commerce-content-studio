@@ -1,6 +1,8 @@
 import { createPortal } from 'react-dom';
-import { useId, useLayoutEffect, useRef } from 'react';
+import { useContext, useId, useLayoutEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
+
+import { ModalContainer } from './ModalContainer';
 
 type Props = {
   title: string;
@@ -10,8 +12,10 @@ type Props = {
 };
 
 export function Modal({ title, children, onClose, busy = false }: Props) {
+  const container = useContext(ModalContainer);
   const ref = useRef<HTMLDialogElement>(null);
   const label = useId();
+  const bounds = container?.getBoundingClientRect();
   useLayoutEffect(() => {
     const dialog = ref.current;
     const trigger = document.activeElement;
@@ -26,7 +30,19 @@ export function Modal({ title, children, onClose, busy = false }: Props) {
   return createPortal(
     <dialog
       ref={ref}
-      className="studio-dialog"
+      className={`studio-dialog${container ? ' studio-dialog-in-canvas' : ''}`}
+      style={
+        bounds
+          ? {
+              top: bounds.top,
+              left: bounds.left,
+              width: `min(660px, ${bounds.width - 20}px)`,
+              maxHeight: `${bounds.height - 20}px`,
+              margin: 0,
+              translate: `${Math.max(10, (bounds.width - 660) / 2)}px 10px`,
+            }
+          : undefined
+      }
       aria-labelledby={label}
       onCancel={(event) => {
         event.preventDefault();
@@ -41,6 +57,6 @@ export function Modal({ title, children, onClose, busy = false }: Props) {
       </header>
       {children}
     </dialog>,
-    document.body,
+    container ?? document.body,
   );
 }

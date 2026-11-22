@@ -8,6 +8,7 @@ from sqlalchemy import engine_from_config, pool
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.modules.assets import models as assets_models  # noqa: E402, F401
+from app.modules.canvas import models as canvas_models  # noqa: E402, F401
 from app.modules.cases import models as cases_models  # noqa: E402, F401
 from app.modules.creation import models as creation_models  # noqa: E402, F401
 from app.modules.identity import models as identity_models  # noqa: E402, F401

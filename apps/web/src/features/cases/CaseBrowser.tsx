@@ -11,6 +11,7 @@ type Props = {
   category?: string;
   purpose?: UsagePurpose;
   imageOnly?: boolean;
+  allowVideo?: boolean;
   revision?: number;
   selected?: string[];
   canPlayVideo?: boolean;
@@ -24,6 +25,7 @@ export function CaseBrowser({
   category,
   purpose,
   imageOnly,
+  allowVideo,
   revision,
   selected,
   canPlayVideo,
@@ -129,7 +131,7 @@ export function CaseBrowser({
                     (disabled ||
                       !item.usage_scope ||
                       (purpose !== undefined && !item.usage_purposes?.includes(purpose)) ||
-                      item.media !== 'image' ||
+                      (item.media !== 'image' && !allowVideo) ||
                       (selected?.length ?? 0) >= 10)
                   }
                   onClick={() => onPick(item)}
