@@ -2126,6 +2126,1117 @@
         }
       }
     },
+    "/api/v1/outputs/{identifier}/reconcile": {
+      "post": {
+        "tags": [
+          "图片执行"
+        ],
+        "summary": "Reconcile",
+        "operationId": "reconcile_api_v1_outputs__identifier__reconcile_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reconciliation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/outputs/{identifier}/retry": {
+      "post": {
+        "tags": [
+          "图片执行"
+        ],
+        "summary": "Retry",
+        "operationId": "retry_api_v1_outputs__identifier__retry_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/creations/{creation_id}/executions": {
+      "get": {
+        "tags": [
+          "图片执行"
+        ],
+        "summary": "History",
+        "operationId": "history_api_v1_creations__creation_id__executions_get",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExecutionState"
+                  },
+                  "title": "Response History Api V1 Creations  Creation Id  Executions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "图片执行"
+        ],
+        "summary": "Start",
+        "operationId": "start_api_v1_creations__creation_id__executions_post",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Submission"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions/{execution_id}": {
+      "get": {
+        "tags": [
+          "图片执行"
+        ],
+        "summary": "Progress",
+        "operationId": "progress_api_v1_executions__execution_id__get",
+        "parameters": [
+          {
+            "name": "execution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Execution Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executions/{execution_id}/cancel": {
+      "post": {
+        "tags": [
+          "图片执行"
+        ],
+        "summary": "Cancel",
+        "operationId": "cancel_api_v1_executions__execution_id__cancel_post",
+        "parameters": [
+          {
+            "name": "execution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Execution Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reviews": {
+      "get": {
+        "tags": [
+          "图片审核"
+        ],
+        "summary": "Reviews",
+        "operationId": "reviews_api_v1_reviews_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "pending_review",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskResult"
+                  },
+                  "title": "Response Reviews Api V1 Reviews Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/{identifier}/quality": {
+      "get": {
+        "tags": [
+          "图片审核"
+        ],
+        "summary": "Quality",
+        "operationId": "quality_api_v1_assets__identifier__quality_get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Quality Api V1 Assets  Identifier  Quality Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/{identifier}/review": {
+      "post": {
+        "tags": [
+          "图片审核"
+        ],
+        "summary": "Decide",
+        "operationId": "decide_api_v1_assets__identifier__review_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Decision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Decide Api V1 Assets  Identifier  Review Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/{identifier}/revoke": {
+      "post": {
+        "tags": [
+          "图片审核"
+        ],
+        "summary": "Revoke",
+        "operationId": "revoke_api_v1_assets__identifier__revoke_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Revocation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Revoke Api V1 Assets  Identifier  Revoke Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/{identifier}/rework": {
+      "post": {
+        "tags": [
+          "图片审核"
+        ],
+        "summary": "Rework",
+        "operationId": "rework_api_v1_assets__identifier__rework_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Submission"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets": {
+      "get": {
+        "tags": [
+          "公司资产与交付"
+        ],
+        "summary": "Assets",
+        "operationId": "assets_api_v1_assets_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "approved",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "product_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Product Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskResult"
+                  },
+                  "title": "Response Assets Api V1 Assets Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/{identifier}": {
+      "get": {
+        "tags": [
+          "公司资产与交付"
+        ],
+        "summary": "Asset",
+        "operationId": "asset_api_v1_assets__identifier__get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/delivery-positions/{identifier}/adoption": {
+      "get": {
+        "tags": [
+          "公司资产与交付"
+        ],
+        "summary": "Adoption",
+        "operationId": "adoption_api_v1_delivery_positions__identifier__adoption_get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Adoption Api V1 Delivery Positions  Identifier  Adoption Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "公司资产与交付"
+        ],
+        "summary": "Adopt",
+        "operationId": "adopt_api_v1_delivery_positions__identifier__adoption_put",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdoptInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Adopt Api V1 Delivery Positions  Identifier  Adoption Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "公司资产与交付"
+        ],
+        "summary": "Withdraw",
+        "operationId": "withdraw_api_v1_delivery_positions__identifier__adoption_delete",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/delivery-positions/{identifier}/download/{token}": {
+      "get": {
+        "tags": [
+          "公司资产与交付"
+        ],
+        "summary": "Download",
+        "operationId": "download_api_v1_delivery_positions__identifier__download__token__get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/prompt-cards": {
+      "get": {
+        "tags": [
+          "提示词辅助"
+        ],
+        "summary": "Cards",
+        "operationId": "cards_api_v1_prompt_cards_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Card"
+                  },
+                  "type": "array",
+                  "title": "Response Cards Api V1 Prompt Cards Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/creations/{identifier}/assistances": {
+      "post": {
+        "tags": [
+          "提示词辅助"
+        ],
+        "summary": "Assist",
+        "operationId": "assist_api_v1_creations__identifier__assistances_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssistanceInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistanceView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "提示词辅助"
+        ],
+        "summary": "Recent",
+        "operationId": "recent_api_v1_creations__identifier__assistances_get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssistanceView"
+                  },
+                  "title": "Response Recent Api V1 Creations  Identifier  Assistances Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assistances/{identifier}": {
+      "get": {
+        "tags": [
+          "提示词辅助"
+        ],
+        "summary": "Read",
+        "operationId": "read_api_v1_assistances__identifier__get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistanceView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assistances/{identifier}/apply": {
+      "post": {
+        "tags": [
+          "提示词辅助"
+        ],
+        "summary": "Apply",
+        "operationId": "apply_api_v1_assistances__identifier__apply_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreationView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assistances/{identifier}/undo": {
+      "post": {
+        "tags": [
+          "提示词辅助"
+        ],
+        "summary": "Undo",
+        "operationId": "undo_api_v1_assistances__identifier__undo_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreationView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tasks/{task_id}/results": {
       "get": {
         "tags": [
@@ -2221,6 +3332,16 @@
                 }
               ],
               "title": "Source Version"
+            }
+          },
+          {
+            "name": "detailed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Detailed"
             }
           }
         ],
@@ -2592,6 +3713,22 @@
   },
   "components": {
     "schemas": {
+      "AdoptInput": {
+        "properties": {
+          "version_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Version Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version_id"
+        ],
+        "title": "AdoptInput"
+      },
       "ApplyTemplate": {
         "properties": {
           "expected_version": {
@@ -2628,6 +3765,85 @@
           "prompt_action"
         ],
         "title": "ApplyTemplate"
+      },
+      "AssistanceInput": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "optimize",
+              "reference"
+            ],
+            "title": "Kind"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "kind"
+        ],
+        "title": "AssistanceInput"
+      },
+      "AssistanceView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "creation_id": {
+            "type": "string",
+            "title": "Creation Id"
+          },
+          "source_version": {
+            "type": "integer",
+            "title": "Source Version"
+          },
+          "original": {
+            "type": "string",
+            "title": "Original"
+          },
+          "suggestion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "creation_id",
+          "source_version",
+          "original",
+          "suggestion",
+          "status"
+        ],
+        "title": "AssistanceView"
       },
       "CanvasEdge": {
         "properties": {
@@ -2880,6 +4096,34 @@
           "sizes"
         ],
         "title": "Capabilities"
+      },
+      "Card": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "title",
+          "prompt"
+        ],
+        "title": "Card"
       },
       "CaseCreate": {
         "properties": {
@@ -3466,6 +4710,65 @@
         ],
         "title": "CurrentSession"
       },
+      "Decision": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "rejected"
+            ],
+            "title": "Decision"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Reason",
+            "default": ""
+          },
+          "regions": {
+            "items": {
+              "$ref": "#/components/schemas/Region"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "title": "Regions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "decision"
+        ],
+        "title": "Decision"
+      },
+      "ExecutionState": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/OutputState"
+            },
+            "type": "array",
+            "title": "Outputs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "outputs"
+        ],
+        "title": "ExecutionState"
+      },
       "FactField": {
         "properties": {
           "key": {
@@ -3762,6 +5065,70 @@
         ],
         "title": "NodePosition"
       },
+      "OutputState": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "fee_state": {
+            "type": "string",
+            "title": "Fee State"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          },
+          "reserved_cents": {
+            "type": "integer",
+            "title": "Reserved Cents"
+          },
+          "actual_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Cents"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "fee_state",
+          "error",
+          "provider_id",
+          "reserved_cents",
+          "actual_cents"
+        ],
+        "title": "OutputState"
+      },
       "Permission": {
         "type": "string",
         "enum": [
@@ -4013,6 +5380,44 @@
         ],
         "title": "Readiness"
       },
+      "Reconciliation": {
+        "properties": {
+          "provider_id": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Provider Id"
+          },
+          "actual_cents": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Actual Cents"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "billed",
+              "not_accepted"
+            ],
+            "title": "Outcome"
+          },
+          "evidence": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Evidence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider_id",
+          "actual_cents",
+          "outcome",
+          "evidence"
+        ],
+        "title": "Reconciliation"
+      },
       "ReferenceCreate": {
         "properties": {
           "expected_version": {
@@ -4110,6 +5515,45 @@
         ],
         "title": "ReferenceEdit"
       },
+      "ReferenceInput": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "case",
+              "upload",
+              "result"
+            ],
+            "title": "Kind"
+          },
+          "source_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Source Id"
+          },
+          "usage": {
+            "type": "string",
+            "enum": [
+              "product",
+              "expression",
+              "composition",
+              "lighting",
+              "first_frame",
+              "last_frame"
+            ],
+            "title": "Usage",
+            "default": "expression"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "source_id"
+        ],
+        "title": "ReferenceInput"
+      },
       "ReferenceView": {
         "properties": {
           "kind": {
@@ -4192,6 +5636,50 @@
         ],
         "title": "ReferenceView"
       },
+      "Region": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "exclusiveMaximum": 1.0,
+            "minimum": 0.0,
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "exclusiveMaximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y"
+          },
+          "width": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Width"
+          },
+          "height": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Height"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "width",
+          "height",
+          "note"
+        ],
+        "title": "Region"
+      },
       "ReuseDraft": {
         "properties": {
           "expected_version": {
@@ -4219,6 +5707,28 @@
           "source_version"
         ],
         "title": "ReuseDraft"
+      },
+      "Revocation": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "reason"
+        ],
+        "title": "Revocation"
       },
       "Role": {
         "type": "string",
@@ -4257,6 +5767,28 @@
           "height"
         ],
         "title": "SizeOption"
+      },
+      "Submission": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Idempotency Key"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "idempotency_key"
+        ],
+        "title": "Submission"
       },
       "TaskCreate": {
         "properties": {
@@ -4406,6 +5938,19 @@
       },
       "TaskResult": {
         "properties": {
+          "sku": {
+            "type": "string",
+            "title": "Sku",
+            "default": ""
+          },
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          },
+          "purpose": {
+            "type": "string",
+            "title": "Purpose"
+          },
           "asset_id": {
             "type": "string",
             "title": "Asset Id"
@@ -4479,6 +6024,8 @@
         },
         "type": "object",
         "required": [
+          "task_id",
+          "purpose",
           "asset_id",
           "version_id",
           "version",

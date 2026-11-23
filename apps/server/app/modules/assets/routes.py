@@ -7,6 +7,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import ClientDisconnect
 
@@ -164,6 +165,10 @@ def download(
     db: Database,
     storage: Storage,
 ) -> StreamingResponse:
+    from app.modules.creation.models import CreationOutput
+
+    if db.scalar(select(CreationOutput.id).where(CreationOutput.file_id == file_id).limit(1)):
+        raise HTTPException(404, "use_adopted_delivery")
     try:
         item = find_file(db, identity.tenant.id, file_id)
     except FileError as exc:

@@ -10,7 +10,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.modules.assets import models as assets_models  # noqa: E402, F401
 from app.modules.canvas import models as canvas_models  # noqa: E402, F401
 from app.modules.cases import models as cases_models  # noqa: E402, F401
+from app.modules.commerce import models as commerce_models  # noqa: E402, F401
 from app.modules.creation import models as creation_models  # noqa: E402, F401
+from app.modules.delivery import models as delivery_models  # noqa: E402, F401
+from app.modules.execution import models as execution_models  # noqa: E402, F401
 from app.modules.identity import models as identity_models  # noqa: E402, F401
 from app.modules.products import models as product_models  # noqa: E402, F401
 from app.modules.tasks import models as task_models  # noqa: E402, F401

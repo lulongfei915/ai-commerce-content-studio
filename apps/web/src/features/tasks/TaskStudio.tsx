@@ -78,6 +78,13 @@ export function TaskStudio({
   );
   const purpose = selected?.purpose ?? position?.purpose;
   const editorId = selected?.id ?? `new:${position?.id}`;
+  useEffect(() => {
+    const refresh = (e: Event) => {
+      if ((e as CustomEvent).detail === task.id) setResultsRetry((n) => n + 1);
+    };
+    window.addEventListener('studio-results', refresh);
+    return () => window.removeEventListener('studio-results', refresh);
+  }, [task.id]);
 
   useEffect(() => {
     if (!quick) return;
@@ -211,11 +218,12 @@ export function TaskStudio({
             <button
               className="studio-review"
               onClick={() => {
-                setStatus('needs_review');
+                setStatus('pending_review');
                 document.getElementById('studio-results')?.scrollIntoView({ block: 'nearest' });
               }}
             >
-              <SafetyOutlined /> 待终审 {results.filter((n) => n.status === 'needs_review').length}{' '}
+              <SafetyOutlined /> 待审核{' '}
+              {results.filter((n) => n.status === 'pending_review').length}{' '}
               份
             </button>
           )}
@@ -264,6 +272,9 @@ export function TaskStudio({
           ) : results ? (
             <StudioResults
               results={results}
+              session={session}
+              task={task}
+              refresh={() => setResultsRetry((n) => n + 1)}
               taskId={task.id}
               status={status}
               onStatus={setStatus}

@@ -84,6 +84,10 @@ export function loadSnapshot(draft: Draft) {
 }
 
 const messages: Record<string, string> = {
+  budget_unavailable: '可用预算不足或未配置单次调用上限。',
+  review_unavailable: '该版本已处理或未就绪，无法审核。',
+  source_review_required: '商品来源已变化，请重新核对。',
+  reason_required: '请填写驳回原因。',
   template_disabled: '模板已停用，请重新选择模板或取消应用。',
   template_incompatible: '模板与当前商品品类或用途不匹配。',
   case_not_licensed: '案例尚未授权生产。',

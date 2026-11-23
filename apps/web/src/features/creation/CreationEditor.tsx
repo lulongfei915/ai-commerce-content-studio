@@ -5,13 +5,14 @@ import { Modal } from '../../shared/ui/Modal';
 import { CaseBrowser } from '../cases/CaseBrowser';
 import { casePreview } from '../cases/api';
 import type { Category, Product } from '../products/api';
-import { photoPreviewUrl } from '../products/preview';
 import { TemplatePicker } from '../templates/TemplatePicker';
 import { ParametersFields } from './ParametersFields';
 import { ReferenceStrip } from './ReferenceStrip';
 import { InputSnapshotDialog } from './InputSnapshotDialog';
 import { CanvasSpecs } from './CanvasSpecs';
 import { VideoFields } from './VideoFields';
+import { ImageProduction } from './ImageProduction';
+import { BoundPhotos } from './BoundPhotos';
 import {
   actionError,
   checkDraft,
@@ -25,7 +26,6 @@ import {
 } from './api';
 import type { Draft, Issue, Parameters, Reference, VideoParameters } from './api';
 import './creation.css';
-
 export type DraftEdits = { prompt: string; parameters: Parameters; video?: VideoParameters };
 
 export function CreationEditor({
@@ -167,16 +167,7 @@ export function CreationEditor({
               {product.sku} · {isVideo ? '视频' : draft.purpose === 'main' ? '主图' : '详情素材'}
             </span>
           </div>
-          <div className="photo-list" aria-label="已绑定商品实拍">
-            {product.photos.map((photo, index) => (
-              <img
-                key={photo.file_id}
-                loading="lazy"
-                src={photoPreviewUrl(product.id, photo.file_id)}
-                alt={`${product.name}实拍 ${index + 1}`}
-              />
-            ))}
-          </div>
+          <BoundPhotos product={product} />
         </div>
         {!inCanvas && (
           <>
@@ -361,6 +352,16 @@ export function CreationEditor({
             <p role="status">已保存的草稿通过生成前检查。</p>
           ))}
       </div>
+      {!isVideo && draft.entry !== 'batch' && (
+        <ImageProduction
+          key={draft.id}
+          draft={draft}
+          token={token}
+          disabled={busy || dirty || dangling}
+          onSaved={onSaved}
+          onPrompt={(value) => edit({ ...values, prompt: value })}
+        />
+      )}
       <footer className="work-actions creative-footer">
         {inCanvas && (
           <button

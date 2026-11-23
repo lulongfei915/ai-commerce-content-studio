@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     database_url: str = "mysql+pymysql://studio:studio@localhost:3306/studio"
     redis_url: str = "redis://localhost:6379/0"
     storage_endpoint: str = "http://localhost:9000"
+    storage_signed_endpoint: str | None = None
     storage_bucket: str = "studio-private"
     storage_access_key: SecretStr | None = None
     storage_secret_key: SecretStr | None = None
@@ -28,6 +29,12 @@ class Settings(BaseSettings):
     ark_image_model: str = "doubao-seedream-5-5-261028"
     ark_video_model: str = DEFAULT_ARK_VIDEO_MODEL
     ark_timeout_seconds: float = 60.0
+    image_budget_cents: int = Field(default=0, ge=0)
+    image_ceiling_cents: int = Field(default=0, ge=0)
+    image_tenant_slots: int = Field(default=4, gt=0)
+    image_provider_slots: int = Field(default=8, gt=0)
+    ark_vision_model: str = ""
+    assistance_ceiling_cents: int = Field(default=0, ge=0)
 
     model_config = SettingsConfigDict(
         env_file=(".env", "apps/server/.env"),

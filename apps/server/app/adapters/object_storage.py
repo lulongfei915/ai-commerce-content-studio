@@ -31,6 +31,28 @@ class S3Storage:
             aws_secret_access_key=settings.storage_secret_key.get_secret_value(),
             config=Config(connect_timeout=5, read_timeout=20, s3={"addressing_style": "path"}),
         )
+        self._signer = (
+            boto3.client(
+                "s3",
+                endpoint_url=settings.storage_signed_endpoint,
+                region_name="us-east-1",
+                aws_access_key_id=settings.storage_access_key.get_secret_value(),
+                aws_secret_access_key=settings.storage_secret_key.get_secret_value(),
+                config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+            )
+            if settings.storage_signed_endpoint
+            else None
+        )
+
+    def provider_url(self, key: str) -> str | None:
+        if self._signer is None:
+            return None
+        return cast(
+            str,
+            self._signer.generate_presigned_url(
+                "get_object", Params={"Bucket": self._bucket, "Key": key}, ExpiresIn=300
+            ),
+        )
 
     def put(self, key: str, body: BinaryIO, content_type: str, size: int) -> None:
         try:

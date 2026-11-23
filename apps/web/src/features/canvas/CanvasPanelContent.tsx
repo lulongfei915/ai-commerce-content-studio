@@ -16,6 +16,7 @@ import { nodePreview } from './api';
 import type { Canvas } from './api';
 import { allowedUsages } from './graph';
 import { statusLabel } from './status';
+import { VersionActions } from '../tasks/VersionActions';
 
 export function CanvasPanelContent({
   panel,
@@ -250,6 +251,15 @@ export function CanvasPanelContent({
       {panel.kind === 'preview' && node && (
         <div className="work-form canvas-preview">
           {node.media === 'image' && preview && <img src={preview} alt={node.label} />}
+          {node.kind === 'result' && node.media === 'image' && (
+            <VersionActions
+              id={node.source_id}
+              key={node.source_id}
+              task={task}
+              session={session}
+              refresh={() => void onRefresh()}
+            />
+          )}
           {node.media === 'video' && preview && session.permissions.includes('download') && (
             <video src={preview} preload="none" controls aria-label={node.label} />
           )}

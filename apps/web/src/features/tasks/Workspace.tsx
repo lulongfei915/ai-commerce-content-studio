@@ -4,14 +4,10 @@ import { ApiError } from '../../shared/api/client';
 import {
   ApartmentOutlined,
   AppstoreOutlined,
-  BulbOutlined,
   CloseOutlined,
-  FolderOpenOutlined,
   LogoutOutlined,
   MenuOutlined,
   PlusOutlined,
-  SettingOutlined,
-  ShoppingOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 
@@ -40,15 +36,11 @@ import { useSidebarLayout } from './useSidebarLayout';
 import studioMark from './studio-mark.svg';
 import './workspace.css';
 import { StudioResults } from './StudioResults';
+import { CompanyResults } from './CompanyResults';
+import { navigation } from './navigation';
 import './home.css';
 
-type View = CreationEntry | 'tasks' | 'products' | 'templates' | 'cases';
-const navigation = [
-  { view: 'tasks', label: '全部任务', Icon: FolderOpenOutlined },
-  { view: 'products', label: '商品资料', Icon: ShoppingOutlined },
-  { view: 'cases', label: '案例灵感', Icon: BulbOutlined },
-  { view: 'templates', label: '公司模板', Icon: SettingOutlined },
-] as const;
+type View = CreationEntry | 'tasks' | 'products' | 'templates' | 'cases' | 'reviews' | 'assets';
 
 export function Workspace({
   session,
@@ -363,7 +355,11 @@ export function Workspace({
                     ? '商品资料'
                     : view === 'cases'
                       ? '案例库'
-                      : '公司模板'}
+                      : view === 'reviews'
+                        ? '审核中心'
+                        : view === 'assets'
+                          ? '公司资产'
+                          : '公司模板'}
             </h2>
             {canCreate && (workbench || view === 'tasks') && (
               <button type="button" className="work-primary" onClick={() => setSetup({})}>
@@ -407,6 +403,14 @@ export function Workspace({
           </>
         )}
         {view === 'tasks' && <TaskList onOpen={openTask} />}
+        {(view === 'reviews' || view === 'assets') && (
+          <CompanyResults
+            key={view}
+            review={view === 'reviews'}
+            session={session}
+            current={current}
+          />
+        )}
         {view === 'cases' && (
           <CaseLibrary
             categories={categories}

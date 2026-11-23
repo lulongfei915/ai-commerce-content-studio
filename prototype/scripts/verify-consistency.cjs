@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {chromium} = require('playwright');
 const url = process.env.STUDIO_TEST_URL || 'http://127.0.0.1:8765';
-const output = path.resolve(__dirname, '../output/consistency');
+const output = process.env.STUDIO_TEST_OUTPUT || path.resolve(__dirname, '../output/consistency');
 fs.mkdirSync(output, {recursive:true});
 const results=[];
 const errors=[];
@@ -41,7 +41,7 @@ async function close(page){await page.locator('.overlay .modal-header [data-acti
  await page.locator(`[data-action="asset-detail"][data-id="${reviewClip.id}"]`).first().click();
  await page.locator('[data-action="approve"]').click();
  assert.equal(await page.locator('[data-action="adopt"]').isDisabled(),true);assert.match(await page.locator('[data-action="adopt"]').innerText(),/片段不计成片交付/);await close(page);
- pass('片段通过初检和人工批准后仍不能采用到成片交付');
+ pass('片段保存后直接待审核，人工批准后仍不能采用到成片交付');
  await openPurpose(page,'video');
  await page.locator('[data-action="generate"]').click();
  await page.locator('[data-action="confirm-generate"]').click();
@@ -108,8 +108,11 @@ async function close(page){await page.locator('.overlay .modal-header [data-acti
  assert.equal((await current(page)).batches.video.items.every(i=>i.status!=='draft'),true);
  pass('批量片段无需分镜即可提交全部未提交项');
  await page.waitForFunction(()=>{const s=JSON.parse(localStorage.getItem('zaowu-ui-v1'));return s.tasks.find(t=>t.id===s.task).batches.video.items.every(i=>i.status==='complete');});
- t=await current(page);assert.equal(t.deliveryPlan.length,planCount);assert.equal(t.assets.filter(a=>a.batchItem).every(a=>a.purpose==='clip'&&!a.adopted),true);
- pass('批量片段完成后独立初检，保持非交付素材');
+ t=await current(page);assert.equal(t.deliveryPlan.length,planCount);
+ const batchClips=t.assets.filter(a=>a.batchItem);
+ assert.ok(batchClips.length);
+ assert.ok(batchClips.every(a=>a.purpose==='clip'&&a.status==='pending'&&!a.adopted&&!a.precheck));
+ pass('批量片段归档后直接待审核，保持非交付素材');
  await page.locator('[data-action="batch-add"]').click();
  await page.locator('[data-action="batch-pane-view"][data-id="context"]').click();await page.locator('[data-batch-field="purpose"]').selectOption('video');
  await page.locator('[data-action="batch-pane-view"][data-id="basic"]').first().click();await page.locator('[data-action="batch-submit"]').click();
@@ -131,8 +134,27 @@ async function close(page){await page.locator('.overlay .modal-header [data-acti
    await p.screenshot({animations:'disabled',path:path.join(output,`batch-reference-${width}.png`)});await small.close();
  }
  pass('390px/320px 下快捷及批量参考筛选与预览可用，无页面横向溢出');
+ const imageContext=await browser.newContext({viewport:{width:1440,height:900}});
+ const imagePage=await imageContext.newPage();imagePage.on('pageerror',e=>errors.push(e.message));
+ await imagePage.goto(url);await imagePage.waitForLoadState('networkidle');
+ const existingIds=(await current(imagePage)).assets.map(a=>a.id);
+ await imagePage.locator('[data-action="generate"]').click();
+ await imagePage.locator('[data-action="confirm-generate"]').click();
+ await imagePage.waitForFunction(ids=>{
+   const s=JSON.parse(localStorage.getItem('zaowu-ui-v1'));
+   return s.tasks.find(t=>t.id===s.task).assets.some(a=>!ids.includes(a.id));
+ },existingIds);
+ const freshImages=(await current(imagePage)).assets.filter(a=>!existingIds.includes(a.id));
+ assert.ok(freshImages.every(a=>a.media==='image'&&a.status==='pending'&&!a.adopted&&!a.precheck));
+ await imagePage.locator(`[data-action="asset-detail"][data-id="${freshImages[0].id}"]`).first().click();
+ await imagePage.locator('[data-action="reject"]').click();
+ await imagePage.locator('#reject-reason').fill('商品颜色需调整');
+ await imagePage.locator('[data-action="confirm-reject"]').click();
+ assert.equal((await current(imagePage)).assets.find(a=>a.id===freshImages[0].id).status,'rejected');
+ await imageContext.close();
+ pass('快捷图片归档后直接待审核，可记录驳回原因');
  assert.deepEqual(errors,[]);pass('浏览器无未处理脚本错误');
- fs.writeFileSync(path.join(output,'results.json'),JSON.stringify({date:'2026-11-20',url,browser:`Chrome ${browser.version()} via Playwright`,checks:results,errors},null,2));
+ fs.writeFileSync(path.join(output,'results.json'),JSON.stringify({date:new Date().toISOString().slice(0,10),url,browser:`Chrome ${browser.version()} via Playwright`,checks:results,errors},null,2));
  console.log(`${results.length} checks passed. Evidence: ${output}`);
  await context.close();
  }finally{await browser.close();}

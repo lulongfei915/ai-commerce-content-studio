@@ -25,7 +25,7 @@ const errors = [];
 const modelRequests = [];
 page.on('pageerror', (error) => errors.push(error.message));
 page.on('request', (request) => {
-  if (/\/(executions|generate|ark)(?:\/|$)/.test(new URL(request.url()).pathname)) {
+  if (request.method() === 'POST' && /\/(executions|generate|ark)(?:\/|$)/.test(new URL(request.url()).pathname)) {
     modelRequests.push(request.url());
   }
 });

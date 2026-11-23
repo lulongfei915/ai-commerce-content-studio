@@ -9,6 +9,9 @@ import {
 import { Modal } from '../../shared/ui/Modal';
 import { resultPreview, type TaskResult } from '../creation/results';
 import { statusLabel } from '../canvas/status';
+import { VersionActions } from './VersionActions';
+import type { Session } from '../auth/session';
+import type { Task } from './api';
 import white from './sneaker-white.jpg';
 import studio from './sneaker-studio.jpg';
 
@@ -81,12 +84,18 @@ export function StudioResults({
   status = '',
   onStatus,
   canPlayVideo = false,
+  task,
+  session,
+  refresh,
 }: {
   results: TaskResult[];
   taskId?: string;
   status?: string;
   onStatus?: (value: string) => void;
   canPlayVideo?: boolean;
+  task?: Task;
+  session?: Session;
+  refresh?: () => void;
 }) {
   const [media, setMedia] = useState('all');
   const [selected, setSelected] = useState<string[]>([]);
@@ -141,7 +150,7 @@ export function StudioResults({
             <option value="">全部状态</option>
             {Array.from(
               new Set([
-                'needs_review',
+                taskId ? 'pending_review' : 'needs_review',
                 'approved',
                 'rejected',
                 ...results.map((item) => item.status),
@@ -230,6 +239,15 @@ export function StudioResults({
                     ? '原型示例'
                     : `${statusLabel[item.status] ?? item.status} · V${item.version}`}
                 </figcaption>
+                {task && session && refresh && item.assetId && item.media === 'image' && (
+                  <VersionActions
+                    key={item.id}
+                    id={item.id}
+                    task={task}
+                    session={session}
+                    refresh={refresh}
+                  />
+                )}
               </figure>
             ))}
           </div>

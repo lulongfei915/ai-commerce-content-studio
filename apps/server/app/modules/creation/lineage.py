@@ -27,7 +27,6 @@ def output_source(db: Session, draft: Creation, identifier: str, field: str) -> 
         .where(
             CreationOutput.id == identifier,
             Creation.tenant_id == draft.tenant_id,
-            Creation.task_id == draft.task_id,
         )
         .with_for_update()
     )
@@ -57,11 +56,16 @@ def output_source(db: Session, draft: Creation, identifier: str, field: str) -> 
                     .where(
                         CreationOutput.id.in_(outputs),
                         Creation.tenant_id == draft.tenant_id,
-                        Creation.task_id == draft.task_id,
                     )
                     .with_for_update()
                 )
             )
     if output.status != "approved" or output.file_id is None:
         reject(field, "reference_not_ready")
+    from app.modules.execution.models import Execution
+    from app.modules.execution.sources import verify_sources
+
+    job = db.get(Execution, output.execution_id)
+    if job:
+        verify_sources(db, draft.tenant_id, job.snapshot)
     return output

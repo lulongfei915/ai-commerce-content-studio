@@ -55,7 +55,7 @@ window.createBatchWorkspace = function (ctx) {
           if(output.failedStep!=='check'&&output.resumeStep!=='check')continue;
           output.legacyCheck={failedStep:output.failedStep,resumeStep:output.resumeStep};
           delete output.failedStep;delete output.resumeStep;
-          // Reuse historical saved output; the shared precheck handles its new review state.
+          // Reuse historical saved output without starting generation again.
           if(output.status!=='complete'){
             if(output.generatedId||t.assets.some(a=>a.id===output.assetId||a.batchOutput===output.id)){
               completeOutput(t,item,output);output.finishedAt=output.finishedAt||Date.now();
@@ -75,7 +75,7 @@ window.createBatchWorkspace = function (ctx) {
   function referenceEntries(d, t, filtered=true) {
     const entries = [
       ...cases.filter(c => !c.restricted).map(c => ({ id:c.id, name:`${c.media === 'video' ? '分镜参考' : '风格参考'} · ${c.name}`, category:c.category, media:c.media, text:`${c.name} ${c.tag} ${c.category} ${c.style} ${c.features}` })),
-      ...ctx.company.entries().filter(x=>x.asset.product===d.product&&ctx.precheck.canUse(x.asset)&&(d.media==='video'||x.asset.media==='image')).map(x=>({ id:ctx.company.referenceKey(x.task,x.asset), name:`${x.task.id===t.id?'本任务':'公司素材'} · ${x.asset.name} V${x.asset.version}`, category:product(x.asset.product).category, media:x.asset.media, text:`${x.asset.name} ${product(x.asset.product).name} ${product(x.asset.product).sku} ${x.task.name}` }))
+      ...ctx.company.entries().filter(x=>x.asset.product===d.product&&ctx.canUse(x.asset)&&(d.media==='video'||x.asset.media==='image')).map(x=>({ id:ctx.company.referenceKey(x.task,x.asset), name:`${x.task.id===t.id?'本任务':'公司素材'} · ${x.asset.name} V${x.asset.version}`, category:product(x.asset.product).category, media:x.asset.media, text:`${x.asset.name} ${product(x.asset.product).name} ${product(x.asset.product).sku} ${x.task.name}` }))
     ];
     return filtered ? filterReferenceEntries(entries, referenceFilterState) : entries;
   }
@@ -142,7 +142,7 @@ window.createBatchWorkspace = function (ctx) {
     if (d.reference) {
       const ref = cases.find(c => c.id === d.reference);
       const asset = d.reference.startsWith('company:')?ctx.company.resolve(d.reference)?.asset:d.reference.startsWith('result:') && t.assets.find(a => a.id === d.reference.slice(7));
-      if ((!ref || ref.restricted) && (!ctx.precheck.canUse(asset) || asset.product !== d.product || type==='image'&&asset.media!=='image')) problems.push('参考未就绪、未批准或与当前商品不一致，请重新选择。');
+      if ((!ref || ref.restricted) && (!ctx.canUse(asset) || asset.product !== d.product || type==='image'&&asset.media!=='image')) problems.push('参考未就绪、未批准或与当前商品不一致，请重新选择。');
     }
     if (item.needsFactCheck) problems.push('商品已更换，请核对保留的提示词并确认商品事实。');
     const templateProblem=ctx.company.draftProblem(d);if(templateProblem)problems.push(templateProblem);
@@ -228,7 +228,7 @@ window.createBatchWorkspace = function (ctx) {
     const titles = {basic:editable ? '' : '生成结果',context:'商品与用途',reference:'选择参考',storyboard:'确认分镜'};
     const problemList = !commonOpen && errors.get(item.id) || [];
     let body = '';
-    if (!editable) body = `<p class="batch-small-note">${esc(p.name)} · ${ctx.purposeName(d.purpose)} · ${labels[item.status]}<br>完成输出可立即预览，其他项继续执行。保存后先初检，通过后仍需人工终审。</p><div class="batch-outputs">${item.outputs.map((o,i)=>outputCard(o,i,item)).join('')}</div><button class="text-button" data-action="batch-record" data-id="${item.id}">${icon('clock')}输入与执行记录</button>`;
+    if (!editable) body = `<p class="batch-small-note">${esc(p.name)} · ${ctx.purposeName(d.purpose)} · ${labels[item.status]}<br>完成输出可立即预览，其他项继续执行。保存后交由审核员处理。</p><div class="batch-outputs">${item.outputs.map((o,i)=>outputCard(o,i,item)).join('')}</div><button class="text-button" data-action="batch-record" data-id="${item.id}">${icon('clock')}输入与执行记录</button>`;
     else if (paneView === 'context') body = `<p class="batch-small-note">实拍与已确认事实随商品自动带入；更换商品后核对保留的提示词。</p>${field('product','当前商品',d,item,products.filter(p=>ctx.task().products.includes(p.id)).map(p=>[p.id,`${p.name} · ${p.sku}`]),scope)}<button class="text-button batch-add-product" data-action="creation-add-current">${icon('plus')}添加商品到本次制作</button>${field('purpose','素材用途',d,item,media==='image'?[['main','商品主图'],['detail','详情素材']]:[['video','带货成片 · 需确认分镜'],['clip','单段片段 · 不计成片交付']],scope)}<div class="batch-facts"><b>已确认事实</b><p>${p.facts.map(esc).join(' · ')}</p><small>${esc(p.evidence)}</small></div>`;
     else if (paneView === 'reference') body = `<p class="batch-small-note">商品实拍已自动绑定。可额外选择一份表达参考；已批准素材仅用于同 SKU。</p>${referenceFilters(d)}${field('reference',media==='image'?'表达参考':'首帧 / 已就绪参考',d,item,referenceOptions(d,ctx.task()),scope)}${d.reference ? `<button class="batch-reference-preview" data-action="batch-preview-reference" data-id="${scope}" aria-label="预览已选参考"><img src="${imageSrc(cases.find(c=>c.id===d.reference)?.image || ctx.company.resolve(d.reference)?.asset.image || ctx.task().assets.find(a=>'result:'+a.id===d.reference)?.image || p.image)}" alt="已选参考"></button><button class="text-button" data-action="batch-preview-reference" data-id="${scope}">预览参考${cases.find(c=>c.id===d.reference)?.media==='video'?' · 视频分镜':''}</button>` : ''}${d.reference && item ? `<button class="text-button" data-action="batch-analyze" data-id="${item.id}">${icon('spark')}解析参考 · 预设建议</button>` : ''}`;
     else if (paneView === 'storyboard' && item && d.purpose === 'video') body = `<p class="batch-small-note">${esc(p.name)} · ${esc(p.sku)} · 总时长 ${esc(d.duration)} 秒<br>可编辑镜头、画面、文案和时长，输入变化后须重新确认。</p>${shots(d)}<button class="btn sm" data-action="shots-edit" data-id="batch:${item.id}">编辑分镜</button><div class="batch-facts"><b>商品事实依据</b><p>${p.facts.map(esc).join(' · ')}</p><small>${esc(p.evidence)}</small></div><label class="checkbox-label"><input type="checkbox" data-batch-shots="${item.id}" ${ctx.production.confirmed(d)?'checked':''}>已确认此项分镜、商品事实及 ${esc(d.duration)} 秒总时长</label><button class="btn primary sm" data-action="batch-pane-view" data-id="basic">完成，返回创作</button>`;
@@ -257,7 +257,7 @@ window.createBatchWorkspace = function (ctx) {
       <div class="batch-list-heading"><div><h2>生成项清单 <span>${g.items.length}</span></h2></div><button class="btn sm" data-action="batch-add">${icon('plus')}新增${mediaName(media)}项</button></div>
       <div class="batch-status-summary" role="status" aria-live="polite">${Object.keys(labels).filter(key=>key!=='draft'&&counts[key]).map(key=>`<span class="${key==='failed'?'batch-error-text':''}">${labels[key]} ${counts[key]}</span>`).join('')}</div>
       <div class="batch-scroll" tabindex="0" role="region" aria-label="生成项清单">${g.items.map((item,index)=>card(item,index,multipleProducts)).join('') || '<div class="empty-state"><h3>新增第一项，开始批量创作</h3><p>不同商品或不同画面，都可以独立配置。</p></div>'}</div></div>${inspector()}</div>
-      <footer class="batch-footer"><div class="batch-submit-summary"><strong id="batch-submit-count" aria-live="polite">待提交 ${drafts.length} 项 · 共 ${total} ${unit(media)}</strong><details class="batch-submit-help"><summary aria-label="批量提交与审核说明" title="提交与审核说明">${icon('shield')}</summary><div>提交全部未提交项；保存后模拟初检，未通过自动拦截；通过后人工终审、采用再交付。</div></details></div><button class="btn primary" data-action="batch-submit" ${!drafts.length?'disabled':''}>${icon('spark')}<span>${submitLabel(total)}</span>${icon('arrow')}</button></footer></section>`;
+      <footer class="batch-footer"><div class="batch-submit-summary"><strong id="batch-submit-count" aria-live="polite">待提交 ${drafts.length} 项 · 共 ${total} ${unit(media)}</strong><details class="batch-submit-help"><summary aria-label="批量提交与审核说明" title="提交与审核说明">${icon('shield')}</summary><div>提交全部未提交项；保存后提交人工审核，批准并采用后可交付。</div></details></div><button class="btn primary" data-action="batch-submit" ${!drafts.length?'disabled':''}>${icon('spark')}<span>${submitLabel(total)}</span>${icon('arrow')}</button></footer></section>`;
   }
   function showPane(id, view='basic', common=false) {
     if (id) openItem=id;
@@ -316,7 +316,7 @@ window.createBatchWorkspace = function (ctx) {
     const asset={companyId:t.companyId,creatorId:d.creatorId,creatorName:d.creatorName,scene:d.template,id:output.assetId,product:d.product,name:`${p.name} · ${ctx.purposeName(d.purpose)} ${output.index+1}`,purpose:d.purpose,
       image:output.index%2?p.source:p.image,style:'plain',status:'pending',version:1,media:d.media,duration:+d.duration,
       created:'刚刚',adopted:false,batchItem:item.id,batchRun:item.runId,batchOutput:output.id,snapshot:copy(d)};
-    ctx.precheck.enqueue(asset,output.index);t.assets.unshift(asset);
+    t.assets.unshift(asset);
   }
   function finish({ t, item, output }) {
     const d = item.snapshot, now = Date.now(), attempt = output.attempts.at(-1);

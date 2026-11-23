@@ -22,6 +22,9 @@ IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 class TaskResult(BaseModel):
+    sku: str = ""
+    task_id: str
+    purpose: str
     asset_id: str
     version_id: str
     version: int
@@ -69,12 +72,18 @@ def result_rows(
     ]
 
 
+def asset_id_for(output: CreationOutput) -> str:
+    return output.asset_id or str(
+        uuid5(_ASSET_NAMESPACE, f"{output.creation_id}/{output.execution_id}/{output.output_index}")
+    )
+
+
 def result_view(output: CreationOutput, owner: Creation, file: PrivateFile | None) -> TaskResult:
     ready = file_ready(file, output.file_version)
     return TaskResult(
-        asset_id=str(
-            uuid5(_ASSET_NAMESPACE, f"{owner.id}/{output.execution_id}/{output.output_index}")
-        ),
+        task_id=owner.task_id,
+        purpose=owner.purpose,
+        asset_id=asset_id_for(output),
         version_id=output.id,
         version=output.version,
         creation_id=owner.id,
@@ -117,6 +126,7 @@ def preview_task_result(
     db: Database,
     storage: Storage,
     source_version: int | None = None,
+    detailed: bool = False,
 ) -> Response:
     require_permission(identity, Permission.VIEW)
     tenant = identity.tenant.id
@@ -137,4 +147,4 @@ def preview_task_result(
         return stream_private_file(file, request, identity, db, storage, inline=True)
     key = file.object_key
     db.rollback()
-    return image_preview(storage, key)
+    return image_preview(storage, key, max_bytes=20 * 1024 * 1024, edge=2048 if detailed else 384)

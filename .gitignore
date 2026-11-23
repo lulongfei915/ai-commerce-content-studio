@@ -26,3 +26,4 @@ venv/
 # Local logs
 *.log
 .artifacts/
+.playwright-cli/

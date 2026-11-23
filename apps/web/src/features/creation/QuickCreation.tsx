@@ -12,6 +12,7 @@ import { Modal } from '../../shared/ui/Modal';
 import type { Category, Product } from '../products/api';
 import { CaseBrowser } from '../cases/CaseBrowser';
 import { CreationEditor, type DraftEdits } from './CreationEditor';
+import { ImageProduction } from './ImageProduction';
 import { ParametersFields } from './ParametersFields';
 import { VideoFields } from './VideoFields';
 import { actionError, defaults, draftWrite, type Draft } from './api';
@@ -192,6 +193,16 @@ export function QuickCreation({
         >
           {feedback.message}
         </p>
+      )}
+      {selected && !isVideo && panel !== 'settings' && (
+        <ImageProduction
+          key={selected.id}
+          draft={selected}
+          token={token}
+          disabled={disabled || Boolean(edits)}
+          onSaved={onSaved}
+          onPrompt={(prompt) => change({ ...value, prompt })}
+        />
       )}
       {panel === 'specs' && (
         <Modal title="画面规格" onClose={() => setPanel(undefined)}>

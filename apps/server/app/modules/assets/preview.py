@@ -7,7 +7,7 @@ from app.adapters.object_storage import ObjectStorage, StorageUnavailable
 
 
 def image_preview(
-    storage: ObjectStorage, key: str, *, max_bytes: int = 10 * 1024 * 1024
+    storage: ObjectStorage, key: str, *, max_bytes: int = 10 * 1024 * 1024, edge: int = 384
 ) -> Response:
     try:
         with storage.read(key, None) as stream:
@@ -18,7 +18,7 @@ def image_preview(
             if source.width * source.height > 25_000_000:
                 raise ValueError("preview source exceeds pixel limit")
             image = ImageOps.exif_transpose(source)
-            image.thumbnail((384, 384))
+            image.thumbnail((edge, edge))
             output = BytesIO()
             # A fresh RGB image drops metadata and original encoded bytes.
             rgb = Image.new("RGB", image.size, "white")

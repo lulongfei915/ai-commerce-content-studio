@@ -277,7 +277,7 @@ export function TemplateManager({ categories, token }: { categories: Category[];
                 onChange={(parameters) => setEditor({ ...editor, parameters })}
               />
               <label>
-                初检规则（每行一条）
+                人工审核要点（每行一条）
                 <textarea
                   rows={3}
                   defaultValue={editor.check_rules?.join('\n')}

@@ -48,6 +48,7 @@ class CreationOutput(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     creation_id: Mapped[str] = mapped_column(String(36), ForeignKey("creations.id"))
     execution_id: Mapped[str] = mapped_column(String(36))
+    asset_id: Mapped[str | None] = mapped_column(String(36), index=True)
     output_index: Mapped[int]
     version: Mapped[int]
     status: Mapped[str] = mapped_column(String(24))
