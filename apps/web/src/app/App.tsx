@@ -1,18 +1,15 @@
-import { Layout, Typography } from 'antd';
-
 import { SessionGate } from '../features/auth/SessionGate';
+import studioMark from '../features/tasks/studio-mark.svg';
 import '../styles/global.css';
-
-const { Header, Content } = Layout;
 
 export function App() {
   return (
-    <Layout className="studio-shell">
-      <Header className="studio-header">
-        <Typography.Title level={3}>造物 Studio</Typography.Title>
-        <Typography.Text>电商素材生产工作台</Typography.Text>
-      </Header>
-      <Content className="studio-content"><SessionGate /></Content>
-    </Layout>
+    <div className="studio-shell">
+      <header className="studio-header">
+        <img src={studioMark} alt="" width={32} height={32} />
+        <strong>造物 Studio</strong>
+      </header>
+      <main className="studio-content"><SessionGate /></main>
+    </div>
   );
 }
