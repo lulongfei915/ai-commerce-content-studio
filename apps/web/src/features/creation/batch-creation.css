@@ -1,0 +1,50 @@
+.batch-creation {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.batch-heading,
+.batch-controls {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.batch-add,
+.batch-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.batch-add select {
+  max-width: 100%;
+}
+.batch-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid #dedfda;
+}
+.batch-items li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #dedfda;
+}
+.batch-item-summary {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.batch-item-summary p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .batch-items li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+}

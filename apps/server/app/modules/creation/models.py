@@ -29,6 +29,7 @@ class Creation(Base):
     product_id: Mapped[str] = mapped_column(String(36))
     purpose: Mapped[str] = mapped_column(String(16))
     slot: Mapped[str] = mapped_column(String(36))
+    entry: Mapped[str | None] = mapped_column(String(12))
     prompt: Mapped[str] = mapped_column(Text)
     parameters: Mapped[dict[str, Any]] = mapped_column(JSON)
     video_parameters: Mapped[dict[str, Any] | None] = mapped_column(JSON(none_as_null=True))

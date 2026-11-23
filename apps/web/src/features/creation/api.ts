@@ -1,4 +1,5 @@
 import { ApiError, apiFetch, apiWrite } from '../../shared/api/client';
+import { uploadMedia } from '../../shared/api/upload';
 import type { components } from '../../shared/api/generated';
 
 type Schema = components['schemas'];
@@ -27,8 +28,12 @@ export const defaults: Parameters = {
 export function loadCapabilities(signal: AbortSignal) {
   return apiFetch<Capabilities>('/creation-capabilities', { signal });
 }
-export function listDrafts(task: string, signal: AbortSignal) {
-  return apiFetch<Draft[]>(`/tasks/${task}/creations?primary=false`, { signal });
+export function listDrafts(
+  task: string,
+  signal: AbortSignal,
+  entry: NonNullable<Draft['entry']> = 'quick',
+) {
+  return apiFetch<Draft[]>(`/tasks/${task}/creations?entry=${entry}&primary=false`, { signal });
 }
 export function createDraft(
   task: string,
@@ -36,8 +41,14 @@ export function createDraft(
   purpose: Draft['purpose'],
   token: string,
   primary = true,
+  entry: NonNullable<Draft['entry']> = 'quick',
 ) {
-  return apiWrite<Draft>(`/tasks/${task}/creations`, token, { product_id, purpose, primary });
+  return apiWrite<Draft>(`/tasks/${task}/creations`, token, {
+    product_id,
+    purpose,
+    primary,
+    entry,
+  });
 }
 export function draftWrite(
   draft: Draft,
@@ -61,8 +72,12 @@ export function removeReference(draft: Draft, token: string, id: string) {
     'DELETE',
   );
 }
-export function checkDraft(draft: Draft) {
-  return apiFetch<Schema['Readiness']>(`/creations/${draft.id}/readiness`);
+export async function uploadReference(draft: Draft, token: string, file: File) {
+  const source_id = await uploadMedia(file, token);
+  return draftWrite(draft, token, '/references', { kind: 'upload', source_id });
+}
+export function checkDraft(draft: Draft, signal?: AbortSignal) {
+  return apiFetch<Schema['Readiness']>(`/creations/${draft.id}/readiness`, { signal });
 }
 export function loadSnapshot(draft: Draft) {
   return apiFetch<Schema['InputSnapshot']>(`/creations/${draft.id}/input-snapshot`);
@@ -92,6 +107,7 @@ const messages: Record<string, string> = {
   prompt_required: '请填写提示词。',
   product_inputs_incomplete: '请补齐该 SKU 的对应商品资料。',
   version_conflict: '此记录已更新。请先复制当前编辑内容，再重新打开。',
+  draft_incompatible: '请选择同用途的快捷或画布草稿。',
 };
 export function issueText(issue: Issue) {
   return `${issue.field} · ${messages[issue.code] ?? '请核对该字段。'}`;

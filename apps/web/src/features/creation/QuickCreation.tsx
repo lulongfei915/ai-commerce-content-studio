@@ -1,36 +1,31 @@
 import { useState } from 'react';
+import {
+  ArrowRightOutlined,
+  ControlOutlined,
+  PictureOutlined,
+  PlusOutlined,
+  VideoCameraOutlined,
+  DownOutlined,
+  AppstoreOutlined,
+} from '@ant-design/icons';
+import { Modal } from '../../shared/ui/Modal';
+import type { Category, Product } from '../products/api';
+import { CaseBrowser } from '../cases/CaseBrowser';
+import { CreationEditor, type DraftEdits } from './CreationEditor';
+import { ParametersFields } from './ParametersFields';
+import { VideoFields } from './VideoFields';
+import { actionError, defaults, draftWrite, type Draft } from './api';
 
-import type { Category } from '../products/api';
-import { purposeLabel } from '../tasks/api';
-import type { Task } from '../tasks/api';
-import { CreationEditor } from './CreationEditor';
-import type { DraftEdits } from './CreationEditor';
-import type { Draft } from './api';
-
-export function QuickCreation({
-  task,
-  categories,
-  token,
-  drafts,
-  selected,
-  edits,
-  busy,
-  loading,
-  onSelect,
-  onCreate,
-  onSaved,
-  onEdit,
-  onBusy,
-}: {
-  task: Task;
+type Props = {
+  product: Product;
+  purpose: Draft['purpose'];
+  editorId: string;
   categories: Category[];
   token: string;
-  drafts: Draft[];
   selected?: Draft;
   edits?: DraftEdits;
   busy: boolean;
   loading: boolean;
-  onSelect: (id: string) => void;
   onCreate: (
     product: string,
     purpose: Draft['purpose'],
@@ -39,84 +34,216 @@ export function QuickCreation({
   onSaved: (draft: Draft) => void;
   onEdit: (id: string, edits: DraftEdits | undefined) => void;
   onBusy: (busy: boolean) => void;
-}) {
-  const [position, setPosition] = useState(task.positions[0]?.id ?? '');
-  const target = task.positions.find((item) => item.id === position);
-  const product = task.products.find((item) => item.id === selected?.product_id);
+};
+
+export function QuickCreation({
+  product,
+  purpose,
+  editorId,
+  categories,
+  token,
+  selected,
+  edits,
+  busy,
+  loading,
+  onCreate,
+  onSaved,
+  onEdit,
+  onBusy,
+}: Props) {
+  const [panel, setPanel] = useState<'settings' | 'case' | 'specs'>();
+  const [feedback, setFeedback] = useState<{ id: string; message: string; error?: boolean }>();
+  const isVideo = purpose === 'video';
+  const value: DraftEdits = edits ?? {
+    prompt: selected?.prompt ?? '',
+    parameters: selected?.parameters ?? defaults,
+    video:
+      selected?.video_parameters ??
+      (isVideo
+        ? { model: 'seedance-2.0', ratio: '16:9', resolution: '720p', duration: 5, count: 1 }
+        : undefined),
+  };
+  const spec = value.video ?? value.parameters;
+  const labels = isVideo
+    ? ['商品环绕', '细节推进', '分镜展示']
+    : ['简洁棚拍', '生活场景', '细节特写'];
+  const phrases = isVideo
+    ? [
+        '镜头平稳环绕，展示商品全貌。',
+        '镜头缓慢推进，展现实拍可见的细节。',
+        '从全貌切入细节，再回到完整商品。',
+      ]
+    : [
+        '简洁暖灰背景，柔和自然光，突出商品真实轮廓与细节，画面留出适当呼吸空间。',
+        '置于符合实际用途的日常场景中，采用自然光，保持商品颜色和结构一致。',
+        '近距离拍摄实拍可见的结构，用柔和侧光表现层次。',
+      ];
+  const prompts = phrases.map((phrase) => `以${product.name}实拍为主体，${phrase}`);
+  const disabled = busy || loading;
+
+  function change(next: DraftEdits) {
+    onEdit(editorId, next);
+    setFeedback(undefined);
+  }
+  async function withDraft(operation: (draft: Draft) => Promise<void>) {
+    if (disabled) return;
+    onBusy(true);
+    let id = editorId;
+    try {
+      const draft = selected ?? (await onCreate(product.id, purpose, true));
+      if (!draft) return;
+      id = draft.id;
+      if (editorId !== id && edits) {
+        onEdit(id, edits);
+        onEdit(editorId, undefined);
+      }
+      await operation(draft);
+    } catch (cause) {
+      setFeedback({ id, message: actionError(cause), error: true });
+    } finally {
+      onBusy(false);
+    }
+  }
   return (
-    <section className="work-form" aria-label="快捷创作">
-      <div className="work-row">
-        <label>
-          创作商品与用途{' '}
-          <select
-            value={position}
-            disabled={busy}
-            onChange={(event) => setPosition(event.target.value)}
+    <section className="studio-quick" aria-label="快捷创作">
+      <div className="studio-composer">
+        <div className="studio-input">
+          <button className="studio-reference" disabled={disabled} onClick={() => setPanel('case')}>
+            <PlusOutlined />
+            <span>
+              参考素材{selected?.references.length ? ` ${selected.references.length}` : ''}
+            </span>
+          </button>
+          <textarea
+            aria-label="提示词"
+            maxLength={6000}
+            disabled={disabled}
+            value={value.prompt}
+            placeholder={`描述你想要的画面，或添加一份参考。商品外观将以${product.name}实拍为准。`}
+            onChange={(e) => change({ ...value, prompt: e.target.value })}
+          />
+        </div>
+        <div className="studio-toolbar">
+          <b>
+            {isVideo ? <VideoCameraOutlined /> : <PictureOutlined />}{' '}
+            {isVideo ? '视频生成' : '图片生成'}
+          </b>
+          <span>
+            <AppstoreOutlined /> {isVideo ? 'Seedance 2.0' : 'Seedream 5.5'}
+          </span>
+          <button disabled={disabled} onClick={() => setPanel('specs')}>
+            {spec.ratio} · {spec.resolution} <DownOutlined />
+          </button>
+          <button disabled={disabled} onClick={() => setPanel('specs')}>
+            {spec.count} {isVideo ? '条' : '张'} <DownOutlined />
+          </button>
+          <button
+            disabled={disabled}
+            onClick={() => void withDraft(async () => setPanel('settings'))}
           >
-            {task.positions.map((item) => (
-              <option key={item.id} value={item.id}>
-                {task.products.find((entry) => entry.id === item.product_id)?.sku} ·{' '}
-                {purposeLabel[item.purpose]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          disabled={busy || loading || !target}
-          onClick={() => {
-            if (!target) return;
-            const existing = drafts.find(
-              (draft) =>
-                draft.slot === 'primary' &&
-                draft.product_id === target.product_id &&
-                draft.purpose === target.purpose,
-            );
-            if (existing) onSelect(existing.id);
-            else void onCreate(target.product_id, target.purpose, true);
-          }}
-        >
-          {target &&
-          drafts.some(
-            (draft) =>
-              draft.slot === 'primary' &&
-              draft.product_id === target.product_id &&
-              draft.purpose === target.purpose,
-          )
-            ? '打开创作草稿'
-            : '新建创作草稿'}
+            <ControlOutlined /> 创作设置
+          </button>
+          <button
+            className="work-primary studio-save"
+            disabled={disabled || !edits}
+            onClick={() =>
+              void withDraft(async (draft) => {
+                const updated = await draftWrite(
+                  draft,
+                  token,
+                  '',
+                  {
+                    prompt: value.prompt,
+                    ...(isVideo
+                      ? { video_parameters: value.video }
+                      : { parameters: value.parameters }),
+                  },
+                  'PATCH',
+                );
+                onSaved(updated);
+                onEdit(draft.id, undefined);
+                setFeedback({ id: draft.id, message: '草稿已保存' });
+              })
+            }
+          >
+            <ArrowRightOutlined aria-hidden="true" /> 保存草稿
+          </button>
+        </div>
+      </div>
+      <div className="studio-shortcuts" aria-label="快捷提示词">
+        {labels.map((label, i) => (
+          <button
+            key={label}
+            disabled={disabled}
+            aria-pressed={value.prompt === prompts[i]}
+            onClick={() => change({ ...value, prompt: prompts[i] })}
+          >
+            / &nbsp;{label}
+          </button>
+        ))}
+        <button disabled={disabled} onClick={() => setPanel('case')}>
+          更多灵感 ›
         </button>
       </div>
-      {drafts.length > 0 && (
-        <label>
-          当前草稿{' '}
-          <select
-            value={selected?.id ?? ''}
-            disabled={busy}
-            onChange={(event) => onSelect(event.target.value)}
-          >
-            <option value="">选择草稿</option>
-            {drafts.map((draft, index) => (
-              <option key={draft.id} value={draft.id}>
-                {task.products.find((item) => item.id === draft.product_id)?.sku} ·{' '}
-                {purposeLabel[draft.purpose]} · {index + 1}
-              </option>
-            ))}
-          </select>
-        </label>
+      {feedback?.id === editorId && (
+        <p
+          className={feedback.error ? 'work-error' : 'work-muted'}
+          role={feedback.error ? 'alert' : 'status'}
+        >
+          {feedback.message}
+        </p>
       )}
-      {selected && product && (
-        <CreationEditor
-          key={selected.id}
-          draft={selected}
-          product={product}
-          categories={categories}
-          token={token}
-          edits={edits}
-          onEdit={(next) => onEdit(selected.id, next)}
-          onBusy={onBusy}
-          onSaved={onSaved}
-        />
+      {panel === 'specs' && (
+        <Modal title="画面规格" onClose={() => setPanel(undefined)}>
+          <div className="work-form">
+            {value.video ? (
+              <VideoFields value={value.video} onChange={(video) => change({ ...value, video })} />
+            ) : (
+              <ParametersFields
+                value={value.parameters}
+                onChange={(parameters) => change({ ...value, parameters })}
+              />
+            )}
+          </div>
+        </Modal>
+      )}
+      {panel === 'case' && (
+        <Modal title="添加案例参考" busy={busy} onClose={() => setPanel(undefined)}>
+          <CaseBrowser
+            categories={categories}
+            category={product.category}
+            purpose={purpose}
+            imageOnly={!isVideo}
+            allowVideo={isVideo}
+            disabled={busy}
+            onPick={(item) =>
+              void withDraft(async (draft) => {
+                onSaved(
+                  await draftWrite(draft, token, '/references', {
+                    kind: 'case',
+                    source_id: item.id,
+                  }),
+                );
+                setPanel(undefined);
+              })
+            }
+          />
+          {feedback?.error && <p role="alert">{feedback.message}</p>}
+        </Modal>
+      )}
+      {panel === 'settings' && selected && (
+        <Modal title="创作设置" busy={busy} onClose={() => setPanel(undefined)}>
+          <CreationEditor
+            draft={selected}
+            product={product}
+            token={token}
+            categories={categories}
+            edits={edits}
+            onEdit={(next) => onEdit(editorId, next)}
+            onSaved={onSaved}
+            onBusy={onBusy}
+          />
+        </Modal>
       )}
     </section>
   );

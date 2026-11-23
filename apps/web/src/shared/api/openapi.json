@@ -1527,6 +1527,21 @@
               "default": "",
               "title": "Cursor"
             }
+          },
+          {
+            "name": "entry",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "quick",
+                "canvas",
+                "batch"
+              ],
+              "type": "string",
+              "default": "quick",
+              "title": "Entry"
+            }
           }
         ],
         "responses": {
@@ -1671,6 +1686,58 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreationEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreationView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/creations/{creation_id}/reuse": {
+      "post": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Reuse Draft",
+        "operationId": "reuse_draft_api_v1_creations__creation_id__reuse_post",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReuseDraft"
               }
             }
           }
@@ -2045,6 +2112,121 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/results": {
+      "get": {
+        "tags": [
+          "任务产出"
+        ],
+        "summary": "List Task Results",
+        "operationId": "list_task_results_api_v1_tasks__task_id__results_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskResult"
+                  },
+                  "title": "Response List Task Results Api V1 Tasks  Task Id  Results Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/results/{version_id}/preview": {
+      "get": {
+        "tags": [
+          "任务产出"
+        ],
+        "summary": "Preview Task Result",
+        "operationId": "preview_task_result_api_v1_tasks__task_id__results__version_id__preview_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Version Id"
+            }
+          },
+          {
+            "name": "file_version",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "File Version"
+            }
+          },
+          {
+            "name": "source_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -3019,6 +3201,16 @@
             "type": "boolean",
             "title": "Primary",
             "default": true
+          },
+          "entry": {
+            "type": "string",
+            "enum": [
+              "quick",
+              "canvas",
+              "batch"
+            ],
+            "title": "Entry",
+            "default": "quick"
           }
         },
         "additionalProperties": false,
@@ -3102,6 +3294,22 @@
           "slot": {
             "type": "string",
             "title": "Slot"
+          },
+          "entry": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "quick",
+                  "canvas",
+                  "batch"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry"
           },
           "prompt": {
             "type": "string",
@@ -3984,6 +4192,34 @@
         ],
         "title": "ReferenceView"
       },
+      "ReuseDraft": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "source_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Source Id"
+          },
+          "source_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Source Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "source_id",
+          "source_version"
+        ],
+        "title": "ReuseDraft"
+      },
       "Role": {
         "type": "string",
         "enum": [
@@ -4167,6 +4403,97 @@
           "positions"
         ],
         "title": "TaskResponse"
+      },
+      "TaskResult": {
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "title": "Asset Id"
+          },
+          "version_id": {
+            "type": "string",
+            "title": "Version Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "creation_id": {
+            "type": "string",
+            "title": "Creation Id"
+          },
+          "execution_id": {
+            "type": "string",
+            "title": "Execution Id"
+          },
+          "product_id": {
+            "type": "string",
+            "title": "Product Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "media": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video"
+            ],
+            "title": "Media"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "file_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Id"
+          },
+          "file_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Version"
+          },
+          "previewable": {
+            "type": "boolean",
+            "title": "Previewable"
+          },
+          "referenceable": {
+            "type": "boolean",
+            "title": "Referenceable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "asset_id",
+          "version_id",
+          "version",
+          "creation_id",
+          "execution_id",
+          "product_id",
+          "label",
+          "media",
+          "status",
+          "file_id",
+          "file_version",
+          "previewable",
+          "referenceable"
+        ],
+        "title": "TaskResult"
       },
       "TaskSummary": {
         "properties": {

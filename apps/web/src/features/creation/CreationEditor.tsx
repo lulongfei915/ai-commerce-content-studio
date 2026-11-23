@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { AuditOutlined, FileSearchOutlined, UndoOutlined } from '@ant-design/icons';
 
-import { uploadMedia } from '../../shared/api/upload';
 import { Modal } from '../../shared/ui/Modal';
 import { CaseBrowser } from '../cases/CaseBrowser';
 import { casePreview } from '../cases/api';
@@ -8,6 +8,9 @@ import type { Category, Product } from '../products/api';
 import { photoPreviewUrl } from '../products/preview';
 import { TemplatePicker } from '../templates/TemplatePicker';
 import { ParametersFields } from './ParametersFields';
+import { ReferenceStrip } from './ReferenceStrip';
+import { InputSnapshotDialog } from './InputSnapshotDialog';
+import { CanvasSpecs } from './CanvasSpecs';
 import { VideoFields } from './VideoFields';
 import {
   actionError,
@@ -17,6 +20,7 @@ import {
   issueText,
   loadSnapshot,
   removeReference,
+  uploadReference,
   usageLabel,
 } from './api';
 import type { Draft, Issue, Parameters, Reference, VideoParameters } from './api';
@@ -109,10 +113,24 @@ export function CreationEditor({
       .catch((cause: unknown) => setError(actionError(cause)))
       .finally(() => setBusy(false));
   }
+  function insert(ref: Reference) {
+    const at = text.current?.selectionStart ?? prompt.length;
+    const end = text.current?.selectionEnd ?? at;
+    const tag = `[[ref:${ref.id}]]`;
+    const next = `${prompt.slice(0, at)}${tag}${prompt.slice(end)}`;
+    if (next.length > 6000) return;
+    edit({ ...values, prompt: next });
+    requestAnimationFrame(() => {
+      text.current?.focus();
+      text.current?.setSelectionRange(at + tag.length, at + tag.length);
+    });
+  }
   const promptField = (
     <label className="work-form creative-prompt">
-      提示词
+      {!inCanvas && '提示词'}
       <textarea
+        aria-label="提示词"
+        placeholder={inCanvas ? '描述商品画面，或插入参考素材标签…' : undefined}
         ref={text}
         rows={5}
         maxLength={6000}
@@ -124,7 +142,7 @@ export function CreationEditor({
   );
   const outputSettings = (
     <fieldset className="work-form creative-output-settings" disabled={busy}>
-      <legend>{isVideo ? '视频参数' : '图片参数'}</legend>
+      {!inCanvas && <legend>{isVideo ? '视频参数' : '图片参数'}</legend>}
       {isVideo && video ? (
         <VideoFields value={video} onChange={(value) => edit({ ...values, video: value })} />
       ) : (
@@ -214,24 +232,30 @@ export function CreationEditor({
                   setError('参考图片不能超过 10 MB。');
                   return;
                 }
-                run(
-                  async () =>
-                    draftWrite(draft, token, '/references', {
-                      kind: 'upload',
-                      source_id: await uploadMedia(file, token),
-                    }),
-                  'references',
-                );
+                run(() => uploadReference(draft, token, file), 'references');
               }}
             />
           </label>
         </div>
-        {!!draft.references.length && (
-          <ul
-            className="creative-references"
-            aria-label="参考素材"
-            tabIndex={inCanvas && draft.references.length > 1 ? 0 : undefined}
-          >
+        {!!draft.references.length && inCanvas && (
+          <ReferenceStrip
+            references={draft.references}
+            busy={busy}
+            video={isVideo}
+            preview={previewUrl}
+            insert={insert}
+            locate={onLocateReference}
+            remove={(ref) => run(() => removeReference(draft, token, ref.id), 'references')}
+            updateUsage={(ref, usage) =>
+              run(
+                () => draftWrite(draft, token, `/references/${ref.id}`, { usage }, 'PATCH'),
+                'references',
+              )
+            }
+          />
+        )}
+        {!!draft.references.length && !inCanvas && (
+          <ul className="creative-references" aria-label="参考素材">
             {draft.references.map((ref, index) => {
               const src =
                 previewUrl?.(ref) ??
@@ -248,27 +272,11 @@ export function CreationEditor({
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => {
-                      const at = text.current?.selectionStart ?? prompt.length;
-                      const end = text.current?.selectionEnd ?? at;
-                      const tag = `[[ref:${ref.id}]]`;
-                      const next = `${prompt.slice(0, at)}${tag}${prompt.slice(end)}`;
-                      if (next.length > 6000) return;
-                      edit({ ...values, prompt: next });
-                      requestAnimationFrame(() => {
-                        text.current?.focus();
-                        text.current?.setSelectionRange(at + tag.length, at + tag.length);
-                      });
-                    }}
+                    onClick={() => insert(ref)}
                     aria-label={`插入参考 ${index + 1} 标签`}
                   >
                     插入标签
                   </button>
-                  {onLocateReference && (
-                    <button type="button" onClick={() => onLocateReference(ref)}>
-                      定位
-                    </button>
-                  )}
                   {ref.origin === 'independent' && (
                     <>
                       <select
@@ -322,7 +330,9 @@ export function CreationEditor({
         {inCanvas && (
           <>
             {promptField}
-            {outputSettings}
+            <CanvasSpecs parameters={parameters} video={video}>
+              {outputSettings}
+            </CanvasSpecs>
           </>
         )}
         {dangling && (
@@ -355,6 +365,8 @@ export function CreationEditor({
         {inCanvas && (
           <button
             type="button"
+            aria-label="核对生成输入"
+            title="核对生成输入"
             disabled={busy || dirty || dangling}
             onClick={() => {
               start();
@@ -364,12 +376,14 @@ export function CreationEditor({
                 .finally(() => setBusy(false));
             }}
           >
-            核对生成输入
+            <FileSearchOutlined />
           </button>
         )}
         {inCanvas && (
           <button
             type="button"
+            aria-label="恢复默认参数"
+            title="恢复默认参数"
             disabled={busy}
             onClick={() =>
               edit({
@@ -387,11 +401,13 @@ export function CreationEditor({
               })
             }
           >
-            恢复默认参数
+            <UndoOutlined />
           </button>
         )}
         <button
           type="button"
+          aria-label="检查已保存草稿"
+          title="检查已保存草稿"
           disabled={busy || dirty}
           onClick={() => {
             start();
@@ -401,7 +417,7 @@ export function CreationEditor({
               .finally(() => setBusy(false));
           }}
         >
-          检查已保存草稿
+          {inCanvas ? <AuditOutlined /> : '检查已保存草稿'}
         </button>
         <button
           type="button"
@@ -472,26 +488,11 @@ export function CreationEditor({
         />
       )}
       {snapshot && (
-        <Modal title="生成输入核对" onClose={() => setSnapshot(undefined)}>
-          <div className="work-form">
-            <p>
-              {product.sku} · 商品资料 V{snapshot.product_fact_version} · 草稿 V
-              {snapshot.draft.version}
-            </p>
-            <p>
-              {snapshot.draft.video_parameters
-                ? `${snapshot.draft.video_parameters.ratio} · ${snapshot.draft.video_parameters.resolution} · ${snapshot.draft.video_parameters.duration} 秒`
-                : `${snapshot.draft.parameters.ratio} · ${snapshot.draft.parameters.resolution} · ${snapshot.draft.parameters.count} 张`}
-            </p>
-            <p className="creative-prewrap">{snapshot.draft.prompt}</p>
-            <p>商品实拍 {snapshot.product_photos.length} 张</p>
-            {snapshot.references.map((ref) => (
-              <p key={ref.id}>
-                {ref.label} · 文件 V{ref.file_version} · {usageLabel[ref.usage ?? 'expression']}
-              </p>
-            ))}
-          </div>
-        </Modal>
+        <InputSnapshotDialog
+          snapshot={snapshot}
+          sku={product.sku}
+          onClose={() => setSnapshot(undefined)}
+        />
       )}
     </article>
   );

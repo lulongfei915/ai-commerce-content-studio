@@ -1,0 +1,373 @@
+.studio-nav-label {
+  padding: 0 12px 8px;
+  font-size: 10px;
+}
+.studio-context,
+.studio-quick {
+  min-width: 0;
+}
+.studio-context {
+  display: grid;
+  gap: 3px;
+}
+.workspace .task-studio-title button {
+  min-height: 22px;
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+.task-studio-title h2 {
+  font-size: 12px;
+}
+.studio-product {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.studio-product img {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+.workspace .studio-product select {
+  border: 0;
+  background: transparent;
+  min-height: 25px;
+  padding: 2px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.studio-top-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.workspace .studio-review {
+  border: 0;
+  background: transparent;
+  color: #466633;
+  white-space: nowrap;
+  padding: 4px;
+}
+.studio-composer {
+  background: #fff;
+  border: 1px solid #d4dcd4;
+  border-radius: 20px;
+  padding: 12px 14px 9px;
+}
+.studio-input {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 0 3px 6px;
+}
+.workspace .studio-reference {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  flex: 0 0 65px;
+  min-height: 58px;
+  background: #f8faf6;
+  border: 1px dashed #a4b997;
+  color: #577149;
+  font-size: 11px;
+  padding: 4px;
+}
+.studio-reference .anticon {
+  font-size: 16px;
+}
+.workspace .studio-input textarea {
+  width: 100%;
+  height: 88px;
+  min-height: 75px;
+  resize: vertical;
+  border: none;
+  padding: 4px 2px;
+  font-size: 15px;
+  line-height: 1.7;
+  background: transparent;
+}
+.studio-toolbar,
+.studio-shortcuts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.studio-toolbar {
+  color: #526052;
+}
+.studio-toolbar b {
+  color: #426c2e;
+}
+.studio-toolbar b,
+.studio-toolbar > span {
+  padding: 0 4px;
+}
+.workspace .studio-toolbar button,
+.workspace .studio-tabs button {
+  border: 0;
+  background: transparent;
+  min-height: 32px;
+  padding: 4px;
+  font-size: 12px;
+}
+.workspace .studio-toolbar .studio-save {
+  margin-left: auto;
+  min-height: 36px;
+  background: #c4ed8b;
+  border-radius: 12px;
+  min-width: 118px;
+  color: #283c1f;
+}
+.studio-shortcuts {
+  margin-top: 7px;
+  gap: 6px;
+}
+.workspace .studio-shortcuts button {
+  min-height: 28px;
+  padding: 3px 12px;
+  border: 0;
+  border-radius: 20px;
+  background: #edf1ed;
+  color: #4e604f;
+  font-size: 11px;
+}
+.workspace .studio-shortcuts button[aria-pressed='true'] {
+  background: #e3f1d9;
+  color: #335728;
+}
+.studio-results header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  border-bottom: 1px solid #dbe1da;
+  min-height: 38px;
+}
+.studio-results h2 {
+  font-size: 15px;
+}
+.studio-results h2 .anticon {
+  font-size: 12px;
+  color: #71836b;
+  margin-left: 5px;
+}
+.studio-tabs {
+  display: flex;
+  align-self: stretch;
+  gap: 12px;
+}
+.workspace .studio-tabs button {
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+}
+.workspace .studio-tabs button[aria-pressed='true'] {
+  border-color: #71964d;
+  font-weight: 650;
+}
+.workspace .studio-filter {
+  margin-left: auto;
+  min-height: 30px;
+  font-size: 12px;
+}
+.studio-filter-options {
+  display: block;
+  text-align: right;
+  padding: 8px;
+}
+.studio-result-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  padding: 10px 2px;
+}
+.studio-result-card {
+  position: relative;
+  min-width: 0;
+  border: 1px solid #dce2db;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.workspace .studio-preview {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+.studio-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4/3;
+  background: #e9ebe5;
+  color: #45503f;
+  overflow: hidden;
+}
+.studio-art img {
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  inset: 0;
+  object-fit: contain;
+}
+.studio-art:is(.minimal, .editorial, .detail, .square) img {
+  width: 75%;
+  left: 12.5%;
+  object-fit: cover;
+}
+.studio-art.detail img {
+  object-fit: cover;
+  object-position: 50% 50%;
+  clip-path: inset(25%);
+  transform: scale(2);
+}
+.studio-art.square img {
+  inset: 20% 22%;
+  width: 56%;
+  height: 60%;
+}
+.studio-art strong,
+.studio-art small {
+  position: absolute;
+  left: 18%;
+  text-align: left;
+  white-space: pre-line;
+}
+.studio-art strong {
+  bottom: 10%;
+  font-size: 12px;
+}
+.studio-art small {
+  font-size: 6px;
+  top: 23%;
+}
+.studio-art.editorial strong {
+  top: 23%;
+  bottom: auto;
+  font-size: 24px;
+  line-height: 0.86;
+  font-weight: 900;
+}
+.studio-art.editorial small {
+  top: auto;
+  bottom: 10%;
+}
+.studio-art.square strong {
+  top: 23%;
+  font-size: 7px;
+}
+.studio-art.detail strong {
+  font-size: 10px;
+}
+.studio-type,
+.workspace .studio-check {
+  position: absolute;
+  top: 10px;
+  background: #fff;
+  border-radius: 5px;
+}
+.studio-type {
+  left: 10px;
+  padding: 4px 6px;
+  font-size: 10px;
+  pointer-events: none;
+}
+.workspace .studio-check {
+  right: 10px;
+  width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border-color: #86977e;
+}
+.studio-check[aria-pressed='true'] {
+  color: #365e24;
+  background: #daf0ca;
+}
+.studio-result-card footer {
+  padding: 10px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.studio-result-card footer div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+.studio-result-card footer div > span {
+  padding: 3px 7px;
+  background: #edf4e7;
+  color: #4f6844;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.studio-empty {
+  padding: 28px 0;
+  color: #60705b;
+}
+.studio-comparison {
+  display: flex;
+  gap: 12px;
+}
+.studio-comparison figure {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.studio-comparison figcaption {
+  padding: 6px 0;
+  font-size: 12px;
+}
+@media (max-width: 1150px) {
+  .task-studio-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .studio-result-grid {
+    gap: 9px;
+  }
+}
+@media (max-width: 850px) {
+  .studio-result-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .studio-top-actions {
+    flex-wrap: wrap;
+    gap: 2px;
+    max-width: 105px;
+  }
+  .studio-composer {
+    padding: 10px;
+    border-radius: 14px;
+  }
+  .studio-input {
+    gap: 10px;
+  }
+  .workspace .studio-input textarea {
+    height: 106px;
+    font-size: 14px;
+  }
+  .studio-toolbar {
+    gap: 3px;
+    font-size: 11px;
+  }
+  .workspace .studio-toolbar .studio-save {
+    min-width: 88px;
+  }
+  .studio-results header {
+    gap: 9px;
+    flex-wrap: wrap;
+  }
+  .studio-tabs {
+    gap: 4px;
+  }
+  .studio-art.editorial strong {
+    font-size: 17px;
+  }
+}

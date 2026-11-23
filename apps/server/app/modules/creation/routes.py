@@ -1,7 +1,8 @@
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import or_, select
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.modules.identity.domain import Permission
 from app.modules.identity.models import new_id
@@ -24,11 +25,13 @@ from .schemas import (
     Capabilities,
     CreationCreate,
     CreationEdit,
+    CreationEntry,
     CreationView,
     InputSnapshot,
     Readiness,
     ReferenceCreate,
     ReferenceEdit,
+    ReuseDraft,
     VideoParameters,
 )
 from .service import (
@@ -37,11 +40,18 @@ from .service import (
     get_creation,
     member_product,
     readiness,
+    reuse_configuration,
     save,
     view,
 )
 
 router = APIRouter(tags=["共用创作草稿"])
+
+
+def entry_filter(entry: CreationEntry) -> ColumnElement[bool]:
+    if entry == "quick":
+        return or_(Creation.entry == entry, Creation.entry.is_(None))
+    return Creation.entry == entry
 
 
 @router.get("/creation-capabilities")
@@ -57,15 +67,19 @@ def list_creations(
     db: Database,
     primary: bool = True,
     cursor: Annotated[str, Query(max_length=36)] = "",
+    entry: CreationEntry = "quick",
 ) -> list[CreationView]:
     require_permission(identity, Permission.VIEW)
     tenant = identity.tenant.id
     get_task(db, tenant, task_id)
     query = select(Creation).where(
-        Creation.tenant_id == tenant, Creation.task_id == task_id, Creation.id > cursor
+        Creation.tenant_id == tenant,
+        Creation.task_id == task_id,
+        Creation.id > cursor,
+        entry_filter(entry),
     )
     if primary:
-        query = query.where(Creation.slot == "primary")
+        query = query.where(Creation.slot.in_(("primary", f"{entry}-primary")))
     return [view(item) for item in db.scalars(query.order_by(Creation.id).limit(100))]
 
 
@@ -85,7 +99,8 @@ def create_creation(
                 Creation.task_id == task_id,
                 Creation.product_id == product.id,
                 Creation.purpose == data.purpose,
-                Creation.slot == "primary",
+                Creation.slot.in_(("primary", f"{data.entry}-primary")),
+                entry_filter(data.entry),
             )
             .with_for_update()
         )
@@ -106,7 +121,8 @@ def create_creation(
         video_parameters=(data.video_parameters or VideoParameters()).model_dump()
         if data.purpose == "video"
         else None,
-        slot="primary" if data.primary else new_id(),
+        slot=f"{data.entry}-primary" if data.primary else new_id(),
+        entry=data.entry,
     )
     db.add(item)
     db.commit()
@@ -124,6 +140,23 @@ def editable(db: Database, identity: WriteIdentity, identifier: str, expected: i
     item = get_creation(db, identity.tenant.id, identifier, lock=True)
     check_version(item.version, expected)
     return item
+
+
+@router.post("/creations/{creation_id}/reuse")
+def reuse_draft(
+    creation_id: str, data: ReuseDraft, identity: WriteIdentity, db: Database
+) -> CreationView:
+    require_permission(identity, Permission.CREATE)
+    tenant = identity.tenant.id
+    target = get_creation(db, tenant, creation_id)
+    get_task(db, tenant, target.task_id, lock=True)
+    db.expire(target)
+    target = editable(db, identity, creation_id, data.expected_version)
+    source = get_creation(db, tenant, data.source_id, lock=True)
+    if source.task_id != target.task_id:
+        raise HTTPException(404, "creation_not_found")
+    check_version(source.version, data.source_version)
+    return reuse_configuration(db, target, source)
 
 
 @router.patch("/creations/{creation_id}")

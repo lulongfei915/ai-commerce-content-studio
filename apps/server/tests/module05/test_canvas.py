@@ -1,7 +1,9 @@
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.modules.creation.models import CreationOutput
+from app.modules.assets.models import PrivateFile
+from app.modules.creation.models import Creation, CreationOutput
 
 from ..module02.conftest import login
 from ..module03.test_production_setup import API, create_product, photo
@@ -31,10 +33,180 @@ def create_draft(
     response = client.post(
         f"{API}/tasks/{task['id']}/creations",
         headers=headers,
-        json={"product_id": product["id"], "purpose": "main", "prompt": "实拍棚拍", **extra},
+        json={
+            "product_id": product["id"],
+            "purpose": "main",
+            "prompt": "实拍棚拍",
+            "entry": "canvas",
+            **extra,
+        },
     )
     assert response.status_code == 201, response.text
     return response.json()
+
+
+def test_quick_and_canvas_keep_separate_drafts_and_read_same_results(
+    client: TestClient, db: Session
+) -> None:
+    headers, red, _, task = setup_task(client, db)
+    base = f"{API}/tasks/{task['id']}"
+    quick = create_draft(client, headers, task, red, entry="quick", prompt="快捷草稿")
+    canvas = create_draft(client, headers, task, red, prompt="画布草稿")
+    assert quick["id"] != canvas["id"]
+    assert client.get(f"{base}/creations?entry=quick&primary=false").json() == [quick]
+    assert client.get(f"{base}/canvas").json()["creations"] == [canvas]
+
+    for identifier, owner, status in [
+        ("quick-out", quick, "approved"),
+        ("canvas-out", canvas, "needs_review"),
+    ]:
+        photo(db, f"file-{identifier}", "alpha", "alice")
+        db.add(
+            CreationOutput(
+                id=identifier,
+                creation_id=owner["id"],
+                execution_id=f"exec-{identifier}",
+                output_index=0,
+                version=1,
+                status=status,
+                file_id=f"file-{identifier}",
+                file_version=2,
+            )
+        )
+    db.commit()
+    initial_counts = (
+        db.scalar(select(func.count()).select_from(CreationOutput)),
+        db.scalar(select(func.count()).select_from(PrivateFile)),
+    )
+    initial = client.get(f"{base}/canvas").json()
+    results = client.get(f"{base}/results").json()
+    by_version = {item["version_id"]: item for item in results}
+    assert set(by_version) == {"quick-out", "canvas-out"}
+    assert by_version["canvas-out"]["status"] == "needs_review"
+    assert by_version["canvas-out"]["file_id"] == "file-canvas-out"
+    shown = next(node for node in initial["nodes"] if node["id"] == "result:canvas-out")
+    assert shown["source_id"] == by_version["canvas-out"]["version_id"]
+    assert shown["file_version"] == by_version["canvas-out"]["file_version"]
+    assert all(node["id"] != "result:quick-out" for node in initial["nodes"])
+    assert client.get(f"{base}/canvas").json() == initial
+
+    point = {"id": "result:quick-out", "x": 10, "y": 20}
+    layout = f"{base}/canvas/layout"
+    assert (
+        client.put(
+            layout, headers=headers, json={"expected_version": 0, "positions": [point]}
+        ).status_code
+        == 200
+    )
+    shown = client.get(f"{base}/canvas").json()
+    assert len(shown["nodes"]) == len(initial["nodes"]) + 1
+    assert (
+        next(node for node in shown["nodes"] if node["id"] == point["id"])["file_id"]
+        == (by_version["quick-out"]["file_id"])
+    )
+    assert (
+        client.put(
+            layout, headers=headers, json={"expected_version": 1, "positions": []}
+        ).status_code
+        == 200
+    )
+    assert client.get(f"{base}/canvas").json()["nodes"] == initial["nodes"]
+    assert client.get(f"{base}/results").json() == results
+    assert initial_counts == (
+        db.scalar(select(func.count()).select_from(CreationOutput)),
+        db.scalar(select(func.count()).select_from(PrivateFile)),
+    )
+    login(client, "vern")
+    assert client.get(f"{base}/results").json() == results
+    login(client, "bob", "beta")
+    assert client.get(f"{base}/results").status_code == 404
+
+
+def test_legacy_drafts_keep_their_ids_and_positioned_drafts_stay_on_canvas(
+    client: TestClient, db: Session
+) -> None:
+    headers, red, blue, task = setup_task(client, db)
+    base = f"{API}/tasks/{task['id']}"
+    positioned = create_draft(client, headers, task, red)
+    ambiguous = create_draft(client, headers, task, blue, entry="quick")
+    point = {"id": f"creation:{positioned['id']}", "x": 12, "y": 34}
+    assert (
+        client.put(
+            f"{base}/canvas/layout",
+            headers=headers,
+            json={"expected_version": 0, "positions": [point]},
+        ).status_code
+        == 200
+    )
+    old_canvas = db.get(Creation, positioned["id"])
+    old_quick = db.get(Creation, ambiguous["id"])
+    assert old_canvas is not None and old_quick is not None
+    old_canvas.slot = "primary"
+    old_quick.entry = None
+    old_quick.slot = "primary"
+    db.commit()
+    board = client.get(f"{base}/canvas").json()
+    assert board["layout"]["positions"] == [point]
+    assert [item["id"] for item in board["creations"]] == [positioned["id"]]
+    assert [item["id"] for item in client.get(f"{base}/creations?entry=quick").json()] == [
+        ambiguous["id"]
+    ]
+    assert create_draft(client, headers, task, blue, entry="quick")["id"] == ambiguous["id"]
+    assert create_draft(client, headers, task, red, entry="quick")["id"] != positioned["id"]
+
+
+def test_batch_reuses_configuration_with_target_sku_and_owns_its_edits(
+    client: TestClient, db: Session
+) -> None:
+    headers, red, blue, task = setup_task(client, db)
+    base = f"{API}/tasks/{task['id']}"
+    source = create_draft(client, headers, task, red, entry="quick")
+    target = create_draft(client, headers, task, blue, entry="batch", prompt="")
+    assert client.get(f"{base}/creations?entry=batch").json() == [target]
+    assert not client.get(f"{base}/canvas").json()["nodes"]
+    source_url = f"{API}/creations/{source['id']}"
+    target_url = f"{API}/creations/{target['id']}"
+    source_with_ref = client.post(
+        f"{source_url}/references",
+        headers=headers,
+        json={
+            "expected_version": source["version"],
+            "kind": "upload",
+            "source_id": "red-canvas",
+            "usage": "product",
+        },
+    ).json()
+    reuse = {
+        "expected_version": target["version"],
+        "source_id": source["id"],
+        "source_version": source_with_ref["version"],
+    }
+    rejected = client.post(f"{target_url}/reuse", headers=headers, json=reuse)
+    assert rejected.status_code == 422
+    assert rejected.json()["detail"]["code"] == "reference_other_sku"
+    assert client.get(target_url).json() == target
+
+    clean = client.delete(
+        f"{source_url}/references/{source_with_ref['references'][0]['id']}"
+        f"?expected_version={source_with_ref['version']}",
+        headers=headers,
+    ).json()
+    copied = client.post(
+        f"{target_url}/reuse", headers=headers, json={**reuse, "source_version": clean["version"]}
+    )
+    assert copied.status_code == 200, copied.text
+    changed = copied.json()
+    assert changed["prompt"] == source["prompt"] and changed["parameters"] == source["parameters"]
+    assert changed["product_id"] == blue["id"]
+    assert (
+        client.patch(
+            target_url,
+            headers=headers,
+            json={"expected_version": changed["version"], "prompt": "覆盖"},
+        ).status_code
+        == 200
+    )
+    assert client.get(source_url).json() == clean
 
 
 def test_layout_conflict_and_personal_viewport_are_independent(

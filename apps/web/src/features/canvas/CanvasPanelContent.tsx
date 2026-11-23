@@ -6,6 +6,7 @@ import { CaseBrowser } from '../cases/CaseBrowser';
 import { actionError, draftWrite, usageLabel } from '../creation/api';
 import type { Draft, ReferenceUsage } from '../creation/api';
 import { CreationEditor } from '../creation/CreationEditor';
+import { TaskResultPicker } from '../creation/TaskResultPicker';
 import { photoPreviewUrl } from '../products/preview';
 import { purposeLabel } from '../tasks/api';
 import type { PanelState } from './CanvasBoard';
@@ -65,6 +66,7 @@ export function CanvasPanelContent({
     photos: '添加商品素材',
     cases: '加入案例',
     upload: '上传素材',
+    results: '任务作品',
     image: '图片生成',
     video: '视频生成',
     connect: '连接参考',
@@ -98,6 +100,7 @@ export function CanvasPanelContent({
       onClose={onClose}
       stage={stage}
       anchor={anchor}
+      returnFocusId={'id' in panel ? panel.id : panel.kind === 'connect' ? panel.target : undefined}
       busy={busy}
       editor={panel.kind === 'edit'}
     >
@@ -223,6 +226,26 @@ export function CanvasPanelContent({
             }}
           />
         </label>
+      )}
+      {panel.kind === 'results' && (
+        <TaskResultPicker
+          task={task}
+          sku={sku}
+          canPlayVideo={session.permissions.includes('download')}
+          shownVersions={
+            new Set(
+              canvas.nodes.filter((item) => item.kind === 'result').map((item) => item.source_id),
+            )
+          }
+          onReference={
+            session.permissions.includes('create')
+              ? (result) => {
+                  addPosition(`result:${result.version_id}`, panel.position);
+                  onClose();
+                }
+              : undefined
+          }
+        />
       )}
       {panel.kind === 'preview' && node && (
         <div className="work-form canvas-preview">

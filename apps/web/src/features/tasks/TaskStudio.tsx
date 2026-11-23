@@ -2,9 +2,9 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   ArrowLeftOutlined,
-  ApartmentOutlined,
+  ControlOutlined,
+  SafetyOutlined,
   PlusOutlined,
-  ThunderboltOutlined,
 } from '@ant-design/icons';
 
 import type { Session } from '../auth/session';
@@ -12,8 +12,16 @@ import { actionError, createDraft, listDrafts } from '../creation/api';
 import type { Draft } from '../creation/api';
 import type { DraftEdits } from '../creation/CreationEditor';
 import { QuickCreation } from '../creation/QuickCreation';
+import { getTaskResults, type TaskResult } from '../creation/results';
+import { BatchCreation } from '../creation/BatchCreation';
 import type { Category } from '../products/api';
 import type { Task } from './api';
+import { purposeLabel } from './api';
+import { Modal } from '../../shared/ui/Modal';
+import { photoPreviewUrl } from '../products/preview';
+import { StudioResults } from './StudioResults';
+import type { CreationEntry } from './entryPreference';
+import '../canvas/canvas-workspace.css';
 
 const CanvasPage = lazy(() =>
   import('../canvas/CanvasPage').then(({ CanvasPage }) => ({ default: CanvasPage })),
@@ -21,6 +29,7 @@ const CanvasPage = lazy(() =>
 
 export function TaskStudio({
   session,
+  entry,
   task,
   categories,
   onDirty,
@@ -29,6 +38,7 @@ export function TaskStudio({
   children,
 }: {
   session: Session;
+  entry: CreationEntry;
   task: Task;
   categories: Category[];
   onDirty: (dirty: boolean) => void;
@@ -36,8 +46,8 @@ export function TaskStudio({
   onNew: () => void;
   children: ReactNode;
 }) {
-  const [mode, setMode] = useState<'quick' | 'canvas'>('quick');
-  const [opened, setOpened] = useState(false);
+  const quick = entry === 'quick';
+  const canvas = entry === 'canvas';
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [active, setActive] = useState('');
   const [edits, setEdits] = useState<Record<string, DraftEdits>>({});
@@ -49,9 +59,42 @@ export function TaskStudio({
   const [error, setError] = useState('');
   const canCreate = session.permissions.includes('create');
   const token = session.csrf_token;
+  const [details, setDetails] = useState(false);
+  const [results, setResults] = useState<TaskResult[]>();
+  const [resultsError, setResultsError] = useState(false);
+  const [resultsRetry, setResultsRetry] = useState(0);
+  const [status, setStatus] = useState('');
+  const position = task.positions.find((item) => `new:${item.id}` === active) ?? task.positions[0];
+  const selected =
+    drafts.find((item) => item.id === active) ??
+    drafts.find(
+      (item) =>
+        item.product_id === position?.product_id &&
+        item.purpose === position?.purpose &&
+        item.slot === 'primary',
+    );
+  const product = task.products.find(
+    (item) => item.id === (selected?.product_id ?? position?.product_id),
+  );
+  const purpose = selected?.purpose ?? position?.purpose;
+  const editorId = selected?.id ?? `new:${position?.id}`;
 
   useEffect(() => {
-    if (!canCreate) return;
+    if (!quick) return;
+    const request = new AbortController();
+    setResultsError(false);
+    void getTaskResults(task.id, request.signal)
+      .then((items) => {
+        if (!request.signal.aborted) setResults(items);
+      })
+      .catch(() => {
+        if (!request.signal.aborted) setResultsError(true);
+      });
+    return () => request.abort();
+  }, [quick, task.id, resultsRetry]);
+
+  useEffect(() => {
+    if (!canCreate || !quick) return;
     const request = new AbortController();
     void listDrafts(task.id, request.signal)
       .then((items) => {
@@ -64,14 +107,15 @@ export function TaskStudio({
         if (!request.signal.aborted) setLoading(false);
       });
     return () => request.abort();
-  }, [task.id, retry, canCreate]);
+  }, [task.id, retry, canCreate, quick]);
 
   const busy = editing || creating;
   const dirty = busy || spatialDirty || Object.keys(edits).length > 0;
   useEffect(() => {
+    if (entry === 'batch') return;
     onDirty(dirty);
     return () => onDirty(false);
-  }, [dirty, onDirty]);
+  }, [dirty, entry, onDirty]);
 
   const merge = useCallback((items: Draft[]) => {
     setDrafts((current) => mergeDrafts(current, items));
@@ -90,7 +134,7 @@ export function TaskStudio({
     setCreating(true);
     setError('');
     try {
-      const draft = await createDraft(task.id, product, purpose, token, primary);
+      const draft = await createDraft(task.id, product, purpose, token, primary, entry);
       save(draft);
       setActive(draft.id);
       return draft;
@@ -102,82 +146,146 @@ export function TaskStudio({
   }
 
   return (
-    <section className="task-studio">
+    <section className={canvas ? 'task-studio task-studio-canvas' : 'task-studio'}>
       <header className="task-studio-bar">
-        <div className="task-studio-title">
-          <button type="button" onClick={onBack} aria-label="返回全部任务" title="返回全部任务">
-            <ArrowLeftOutlined />
-          </button>
-          <h2 title={task.name}>{task.name}</h2>
+        <div className="studio-context">
+          <div className="task-studio-title">
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label={canvas ? '返回工作台' : '返回全部任务'}
+            >
+              <ArrowLeftOutlined /> {canvas ? '返回工作台' : '全部任务'}
+            </button>
+            <span>/</span>
+            <h2 title={task.name}>{task.name}</h2>
+            <button onClick={() => setDetails(true)} aria-label="任务设置" title="任务设置">
+              <ControlOutlined />
+            </button>
+          </div>
+          {quick && product && (
+            <label className="studio-product">
+              {product.photos[0] && (
+                <img src={photoPreviewUrl(product.id, product.photos[0].file_id)} alt="" />
+              )}
+              <select
+                aria-label="创作商品与用途"
+                disabled={busy}
+                value={editorId}
+                onChange={(event) => setActive(event.target.value)}
+              >
+                {task.positions
+                  .filter(
+                    (p) =>
+                      !drafts.some(
+                        (d) =>
+                          d.slot === 'primary' &&
+                          d.product_id === p.product_id &&
+                          d.purpose === p.purpose,
+                      ),
+                  )
+                  .map((p) => (
+                    <option key={p.id} value={`new:${p.id}`}>
+                      {task.products.find((item) => item.id === p.product_id)?.name} ·{' '}
+                      {purposeLabel[p.purpose]}
+                    </option>
+                  ))}
+                {drafts.map((d, i) => (
+                  <option key={d.id} value={d.id}>
+                    {task.products.find((item) => item.id === d.product_id)?.name} ·{' '}
+                    {purposeLabel[d.purpose]}
+                    {d.slot !== 'primary' && ` · ${i + 1}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
-        <nav className="work-nav task-studio-modes" aria-label="创作入口">
-          <button
-            type="button"
-            disabled={busy}
-            aria-current={mode === 'quick' ? 'page' : undefined}
-            onClick={() => setMode('quick')}
-          >
-            <ThunderboltOutlined aria-hidden="true" /> {canCreate ? '生成' : '任务详情'}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            aria-current={mode === 'canvas' ? 'page' : undefined}
-            onClick={() => {
-              setOpened(true);
-              setMode('canvas');
-            }}
-          >
-            <ApartmentOutlined aria-hidden="true" /> 画布
-          </button>
-        </nav>
-        {canCreate && (
-          <button type="button" className="task-studio-new" onClick={onNew}>
-            <PlusOutlined aria-hidden="true" /> 新建制作
-          </button>
-        )}
+        <div className="studio-top-actions">
+          {!canvas && canCreate && (
+            <button type="button" className="task-studio-new" onClick={onNew}>
+              <PlusOutlined aria-hidden="true" /> 新建制作
+            </button>
+          )}
+          {quick && results && (
+            <button
+              className="studio-review"
+              onClick={() => {
+                setStatus('needs_review');
+                document.getElementById('studio-results')?.scrollIntoView({ block: 'nearest' });
+              }}
+            >
+              <SafetyOutlined /> 待终审 {results.filter((n) => n.status === 'needs_review').length}{' '}
+              份
+            </button>
+          )}
+        </div>
       </header>
       {error && (
         <p role="alert" className="work-error">
           {error}{' '}
-          <button
-            type="button"
-            onClick={() => {
-              setError('');
-              setLoading(true);
-              setRetry((value) => value + 1);
-            }}
-          >
-            重试读取草稿
-          </button>
+          {quick && (
+            <button
+              type="button"
+              onClick={() => {
+                setError('');
+                setLoading(true);
+                setRetry((value) => value + 1);
+              }}
+            >
+              重试读取草稿
+            </button>
+          )}
         </p>
       )}
-      {mode === 'quick' && (
+      {quick && (
         <>
-          {canCreate && (
+          {canCreate && product && purpose && (
             <QuickCreation
-              task={task}
+              product={product}
+              purpose={purpose}
+              editorId={editorId}
               categories={categories}
               token={token}
-              drafts={drafts}
-              selected={drafts.find((draft) => draft.id === active)}
-              edits={edits[active]}
+              selected={selected}
+              edits={edits[editorId]}
               busy={busy}
-              loading={loading}
-              onSelect={setActive}
+              loading={loading || Boolean(error)}
               onCreate={create}
               onSaved={save}
               onEdit={edit}
               onBusy={setEditing}
             />
           )}
-          {children}
+          {resultsError ? (
+            <p role="alert">
+              创作结果未加载。 <button onClick={() => setResultsRetry((n) => n + 1)}>重试</button>
+            </p>
+          ) : results ? (
+            <StudioResults
+              results={results}
+              taskId={task.id}
+              status={status}
+              onStatus={setStatus}
+              canPlayVideo={session.permissions.includes('download')}
+            />
+          ) : (
+            <p role="status">正在读取创作结果…</p>
+          )}
+          {!canCreate && children}
         </>
       )}
-      {opened && (
+      {details && (
+        <Modal title="任务设置" onClose={() => setDetails(false)}>
+          {children}
+        </Modal>
+      )}
+      {entry === 'batch' && (
+        <BatchCreation task={task} session={session} categories={categories} onDirty={onDirty} />
+      )}
+      {canvas && (
         <Suspense fallback={<p role="status">正在加载画布…</p>}>
           <CanvasPage
-            shown={mode === 'canvas'}
             task={task}
             categories={categories}
             session={session}

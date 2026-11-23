@@ -40,7 +40,10 @@ def member_product(db: Session, tenant: str, task: str, product: str) -> Product
 
 
 def view(item: Creation) -> CreationView:
-    return CreationView.model_validate(item, from_attributes=True)
+    draft = CreationView.model_validate(item, from_attributes=True)
+    if draft.slot in {"quick-primary", "canvas-primary", "batch-primary"}:
+        draft.slot = "primary"
+    return draft
 
 
 def save(
@@ -101,6 +104,40 @@ def template_check(db: Session, item: Creation) -> None:
         and not find_template(db, item.tenant_id, item.template_id).enabled
     ):
         reject("template_id", "template_disabled")
+
+
+def reuse_configuration(db: Session, target: Creation, source: Creation) -> CreationView:
+    if target.entry != "batch" or source.entry == "batch" or target.purpose != source.purpose:
+        reject("source_id", "draft_incompatible")
+    product = member_product(db, target.tenant_id, target.task_id, target.product_id)
+    template_check(db, source)
+    if source.template_id is not None and source.template_version is not None:
+        template = find_template(db, target.tenant_id, source.template_id)
+        content = version_content(db, template, source.template_version)
+        if content.category != product.category:
+            reject("template_id", "template_incompatible")
+    draft = view(source)
+    references: list[ReferenceView] = []
+    labels: dict[str, str] = {}
+    for index, ref in enumerate(draft.references):
+        field = f"references.{index}"
+        copied = resolve_reference(
+            db, product, ref, field, target.purpose, ref.origin, draft=target
+        )
+        if (ref.source_version, ref.file_id, ref.file_version) != (
+            copied.source_version,
+            copied.file_id,
+            copied.file_version,
+        ):
+            reject(field, "reference_version_invalid")
+        labels[ref.id] = copied.id
+        references.append(copied)
+    if set(REFERENCE_TAG.findall(draft.prompt)) - labels.keys():
+        reject("prompt", "reference_label_dangling")
+    target.prompt = REFERENCE_TAG.sub(lambda match: f"[[ref:{labels[match[1]]}]]", draft.prompt)
+    target.video_parameters = source.video_parameters
+    target.template_id, target.template_version = source.template_id, source.template_version
+    return save(db, target, product, references, draft.parameters)
 
 
 def build_input_snapshot(db: Session, item: Creation) -> InputSnapshot:

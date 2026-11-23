@@ -3,8 +3,36 @@ import type { Edge, Node, XYPosition } from '@xyflow/react';
 import { usageLabel } from '../creation/api';
 import type { Draft, ReferenceUsage } from '../creation/api';
 import type { Canvas, CanvasNode, Positions } from './api';
+import { nodePreview } from './api';
+import type { Task } from '../tasks/api';
 
 export type FlowNode = Node<CanvasNode & { sku?: string; preview?: string }, 'studio'>;
+
+export function projectNodes(
+  nodes: CanvasNode[],
+  positions: Map<string, XYPosition>,
+  task: Task,
+): FlowNode[] {
+  const defaults = defaultPositions(nodes);
+  const products = new Map(task.products.map((product) => [product.id, product.sku]));
+  return nodes.map((node) => {
+    const sku = products.get(node.product_id ?? '');
+    return {
+      id: node.id,
+      type: 'studio',
+      position: positions.get(node.id) ?? defaults[node.id],
+      ariaLabel: sku ? `${node.label} · ${sku}` : node.label,
+      data: {
+        ...node,
+        sku,
+        preview:
+          node.previewable && node.file_version && node.media === 'image'
+            ? nodePreview(task.id, node.id, node.file_version, node.source_version ?? undefined)
+            : undefined,
+      },
+    };
+  });
+}
 
 export function defaultPositions(nodes: CanvasNode[]): Record<string, XYPosition> {
   const positions: Record<string, XYPosition> = {};

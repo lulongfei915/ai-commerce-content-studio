@@ -9,6 +9,8 @@ from app.shared.studio_errors import FieldIssue
 
 from .capabilities import ImageParameters, SizeOption
 
+CreationEntry = Literal["quick", "canvas", "batch"]
+
 
 class VideoParameters(WriteSchema):
     model: Literal["seedance-2.0"] = "seedance-2.0"
@@ -27,6 +29,7 @@ class CreationCreate(WriteSchema):
     parameters: ImageParameters = Field(default_factory=ImageParameters)
     video_parameters: VideoParameters | None = None
     primary: bool = True
+    entry: CreationEntry = "quick"
 
 
 class CreationEdit(VersionInput):
@@ -41,6 +44,11 @@ class ApplyTemplate(VersionInput):
     template_id: ResourceId
     template_version: int = Field(ge=1)
     prompt_action: Literal["keep", "replace"]
+
+
+class ReuseDraft(VersionInput):
+    source_id: ResourceId
+    source_version: int = Field(ge=1)
 
 
 ReferenceUsage = Literal[
@@ -79,6 +87,7 @@ class CreationView(BaseModel):
     product_id: str
     purpose: UsagePurpose
     slot: str
+    entry: CreationEntry | None = None
     prompt: str
     parameters: ImageParameters
     video_parameters: VideoParameters | None = None

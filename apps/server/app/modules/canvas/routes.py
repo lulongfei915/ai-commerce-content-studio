@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 
 from app.modules.assets.preview import image_preview
 from app.modules.assets.routes import Storage, stream_private_file
+from app.modules.creation.results import file_ready, preview_task_result
 from app.modules.identity.domain import Permission
 from app.modules.identity.security import (
     ActiveIdentity,
@@ -14,7 +15,7 @@ from app.shared.studio_errors import check_version
 
 from .models import CanvasLayout, CanvasViewport
 from .schemas import CanvasView, LayoutEdit, LayoutView, ViewportEdit, ViewportView
-from .service import check_positions, file_ready, layout_view, project, query_files
+from .service import check_positions, layout_view, project, query_files
 
 router = APIRouter(prefix="/tasks/{task_id}/canvas", tags=["画布"])
 
@@ -36,7 +37,7 @@ def put_layout(task_id: str, data: LayoutEdit, identity: WriteIdentity, db: Data
     version = row.version if row else 0
     check_version(version, data.expected_version)
     updated = LayoutView(version=version + 1, positions=data.positions)
-    check_positions(project(db, task, identity.user.id, updated))
+    check_positions(project(db, task, identity.user.id, updated), layout_view(row))
     if row is None:
         row = CanvasLayout(tenant_id=tenant, task_id=task_id)
         db.add(row)
@@ -85,6 +86,10 @@ def preview(
         or (source_version is not None and node.source_version != source_version)
     ):
         raise HTTPException(404, "canvas_preview_unavailable")
+    if node.kind == "result":
+        return preview_task_result(
+            task_id, node.source_id, file_version, request, identity, db, storage, source_version
+        )
     file = query_files(db, identity.tenant.id, {node.file_id}).get(node.file_id)
     if not file_ready(file, file_version) or file is None or file.object_key is None:
         raise HTTPException(404, "canvas_preview_unavailable")

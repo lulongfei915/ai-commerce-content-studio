@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
+import { Tooltip } from 'antd';
+import { ApiError } from '../../shared/api/client';
 import {
+  ApartmentOutlined,
   AppstoreOutlined,
   BulbOutlined,
   CloseOutlined,
   FolderOpenOutlined,
+  LogoutOutlined,
   MenuOutlined,
   PlusOutlined,
   SettingOutlined,
@@ -19,23 +23,31 @@ import { ProductCatalog } from '../products/ProductCatalog';
 import { ProductEditor } from '../products/ProductEditor';
 import { productCategories } from '../products/api';
 import type { Category, Product } from '../products/api';
-import { getTask } from './api';
+import { getTask, listTasks } from './api';
 import type { Task } from './api';
 import { TaskDetail } from './TaskDetail';
 import { TaskList } from './TaskList';
 import { TaskSetup } from './TaskSetup';
 import { TaskStudio } from './TaskStudio';
+import {
+  readEntry,
+  readTaskPreference,
+  rememberEntry,
+  rememberTask,
+  type CreationEntry,
+} from './entryPreference';
+import { useSidebarLayout } from './useSidebarLayout';
 import studioMark from './studio-mark.svg';
 import './workspace.css';
+import { StudioResults } from './StudioResults';
+import './home.css';
 
-type View = 'workbench' | 'tasks' | 'products' | 'current' | 'templates' | 'cases';
+type View = CreationEntry | 'tasks' | 'products' | 'templates' | 'cases';
 const navigation = [
-  { view: 'workbench', label: '创作工作台', Icon: ThunderboltOutlined },
   { view: 'tasks', label: '全部任务', Icon: FolderOpenOutlined },
   { view: 'products', label: '商品资料', Icon: ShoppingOutlined },
   { view: 'cases', label: '案例灵感', Icon: BulbOutlined },
   { view: 'templates', label: '公司模板', Icon: SettingOutlined },
-  { view: 'current', label: '当前任务', Icon: AppstoreOutlined },
 ] as const;
 
 export function Workspace({
@@ -49,8 +61,12 @@ export function Workspace({
   error: string | null;
   onLogout: () => void;
 }) {
-  const [view, setView] = useState<View>('workbench');
+  const [entry, setEntry] = useState(() => readEntry(session));
+  const [view, setView] = useState<View>(entry);
+  const workbench = isCreationEntry(view);
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const { collapsed, mobile, toggle } = useSidebarLayout();
+  const toggleLabel = collapsed ? '展开侧栏' : '收起侧栏';
   const [current, setCurrent] = useState<Task>();
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryError, setCategoryError] = useState(false);
@@ -63,7 +79,9 @@ export function Workspace({
   const taskRequest = useRef<AbortController>();
   const navigationTrigger = useRef<HTMLButtonElement>(null);
   const navigationClose = useRef<HTMLButtonElement>(null);
+  const main = useRef<HTMLDivElement>(null);
   const [creativeDirty, setCreativeDirty] = useState(false);
+  const [homeRetry, setHomeRetry] = useState(0);
   const canManage = session.permissions.includes('manage');
   const canCreate = session.permissions.includes('create');
 
@@ -80,12 +98,61 @@ export function Workspace({
   }, [categoryRetry]);
   useEffect(() => () => taskRequest.current?.abort(), []);
   useEffect(() => {
-    if (navigationOpen) navigationClose.current?.focus();
-  }, [navigationOpen]);
+    if (!workbench || current) return;
+    const request = new AbortController();
+    taskRequest.current = request;
+    setLoadingTask(true);
+    setTaskError(false);
+    async function loadInitialTask() {
+      const stored = readTaskPreference(session);
+      if (stored) {
+        try {
+          return await getTask(stored, request.signal);
+        } catch (cause) {
+          if (!(cause instanceof ApiError) || ![403, 404].includes(cause.status)) throw cause;
+        }
+      }
+      const { items } = await listTasks('', null, request.signal);
+      return items[0] ? getTask(items[0].id, request.signal) : undefined;
+    }
+    void loadInitialTask()
+      .then((task) => {
+        if (request.signal.aborted || !task) return;
+        setCurrent(task);
+        rememberTask(session, task.id);
+      })
+      .catch(() => {
+        if (!request.signal.aborted) setTaskError(true);
+      })
+      .finally(() => {
+        if (!request.signal.aborted) setLoadingTask(false);
+      });
+    return () => request.abort();
+  }, [workbench, current, homeRetry, session]);
+  useEffect(() => {
+    if (!navigationOpen) return;
+    if (!mobile) {
+      setNavigationOpen(false);
+      return;
+    }
+    navigationClose.current?.focus();
+    const content = main.current;
+    const trigger = navigationTrigger.current;
+    const bar = trigger?.parentElement;
+    const priorOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    if (content) content.inert = true;
+    if (bar) bar.inert = true;
+    return () => {
+      document.body.style.overflow = priorOverflow;
+      if (content) content.inert = false;
+      if (bar) bar.inert = false;
+      trigger?.focus();
+    };
+  }, [navigationOpen, mobile]);
 
   function closeNavigation() {
     setNavigationOpen(false);
-    navigationTrigger.current?.focus();
   }
 
   function canLeave() {
@@ -93,10 +160,21 @@ export function Workspace({
   }
 
   function navigate(next: View) {
+    if (view === next) {
+      setNavigationOpen(false);
+      return;
+    }
     if (view !== next && !canLeave()) return;
-    taskRequest.current?.abort();
-    setLoadingTask(false);
-    setTaskError(false);
+    const nextEntry = isCreationEntry(next);
+    if (!workbench || !nextEntry || current) {
+      taskRequest.current?.abort();
+      setLoadingTask(false);
+      setTaskError(false);
+    }
+    if (nextEntry) {
+      setEntry(next);
+      rememberEntry(session, next);
+    }
     setView(next);
     setNavigationOpen(false);
   }
@@ -112,7 +190,8 @@ export function Workspace({
       .then((task) => {
         if (!request.signal.aborted) {
           setCurrent(task);
-          setView('current');
+          rememberTask(session, task.id);
+          setView(entry);
           setNavigationOpen(false);
         }
       })
@@ -125,7 +204,7 @@ export function Workspace({
   }
 
   return (
-    <section className="workspace">
+    <section className="workspace" data-sidebar-collapsed={collapsed}>
       <header className="work-mobile-bar">
         <button
           ref={navigationTrigger}
@@ -143,16 +222,30 @@ export function Workspace({
         id="work-sidebar"
         className="work-sidebar"
         data-open={navigationOpen}
+        role={mobile && navigationOpen ? 'dialog' : undefined}
+        aria-modal={mobile && navigationOpen ? true : undefined}
+        aria-label={mobile && navigationOpen ? '工作区导航' : undefined}
         onKeyDown={(event) => {
           if (navigationOpen && event.key === 'Escape') closeNavigation();
         }}
       >
         <div className="work-brand">
           <img className="work-brand-mark" src={studioMark} alt="" width="32" height="32" />
-          <div>
+          <div className="work-brand-name">
             <strong>造物</strong>
             <small>STUDIO</small>
           </div>
+          <button
+            type="button"
+            className="work-sidebar-toggle"
+            title={toggleLabel}
+            aria-label={toggleLabel}
+            aria-expanded={!collapsed}
+            aria-controls="work-sidebar"
+            onClick={toggle}
+          >
+            <span className="work-sidebar-glyph" aria-hidden="true" />
+          </button>
           <button
             ref={navigationClose}
             type="button"
@@ -164,25 +257,64 @@ export function Workspace({
           </button>
         </div>
         <nav className="work-sidebar-nav" aria-label="工作区">
-          {navigation
-            .filter(
-              (item) =>
-                (item.view !== 'templates' || canManage) && (item.view !== 'current' || current),
+          <small className="studio-nav-label">WORKSPACE</small>
+          <div className="work-creation-nav" role="group" aria-label="创作工作台">
+            <span className="work-creation-label">创作工作台</span>
+            {(
+              [
+                { id: 'quick', label: '快捷生成', Icon: ThunderboltOutlined },
+                { id: 'canvas', label: '画布', Icon: ApartmentOutlined },
+              ] as const
             )
-            .map(({ view: destination, label, Icon }) => (
+              .filter(({ id }) => id !== 'canvas' || session.permissions.includes('view'))
+              .map(({ id, label, Icon }) => (
+                <Tooltip key={id} title={collapsed ? label : null} placement="right">
+                  <button
+                    type="button"
+                    aria-label={label}
+                    aria-current={view === id ? 'page' : undefined}
+                    onClick={() => navigate(id)}
+                  >
+                    <Icon aria-hidden="true" />
+                    <span className="work-nav-label">{label}</span>
+                  </button>
+                </Tooltip>
+              ))}
+            <Tooltip
+              title={!canCreate ? '需要创作权限' : collapsed ? '批量制作' : null}
+              placement="right"
+            >
               <button
                 type="button"
-                key={destination}
-                aria-current={view === destination ? 'page' : undefined}
-                onClick={() =>
-                  destination === 'current' && current
-                    ? openTask(current.id)
-                    : navigate(destination)
-                }
+                aria-label="批量制作"
+                disabled={!canCreate}
+                aria-current={view === 'batch' ? 'page' : undefined}
+                onClick={() => navigate('batch')}
               >
-                <Icon aria-hidden="true" />
-                {label}
+                <AppstoreOutlined aria-hidden="true" />
+                <span className="work-nav-label">批量制作</span>
               </button>
+            </Tooltip>
+          </div>
+          {navigation
+            .filter((item) => item.view !== 'templates' || canManage)
+            .map(({ view: destination, label, Icon }) => (
+              <Tooltip
+                key={destination}
+                title={collapsed ? label : null}
+                placement="right"
+                trigger={['hover', 'focus']}
+              >
+                <button
+                  type="button"
+                  aria-label={label}
+                  aria-current={view === destination ? 'page' : undefined}
+                  onClick={() => navigate(destination)}
+                >
+                  <Icon aria-hidden="true" />
+                  <span className="work-nav-label">{label}</span>
+                </button>
+              </Tooltip>
             ))}
         </nav>
         <div className="work-company">
@@ -194,12 +326,15 @@ export function Workspace({
           </p>
           <button
             type="button"
+            aria-label="退出登录"
+            title="退出登录"
             onClick={() => {
               if (canLeave()) onLogout();
             }}
             disabled={busy}
           >
-            退出登录
+            {collapsed && <LogoutOutlined aria-hidden="true" />}
+            <span className="work-nav-label">退出登录</span>
           </button>
         </div>
       </aside>
@@ -212,12 +347,16 @@ export function Workspace({
           onClick={closeNavigation}
         />
       )}
-      <div className="work-main">
-        {view !== 'current' && (
+      <div ref={main} className="work-main">
+        {(!workbench || !current) && (
           <div className="work-row work-title">
             <h2>
-              {view === 'workbench'
-                ? '工作台'
+              {workbench
+                ? view === 'canvas'
+                  ? '画布'
+                  : view === 'batch'
+                    ? '批量制作'
+                    : '创作工作台'
                 : view === 'tasks'
                   ? '全部任务'
                   : view === 'products'
@@ -226,7 +365,7 @@ export function Workspace({
                       ? '案例库'
                       : '公司模板'}
             </h2>
-            {canCreate && (view === 'workbench' || view === 'tasks') && (
+            {canCreate && (workbench || view === 'tasks') && (
               <button type="button" className="work-primary" onClick={() => setSetup({})}>
                 <PlusOutlined aria-hidden="true" /> 新建制作
               </button>
@@ -256,17 +395,16 @@ export function Workspace({
         {taskError && (
           <p role="alert" className="work-error">
             任务未加载，请重试。
+            {workbench && <button onClick={() => setHomeRetry((n) => n + 1)}>重新加载任务</button>}
           </p>
         )}
-        {view === 'workbench' && (
-          <div className="work-card work-row">
-            <p>{current ? `当前任务 · ${current.name}` : '选择商品和本次所需内容，开始制作。'}</p>
-            {current && (
-              <button type="button" onClick={() => openTask(current.id)}>
-                继续创作
-              </button>
-            )}
-          </div>
+        {workbench && !current && !loadingTask && !taskError && (
+          <>
+            <p className="work-muted">
+              {canCreate ? '新建制作，选择商品后开始第一份创作。' : '暂无可查看的任务。'}
+            </p>
+            {view === 'quick' && <StudioResults results={[]} />}
+          </>
         )}
         {view === 'tasks' && <TaskList onOpen={openTask} />}
         {view === 'cases' && (
@@ -280,14 +418,15 @@ export function Workspace({
         {view === 'templates' && canManage && (
           <TemplateManager categories={categories} token={session.csrf_token} />
         )}
-        {view === 'current' && current && (
+        {workbench && current && (
           <TaskStudio
-            key={current.id}
+            key={`${current.id}:${view}`}
+            entry={view}
             task={current}
             categories={categories}
             session={session}
             onDirty={setCreativeDirty}
-            onBack={() => navigate('tasks')}
+            onBack={() => navigate(view === 'canvas' ? 'quick' : 'tasks')}
             onNew={() => {
               if (canLeave()) setSetup({});
             }}
@@ -332,8 +471,12 @@ export function Workspace({
             token={session.csrf_token}
             onClose={() => setSetup(undefined)}
             onSave={(task) => {
-              setView('current');
+              taskRequest.current?.abort();
+              setLoadingTask(false);
+              setTaskError(false);
+              setView(entry);
               setCurrent(task);
+              rememberTask(session, task.id);
               setSetup(undefined);
             }}
           />
@@ -341,4 +484,8 @@ export function Workspace({
       </div>
     </section>
   );
+}
+
+function isCreationEntry(view: View): view is CreationEntry {
+  return view === 'quick' || view === 'canvas' || view === 'batch';
 }

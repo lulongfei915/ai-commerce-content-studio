@@ -1,5 +1,6 @@
 import { apiFetch, apiPrefix, apiWrite } from '../../shared/api/client';
 import type { components } from '../../shared/api/generated';
+import { resultPreview } from '../creation/results';
 
 type Schema = components['schemas'];
 export type Canvas = Schema['CanvasView'];
@@ -37,6 +38,9 @@ export function putViewport(task: string, token: string, expected_version: numbe
 }
 
 export function nodePreview(task: string, id: string, fileVersion: number, sourceVersion?: number) {
+  if (id.startsWith('result:')) {
+    return resultPreview(task, id.slice('result:'.length), fileVersion, sourceVersion);
+  }
   const params = new URLSearchParams({ file_version: String(fileVersion) });
   if (sourceVersion) params.set('source_version', String(sourceVersion));
   return `${apiPrefix}${path(task)}/preview/${encodeURIComponent(id)}?${params}`;

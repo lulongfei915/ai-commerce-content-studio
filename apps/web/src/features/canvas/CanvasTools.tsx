@@ -9,6 +9,7 @@ import {
   FolderOpenOutlined,
   MinusOutlined,
   PlusOutlined,
+  PictureOutlined,
   SelectOutlined,
   UploadOutlined,
   VideoCameraOutlined,
@@ -19,7 +20,7 @@ import type { XYPosition } from '@xyflow/react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { SaveState } from './useVersionedSave';
 
-export type AddKind = 'photos' | 'image' | 'video' | 'cases' | 'upload';
+export type AddKind = 'photos' | 'image' | 'video' | 'cases' | 'upload' | 'results';
 
 const Icon = {
   photos: FolderOpenOutlined,
@@ -27,6 +28,7 @@ const Icon = {
   video: VideoCameraOutlined,
   cases: ApartmentOutlined,
   upload: UploadOutlined,
+  results: PictureOutlined,
 };
 const labels = {
   photos: '添加商品素材',
@@ -34,6 +36,7 @@ const labels = {
   video: '视频生成',
   cases: '加入案例',
   upload: '上传素材',
+  results: '任务作品',
 };
 
 export function AddChoices({
@@ -57,6 +60,7 @@ export function AddChoices({
   if (start) {
     return (
       <div className="canvas-start" role="group" aria-label="开始创作">
+        <strong>双击画布，添加节点</strong>
         {(['photos', 'image', 'video'] as const).map(option)}
       </div>
     );
@@ -118,6 +122,7 @@ export function CanvasTools({
   relations,
   opened,
   onAdd,
+  onResults,
   onMove,
   onRelations,
   onSelect,
@@ -130,6 +135,7 @@ export function CanvasTools({
   relations: boolean;
   opened: boolean;
   onAdd: () => void;
+  onResults: () => void;
   onMove: () => void;
   onRelations: () => void;
   onSelect: () => void;
@@ -144,6 +150,9 @@ export function CanvasTools({
             {opened ? <CloseOutlined /> : <PlusOutlined />}
           </ToolButton>
         )}
+        <ToolButton label="任务作品" onClick={onResults}>
+          <PictureOutlined />
+        </ToolButton>
         <ToolButton label="选择节点" pressed={!moving} onClick={onSelect}>
           <SelectOutlined />
         </ToolButton>

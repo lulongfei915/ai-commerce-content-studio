@@ -10,6 +10,7 @@ export function CanvasPanel({
   onClose,
   stage,
   anchor,
+  returnFocusId,
   busy,
   editor,
 }: {
@@ -18,6 +19,7 @@ export function CanvasPanel({
   onClose: () => void;
   stage: HTMLElement;
   anchor?: HTMLElement | null;
+  returnFocusId?: string;
   busy: boolean;
   editor: boolean;
 }) {
@@ -29,25 +31,27 @@ export function CanvasPanel({
     function place() {
       const bounds = stage.getBoundingClientRect();
       const node = anchor?.getBoundingClientRect();
-      const preferredWidth = Math.min(editor ? 600 : 480, bounds.width - 24);
+      const preferredWidth = Math.min(editor ? 532 : 448, bounds.width - 24);
       const nodeLeft = (node?.left ?? bounds.left) - bounds.left;
       const nodeTop = (node?.top ?? bounds.top) - bounds.top;
       const below = (node?.bottom ?? bounds.top) - bounds.top + 12;
       const right = nodeLeft + (node?.width ?? 0) + 12;
-      const minHeight = editor ? 320 : 220;
+      const minHeight = editor ? 240 : 220;
       const fitsBelow = below + minHeight <= bounds.height - 12;
       const leftSpace = nodeLeft - 24;
       const rightSpace = bounds.width - right - 12;
       const sideWidth = Math.min(preferredWidth, Math.max(leftSpace, rightSpace));
-      const useSide = node && !fitsBelow && sideWidth >= (editor ? 375 : 280);
+      const fitsAbove = nodeTop > minHeight + 76;
+      const useSide = node && !fitsBelow && !fitsAbove && sideWidth >= (editor ? 375 : 280);
       const width = useSide ? sideWidth : preferredWidth;
       const maxLeft = bounds.width - width - 12;
       const center = node ? nodeLeft + (node.width - width) / 2 : (bounds.width - width) / 2;
       const x = useSide ? (rightSpace >= leftSpace ? right : nodeLeft - width - 12) : center;
-      const y = node && fitsBelow ? below : useSide ? nodeTop : 12;
+      const y =
+        node && fitsBelow ? below : fitsAbove ? nodeTop - minHeight - 58 : useSide ? nodeTop : 68;
       setPosition({
         left: Math.max(12, Math.min(maxLeft, x)),
-        top: Math.max(12, Math.min(bounds.height - minHeight - 12, y)),
+        top: Math.max(56, Math.min(bounds.height - minHeight - 12, y)),
         width,
       });
     }
@@ -55,19 +59,36 @@ export function CanvasPanel({
     const observer = new ResizeObserver(place);
     observer.observe(stage);
     if (anchor) observer.observe(anchor);
-    return () => observer.disconnect();
+    const changes = new MutationObserver(place);
+    if (anchor) {
+      changes.observe(anchor, { attributes: true, attributeFilter: ['style'] });
+      const viewport = anchor.closest('.react-flow__viewport');
+      if (viewport) changes.observe(viewport, { attributes: true, attributeFilter: ['style'] });
+    }
+    return () => {
+      observer.disconnect();
+      changes.disconnect();
+    };
   }, [anchor, editor, stage]);
   useLayoutEffect(() => {
-    const origin = anchor ?? (document.activeElement as HTMLElement | null);
+    const origin = document.activeElement as HTMLElement | null;
     close.current?.focus({ preventScroll: true });
     return () => {
-      requestAnimationFrame(() => {
-        if (origin?.isConnected && !stage.querySelector('.canvas-panel')) {
-          origin.focus({ preventScroll: true });
+      function restoreFocus() {
+        if (stage.querySelector('.canvas-panel')) return;
+        const node = returnFocusId
+          ? stage.querySelector<HTMLElement>(
+              `.react-flow__node[data-id="${CSS.escape(returnFocusId)}"]`,
+            )
+          : undefined;
+        const target = node ?? origin;
+        if (target?.isConnected && !target.closest('[inert]')) {
+          target.focus({ preventScroll: true });
         }
-      });
+      }
+      requestAnimationFrame(() => requestAnimationFrame(restoreFocus));
     };
-  }, [anchor, stage]);
+  }, [returnFocusId, stage]);
   useEffect(() => {
     function onEscape(event: KeyboardEvent) {
       if (event.key !== 'Escape' || stage.querySelector('dialog[open]')) return;
@@ -85,7 +106,7 @@ export function CanvasPanel({
   } as CSSProperties;
   return (
     <div
-      className="canvas-scrim"
+      className={editor ? 'canvas-scrim canvas-editor-layer' : 'canvas-scrim'}
       onPointerDown={(event) => {
         if (event.currentTarget === event.target && !busy) onClose();
       }}
@@ -93,13 +114,13 @@ export function CanvasPanel({
       <section
         ref={panel}
         role="dialog"
-        aria-modal="true"
+        aria-modal={!editor}
         aria-labelledby={label}
         style={style}
         className={`canvas-panel${editor ? ' canvas-panel-editor' : ''} nodrag nopan nowheel`}
         onKeyDown={(event) => {
           if (event.target instanceof HTMLElement && !panel.current?.contains(event.target)) return;
-          if (event.key !== 'Tab' || !panel.current) return;
+          if (editor || event.key !== 'Tab' || !panel.current) return;
           const items = Array.from(
             panel.current.querySelectorAll<HTMLElement>(
               'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]',

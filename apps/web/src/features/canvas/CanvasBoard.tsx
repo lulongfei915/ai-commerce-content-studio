@@ -10,7 +10,7 @@ import {
 } from '@xyflow/react';
 import type { Connection, XYPosition } from '@xyflow/react';
 import { EyeOutlined, LinkOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
 import '@xyflow/react/dist/style.css';
 
@@ -21,13 +21,13 @@ import { CanvasHeader } from './CanvasHeader';
 import { CanvasPanelContent } from './CanvasPanelContent';
 import { AddChoices, CanvasTools, ToolButton } from './CanvasTools';
 import type { AddKind } from './CanvasTools';
-import { nodePreview } from './api';
 import type { Canvas, CanvasNode, Positions, Viewport } from './api';
 import {
   defaultPositions,
   freePosition,
   movePositions,
   projectEdges,
+  projectNodes,
   referenceIssue,
 } from './graph';
 import type { FlowNode } from './graph';
@@ -103,29 +103,16 @@ function Board(props: BoardProps) {
     () => new Map(layout.value.map((point) => [point.id, point])),
     [layout.value],
   );
-  const modelNodes = useMemo(() => {
-    const defaults = defaultPositions(canvas.nodes);
-    const products = new Map(task.products.map((product) => [product.id, product.sku]));
-    return canvas.nodes.map((node): FlowNode => ({
-      id: node.id,
-      type: 'studio',
-      position: positions.get(node.id) ?? defaults[node.id],
-      ariaLabel: `${node.label}${node.product_id ? ` · ${products.get(node.product_id) ?? ''}` : ''}`,
-      data: {
-        ...node,
-        sku: products.get(node.product_id ?? ''),
-        preview:
-          node.previewable && node.file_version && node.media === 'image'
-            ? nodePreview(task.id, node.id, node.file_version, node.source_version ?? undefined)
-            : undefined,
-      },
-    }));
-  }, [canvas.nodes, positions, task.id, task.products]);
+  const modelNodes = useMemo(
+    () => projectNodes(canvas.nodes, positions, task),
+    [canvas.nodes, positions, task],
+  );
   const [nodes, setNodes, onNodesChange] = useNodesState(modelNodes);
   useEffect(() => setNodes(modelNodes), [modelNodes, setNodes]);
-  useEffect(() => {
-    if (background.current) background.current.inert = Boolean(panel);
-  }, [panel]);
+  useLayoutEffect(() => {
+    if (background.current)
+      background.current.inert = Boolean(panel && (panel.kind !== 'edit' || busy));
+  }, [panel, busy]);
   useEffect(() => {
     if (!menu) return;
     function dismiss(event: KeyboardEvent) {
@@ -172,7 +159,6 @@ function Board(props: BoardProps) {
     [edges, focused, selectedEdge, visibleIds],
   );
   const focusedNode = byId.get(focused);
-  const accepted = new Set(canvas.nodes.map((node) => node.id));
   const connect = useCallback(
     (sourceId: string, targetId: string) => {
       const source = byId.get(sourceId);
@@ -197,13 +183,14 @@ function Board(props: BoardProps) {
 
   function selectNode(event: MouseEvent, node: FlowNode) {
     setMenu(undefined);
-    if (moving) return;
+    if (moving || busy) return;
     setSelectedEdge('');
     setFocused(node.id);
     if (event.currentTarget instanceof HTMLElement)
       event.currentTarget.focus({ preventScroll: true });
     if (linking && node.data.kind === 'creation') connect(linking, node.id);
-    else if (node.data.kind === 'creation') onSelect(node.data.source_id);
+    else if (node.data.kind === 'creation') open(node.data);
+    else setPanel(undefined);
   }
 
   function addPosition(id: string, requested?: XYPosition) {
@@ -249,7 +236,8 @@ function Board(props: BoardProps) {
   );
   const canRemoveNode =
     focusedNode &&
-    ['case', 'upload'].includes(focusedNode.kind) &&
+    (['case', 'upload'].includes(focusedNode.kind) ||
+      (focusedNode.kind === 'result' && !focusedNode.source_creation_id)) &&
     positions.has(focused) &&
     !canvas.edges.some((edge) => edge.source === focused);
   const anchorId =
@@ -271,6 +259,7 @@ function Board(props: BoardProps) {
         reload={reload}
         onError={setError}
         onSku={(next) => {
+          clearPanel();
           setSku(next);
           setFocused('');
           setLinking('');
@@ -311,7 +300,7 @@ function Board(props: BoardProps) {
             onNodeDragStop={(_event, _node, dragged) => {
               layout.save(
                 movePositions(
-                  layout.value.filter((point) => accepted.has(point.id)),
+                  layout.value,
                   dragged.map((node) => ({ id: node.id, ...node.position })),
                 ),
               );
@@ -321,11 +310,13 @@ function Board(props: BoardProps) {
               if (event) saveCamera(next);
             }}
             onEdgeClick={(_event, edge) => {
+              clearPanel();
               setFocused('');
               setSelectedEdge(edge.id);
               setRelations(false);
             }}
             onPaneClick={() => {
+              clearPanel();
               setFocused('');
               setSelectedEdge('');
               setRelations(false);
@@ -347,13 +338,13 @@ function Board(props: BoardProps) {
             colorMode="dark"
             aria-label="节点画布"
           >
-            <Background gap={22} size={1.5} color="#44464a" />
+            <Background gap={23} size={1} color="#38383b" />
             {focusedNode && visibleIds.has(focused) && !menu && (
               <NodeToolbar
                 nodeId={focused}
                 isVisible
                 position={Position.Top}
-                offset={9}
+                offset={23}
                 className="canvas-context"
                 aria-label="节点操作"
               >
@@ -388,11 +379,7 @@ function Board(props: BoardProps) {
                     label="移除素材节点"
                     onClick={() => {
                       if (window.confirm('从画布移除此素材？')) {
-                        layout.save(
-                          layout.value.filter(
-                            (point) => point.id !== focused && accepted.has(point.id),
-                          ),
-                        );
+                        layout.save(layout.value.filter((point) => point.id !== focused));
                         setFocused('');
                       }
                     }}
@@ -458,13 +445,22 @@ function Board(props: BoardProps) {
             relations={relations}
             opened={Boolean(menu)}
             onAdd={() => setMenu(menu ? undefined : {})}
+            onResults={() => {
+              setMenu(undefined);
+              setPanel({ kind: 'results' });
+            }}
             onMove={() => setMoving(true)}
             onSelect={() => setMoving(false)}
             onRelations={() => setRelations(!relations)}
             onCamera={(action) => void camera(action)}
             onArrange={() => {
               const arranged = defaultPositions(canvas.nodes);
-              layout.save(Object.entries(arranged).map(([id, point]) => ({ id, ...point })));
+              layout.save(
+                movePositions(
+                  layout.value,
+                  Object.entries(arranged).map(([id, point]) => ({ id, ...point })),
+                ),
+              );
               requestAnimationFrame(() => void camera('fit'));
             }}
           />

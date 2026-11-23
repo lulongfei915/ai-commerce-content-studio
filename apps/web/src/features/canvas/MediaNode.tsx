@@ -1,6 +1,7 @@
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { memo } from 'react';
+import { PictureOutlined, VideoCameraOutlined } from '@ant-design/icons';
 
 import type { FlowNode } from './graph';
 import { statusLabel } from './status';
@@ -16,15 +17,15 @@ export const MediaNode = memo(function MediaNode({ data, isConnectable }: NodePr
         <Handle id="origin" type="target" position={Position.Top} isConnectable={false} />
       )}
       <div className="canvas-node-heading">
+        {media === 'video' ? <VideoCameraOutlined /> : <PictureOutlined />}
         <b title={label}>{label}</b>
-        <span>{media === 'video' ? '视频' : '图片'}</span>
       </div>
       <div className="canvas-node-media">
         {preview && media === 'image' ? (
           <img loading="lazy" draggable={false} src={preview} alt="" />
         ) : (
           <span className="canvas-media-symbol" aria-hidden="true">
-            {media === 'video' ? '▶' : '▧'}
+            {media === 'video' ? <VideoCameraOutlined /> : <PictureOutlined />}
           </span>
         )}
       </div>

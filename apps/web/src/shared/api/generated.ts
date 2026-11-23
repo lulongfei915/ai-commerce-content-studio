@@ -488,6 +488,23 @@ export interface paths {
         patch: operations["edit_creation_api_v1_creations__creation_id__patch"];
         trace?: never;
     };
+    "/api/v1/creations/{creation_id}/reuse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reuse Draft */
+        post: operations["reuse_draft_api_v1_creations__creation_id__reuse_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/creations/{creation_id}/template": {
         parameters: {
             query?: never;
@@ -585,6 +602,40 @@ export interface paths {
         put?: never;
         /** Clear Creation Template */
         post: operations["clear_creation_template_api_v1_creations__creation_id__template_clear_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Task Results */
+        get: operations["list_task_results_api_v1_tasks__task_id__results_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/results/{version_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Task Result */
+        get: operations["preview_task_result_api_v1_tasks__task_id__results__version_id__preview_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -877,6 +928,12 @@ export interface components {
              * @default true
              */
             primary: boolean;
+            /**
+             * Entry
+             * @default quick
+             * @enum {string}
+             */
+            entry: "quick" | "canvas" | "batch";
         };
         /** CreationEdit */
         CreationEdit: {
@@ -902,6 +959,8 @@ export interface components {
             purpose: "main" | "detail" | "video";
             /** Slot */
             slot: string;
+            /** Entry */
+            entry?: ("quick" | "canvas" | "batch") | null;
             /** Prompt */
             prompt: string;
             parameters: components["schemas"]["ImageParameters"];
@@ -1218,6 +1277,15 @@ export interface components {
              */
             media: "image" | "video";
         };
+        /** ReuseDraft */
+        ReuseDraft: {
+            /** Expected Version */
+            expected_version: number;
+            /** Source Id */
+            source_id: string;
+            /** Source Version */
+            source_version: number;
+        };
         /**
          * Role
          * @enum {string}
@@ -1271,6 +1339,38 @@ export interface components {
             products: components["schemas"]["ProductResponse"][];
             /** Positions */
             positions: components["schemas"]["PositionResponse"][];
+        };
+        /** TaskResult */
+        TaskResult: {
+            /** Asset Id */
+            asset_id: string;
+            /** Version Id */
+            version_id: string;
+            /** Version */
+            version: number;
+            /** Creation Id */
+            creation_id: string;
+            /** Execution Id */
+            execution_id: string;
+            /** Product Id */
+            product_id: string;
+            /** Label */
+            label: string;
+            /**
+             * Media
+             * @enum {string}
+             */
+            media: "image" | "video";
+            /** Status */
+            status: string;
+            /** File Id */
+            file_id: string | null;
+            /** File Version */
+            file_version: number | null;
+            /** Previewable */
+            previewable: boolean;
+            /** Referenceable */
+            referenceable: boolean;
         };
         /** TaskSummary */
         TaskSummary: {
@@ -2493,6 +2593,7 @@ export interface operations {
             query?: {
                 primary?: boolean;
                 cursor?: string;
+                entry?: "quick" | "canvas" | "batch";
             };
             header?: never;
             path: {
@@ -2600,6 +2701,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreationEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreationView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reuse_draft_api_v1_creations__creation_id__reuse_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                creation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReuseDraft"];
             };
         };
         responses: {
@@ -2848,6 +2984,70 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CreationView"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_task_results_api_v1_tasks__task_id__results_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskResult"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_task_result_api_v1_tasks__task_id__results__version_id__preview_get: {
+        parameters: {
+            query: {
+                file_version: number;
+                source_version?: number | null;
+            };
+            header?: never;
+            path: {
+                task_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from app.modules.assets.models import PrivateFile
 from app.modules.cases.models import Case
 from app.modules.creation.lineage import output_files
-from app.modules.creation.models import Creation, CreationOutput
-from app.modules.creation.references import IMAGE_TYPES
+from app.modules.creation.models import Creation
+from app.modules.creation.results import file_ready, result_rows, result_view
 from app.modules.creation.schemas import ReferenceView
 from app.modules.creation.service import view
 from app.modules.products.models import ProductPhotoBinding
@@ -40,23 +40,19 @@ def project(db: Session, task: Task, user_id: str, layout: LayoutView) -> Canvas
         view(item)
         for item in db.scalars(
             select(Creation)
-            .where(Creation.tenant_id == tenant, Creation.task_id == task_id)
+            .where(
+                Creation.tenant_id == tenant,
+                Creation.task_id == task_id,
+                Creation.entry == "canvas",
+            )
             .order_by(Creation.id)
         )
     ]
-    by_creation = {draft.id: draft for draft in creations}
-    outputs = list(
-        db.scalars(
-            select(CreationOutput)
-            .join(Creation, Creation.id == CreationOutput.creation_id)
-            .where(Creation.tenant_id == tenant, Creation.task_id == task_id)
-            .order_by(CreationOutput.output_index, CreationOutput.version, CreationOutput.id)
-        )
-    )
+    outputs = result_rows(db, tenant, task_id)
     active_status = {
         output.creation_id: output.status
-        for output in outputs
-        if output.status in {"queued", "running", "saving"}
+        for output, owner, _ in outputs
+        if owner.entry == "canvas" and output.status in {"queued", "running", "saving"}
     }
     edges: list[CanvasEdge] = []
     references: dict[str, ReferenceView] = {}
@@ -79,9 +75,7 @@ def project(db: Session, task: Task, user_id: str, layout: LayoutView) -> Canvas
     files = query_files(
         db,
         tenant,
-        upload_ids
-        | {case.file_id for case in cases}
-        | {item.file_id for item in outputs if item.file_id},
+        upload_ids | {case.file_id for case in cases},
     )
     member_ids = set(
         db.scalars(
@@ -165,26 +159,27 @@ def project(db: Session, task: Task, user_id: str, layout: LayoutView) -> Canvas
                 }
             )
         )
-    for output in outputs:
-        owner = by_creation[output.creation_id]
-        ready = file_ready(files.get(output.file_id or ""), output.file_version)
+    for output, owner, file in outputs:
         node_id = f"result:{output.id}"
+        if owner.entry != "canvas" and node_id not in explicit:
+            continue
+        result = result_view(output, owner, file)
         nodes.append(
             CanvasNode(
                 id=node_id,
                 kind="result",
                 source_id=output.id,
-                label=f"结果 {output.output_index + 1}",
-                media="video" if owner.purpose == "video" else "image",
-                product_id=owner.product_id,
-                source_creation_id=owner.id,
-                status=output.status,
-                file_id=output.file_id,
-                file_version=output.file_version,
-                source_version=output.version,
-                execution_id=output.execution_id,
-                previewable=ready,
-                referenceable=ready and output.status == "approved",
+                label=result.label,
+                media=result.media,
+                product_id=result.product_id,
+                source_creation_id=owner.id if owner.entry == "canvas" else None,
+                status=result.status,
+                file_id=result.file_id,
+                file_version=result.file_version,
+                source_version=result.version,
+                execution_id=result.execution_id,
+                previewable=result.previewable,
+                referenceable=result.referenceable,
             )
         )
     existing = {node.id for node in nodes}
@@ -212,20 +207,16 @@ def project(db: Session, task: Task, user_id: str, layout: LayoutView) -> Canvas
     )
 
 
-def file_ready(file: PrivateFile | None, version: int | None) -> bool:
-    return bool(
-        file
-        and file.status == "ready"
-        and file.object_key
-        and file.version == version
-        and file.content_type in IMAGE_TYPES | {"video/mp4"}
-    )
-
-
-def check_positions(canvas: CanvasView) -> None:
-    ids = {node.id for node in canvas.nodes if node.status != "unavailable"}
+def check_positions(canvas: CanvasView, previous: LayoutView) -> None:
+    existing = {point.id for point in previous.positions}
+    nodes = {node.id: node for node in canvas.nodes if node.status != "unavailable"}
     incoming = [point.id for point in canvas.layout.positions]
     if len(set(incoming)) != len(incoming):
         reject("positions", "canvas_node_duplicate")
-    if set(incoming) - ids:
+    added = set(incoming) - existing
+    if added - nodes.keys():
         reject("positions", "canvas_node_unknown")
+    for identifier in added:
+        node = nodes[identifier]
+        if node.kind == "result" and node.source_creation_id is None and not node.referenceable:
+            reject("positions", "reference_not_ready")

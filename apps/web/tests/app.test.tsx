@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 
 import { App } from '../src/app/App';
@@ -12,7 +12,10 @@ const session = {
   csrf_token: 'csrf-test',
 };
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  localStorage.clear();
+});
 
 test('signs in to the company and sends the session token for logout', async () => {
   const fetchMock = vi
@@ -20,6 +23,7 @@ test('signs in to the company and sends the session token for logout', async () 
     .mockResolvedValueOnce(new Response(null, { status: 401 }))
     .mockResolvedValueOnce(Response.json(session, { status: 201 }))
     .mockResolvedValueOnce(Response.json([]))
+    .mockResolvedValueOnce(Response.json({ items: [], next_cursor: null }))
     .mockResolvedValueOnce(new Response(null, { status: 204 }));
   vi.stubGlobal('fetch', fetchMock);
   render(<App />);
@@ -37,5 +41,52 @@ test('signs in to the company and sends the session token for logout', async () 
   await waitFor(() =>
     expect(screen.getByRole('heading', { name: '登录工作台' })).toBeInTheDocument(),
   );
-  expect(new Headers(fetchMock.mock.calls[3][1]?.headers).get('X-CSRF-Token')).toBe('csrf-test');
+  const logout = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/sessions/current'));
+  expect(new Headers(logout?.[1]?.headers).get('X-CSRF-Token')).toBe('csrf-test');
+});
+
+test('sidebar restores the last available creation entry for each company member', async () => {
+  const creator = { ...session, role: 'designer', permissions: ['view', 'create'] };
+  let member = creator;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => {
+      if (url.endsWith('/me')) return Response.json(member);
+      if (url.endsWith('/tasks')) return Response.json({ items: [], next_cursor: null });
+      return Response.json([]);
+    }),
+  );
+  const sidebar = () => within(screen.getByRole('navigation', { name: '工作区' }));
+  const active = (name: string) =>
+    expect(sidebar().getByRole('button', { name })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  const first = render(<App />);
+  await screen.findByRole('heading', { name: '造物电商' });
+  active('快捷生成');
+  fireEvent.click(sidebar().getByRole('button', { name: '批量制作' }));
+  active('批量制作');
+  fireEvent.click(sidebar().getByRole('button', { name: '画布' }));
+  active('画布');
+  first.unmount();
+
+  member = { ...creator, user_id: 'other' };
+  const second = render(<App />);
+  await screen.findByRole('heading', { name: '造物电商' });
+  active('快捷生成');
+  second.unmount();
+
+  member = creator;
+  const restored = render(<App />);
+  await screen.findByRole('heading', { name: '造物电商' });
+  active('画布');
+  fireEvent.click(sidebar().getByRole('button', { name: '批量制作' }));
+  restored.unmount();
+
+  member = session;
+  render(<App />);
+  await screen.findByRole('heading', { name: '造物电商' });
+  active('快捷生成');
+  expect(sidebar().getByRole('button', { name: '批量制作' })).toBeDisabled();
 });

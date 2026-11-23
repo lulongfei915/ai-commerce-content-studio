@@ -15,7 +15,6 @@ import './canvas.css';
 const initialViewport = { x: 0, y: 0, zoom: 1 };
 
 export type CanvasProps = {
-  shown: boolean;
   task: Task;
   categories: Category[];
   session: Session;
@@ -37,7 +36,7 @@ export type CanvasProps = {
 };
 
 export function CanvasPage(props: CanvasProps) {
-  const { task, shown, onMerge } = props;
+  const { task, onMerge } = props;
   const [canvas, setCanvas] = useState<Canvas>();
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -57,18 +56,17 @@ export function CanvasPage(props: CanvasProps) {
   );
 
   useEffect(() => {
-    if (!shown) return;
     const controller = new AbortController();
     void load(controller.signal).catch((cause: unknown) => {
       if (!controller.signal.aborted) setError(actionError(cause));
     });
     return () => controller.abort();
-  }, [shown, retry, load]);
+  }, [retry, load]);
   const running = canvas?.nodes.some((node) =>
     ['queued', 'running', 'saving'].includes(node.status),
   );
   useEffect(() => {
-    if (!shown || !running) return;
+    if (!running) return;
     const controller = new AbortController();
     const timer = window.setInterval(() => {
       void load(controller.signal).catch(() => {});
@@ -77,10 +75,10 @@ export function CanvasPage(props: CanvasProps) {
       window.clearInterval(timer);
       controller.abort();
     };
-  }, [shown, running, load]);
+  }, [running, load]);
 
   return (
-    <div hidden={!shown}>
+    <div>
       {error && (
         <p role="alert" className="work-error">
           {error}{' '}
@@ -89,14 +87,14 @@ export function CanvasPage(props: CanvasProps) {
           </button>
         </p>
       )}
-      {!canvas && shown && !error && <p role="status">正在加载画布…</p>}
+      {!canvas && !error && <p role="status">正在加载画布…</p>}
       {canvas && <CanvasState {...props} canvas={canvas} reload={load} />}
     </div>
   );
 }
 
 function CanvasState(props: CanvasProps & { canvas: Canvas; reload: () => Promise<Canvas> }) {
-  const { task, canvas, session, onSpatialDirty, shown, reload } = props;
+  const { task, canvas, session, onSpatialDirty, reload } = props;
   const token = session.csrf_token;
   const layout = useVersionedSave<Positions>(
     canvas.layout.positions ?? [],
@@ -105,7 +103,7 @@ function CanvasState(props: CanvasProps & { canvas: Canvas; reload: () => Promis
       const saved = await putLayout(task.id, token, version, next);
       const before = new Set((canvas.layout.positions ?? []).map((point) => point.id));
       const after = new Set(next.map((point) => point.id));
-      const isAsset = (id: string) => id.startsWith('upload:') || id.startsWith('case:');
+      const isAsset = (id: string) => !id.startsWith('creation:');
       if (
         [...before].some((id) => isAsset(id) && !after.has(id)) ||
         [...after].some((id) => isAsset(id) && !before.has(id))
@@ -126,8 +124,6 @@ function CanvasState(props: CanvasProps & { canvas: Canvas; reload: () => Promis
   useEffect(() => {
     onSpatialDirty(dirty);
   }, [dirty, onSpatialDirty]);
-  // Keep the save queues mounted while switching to the quick editor.
-  if (!shown) return null;
   return <CanvasBoard {...props} layout={layout} viewport={viewport} reload={reload} />;
 }
 
