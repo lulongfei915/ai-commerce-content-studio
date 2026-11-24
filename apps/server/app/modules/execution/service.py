@@ -65,7 +65,15 @@ def lock_budget(db: Session, tenant: str) -> None:
     db.execute(select(Tenant.id).where(Tenant.id == tenant).with_for_update())
 
 
-def require_budget(db: Session, tenant: str, settings: Settings, amount: int) -> None:
+def require_budget(
+    db: Session, tenant: str, settings: Settings, amount: int, *, for_image: bool = False
+) -> None:
+    if amount <= 0:
+        raise HTTPException(402, "budget_not_configured")
+    if for_image and settings.image_budget_unlimited:
+        return
+    if settings.image_budget_cents <= 0:
+        raise HTTPException(402, "budget_not_configured")
     rows = db.scalars(
         select(ImageStep).join(Execution).where(Execution.tenant_id == tenant).with_for_update()
     )
@@ -77,7 +85,7 @@ def require_budget(db: Session, tenant: str, settings: Settings, amount: int) ->
             select(ModelCall.reserved_cents).where(ModelCall.tenant_id == tenant).with_for_update()
         )
     )
-    if amount <= 0 or committed + amount > settings.image_budget_cents:
+    if committed + amount > settings.image_budget_cents:
         raise HTTPException(402, "budget_unavailable")
 
 
@@ -122,7 +130,7 @@ def submit(
         snapshot = {**old.snapshot, "feedback": step.decision}
         snapshot["draft"] = {**snapshot["draft"], "version": data.expected_version}
     verify_sources(db, tenant, snapshot)
-    require_budget(db, tenant, settings, count * settings.image_ceiling_cents)
+    require_budget(db, tenant, settings, count * settings.image_ceiling_cents, for_image=True)
     job = Execution(
         id=new_id(),
         tenant_id=tenant,

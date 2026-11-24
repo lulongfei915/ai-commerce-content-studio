@@ -148,7 +148,8 @@ def build_input_snapshot(db: Session, item: Creation) -> InputSnapshot:
         reject("prompt", "prompt_required")
     if set(REFERENCE_TAG.findall(draft.prompt)) - {ref.id for ref in draft.references}:
         reject("prompt", "reference_label_dangling")
-    photos = require_generation_inputs(db, product, draft.purpose)
+    quick_image = item.entry in (None, "quick") and item.purpose in ("main", "detail")
+    photos = require_generation_inputs(db, product, draft.purpose, require_complete=not quick_image)
     validate_references(db, product, draft.references, item)
     files = {photo.file_id for photo in photos} | {ref.file_id for ref in draft.references}
     if item.purpose != "video":

@@ -130,17 +130,15 @@ def process(db: Session, identifier: str, storage: ObjectStorage, settings: Sett
         if phase == "queued":
             images = read_media(storage, sources)
             size = validate_parameters(ImageParameters.model_validate(snap["draft"]["parameters"]))
-            prompt = (
-                snap["draft"]["prompt"]
-                + "\n已确认商品事实："
-                + json.dumps(snap["facts"], ensure_ascii=False)
-            )
+            prompt = snap["draft"]["prompt"]
+            if snap["facts"]:
+                prompt += "\n已确认商品事实：" + json.dumps(snap["facts"], ensure_ascii=False)
             if snap.get("feedback"):
                 prompt += "\n返工意见：" + json.dumps(snap["feedback"], ensure_ascii=False)
             request = ImageGenerationRequest(
                 model=snap["model"],
                 prompt=prompt,
-                image=images,
+                image=images or None,
                 size=f"{size['width']}x{size['height']}",
             )
             with ArkImageClient(settings) as provider:

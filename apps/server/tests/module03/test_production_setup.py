@@ -257,3 +257,27 @@ def test_generation_preflight_rejects_incomplete_and_invalidated_inputs(
     with pytest.raises(HTTPException) as inactive:
         require_generation_inputs(db, product, "main")
     assert inactive.value.detail["fields"] == ["product_photo_invalid"]
+
+
+def test_confirmed_specification_with_photo_is_usable_for_generation(
+    client: TestClient, db: Session
+) -> None:
+    from app.modules.products.service import get_product, require_generation_inputs
+
+    csrf = login(client)
+    photo(db, "simplified-photo", "alpha", "alice")
+    facts = {
+        "specification": {
+            "value": "米白色、低帮、36–44 码",
+            "evidence": "录入人已核对商品信息",
+        }
+    }
+    draft = create_product(client, csrf, "SIMPLE-DRAFT", facts=facts)
+    assert draft["readiness"]["main"] == ["photo_required"]
+    data = create_product(
+        client, csrf, "SIMPLE-SKU", facts=facts, photo_ids=["simplified-photo"]
+    )
+    assert data["facts"] == facts
+    assert data["readiness"]["main"] == []
+    product = get_product(db, "alpha", data["id"])
+    assert require_generation_inputs(db, product, "main")[0].file_id == "simplified-photo"

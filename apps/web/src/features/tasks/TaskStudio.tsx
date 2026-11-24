@@ -9,8 +9,7 @@ import {
 
 import type { Session } from '../auth/session';
 import { actionError, createDraft, listDrafts } from '../creation/api';
-import type { Draft } from '../creation/api';
-import type { DraftEdits } from '../creation/CreationEditor';
+import type { Draft, DraftEdits } from '../creation/api';
 import { QuickCreation } from '../creation/QuickCreation';
 import { getTaskResults, type TaskResult } from '../creation/results';
 import { BatchCreation } from '../creation/BatchCreation';
@@ -223,8 +222,7 @@ export function TaskStudio({
               }}
             >
               <SafetyOutlined /> 待审核{' '}
-              {results.filter((n) => n.status === 'pending_review').length}{' '}
-              份
+              {results.filter((n) => n.status === 'pending_review').length} 份
             </button>
           )}
         </div>

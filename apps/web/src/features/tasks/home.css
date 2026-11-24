@@ -140,6 +140,30 @@
   background: #e3f1d9;
   color: #335728;
 }
+.studio-generation-feedback {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-top: 9px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: #f0f3ee;
+  color: var(--work-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.studio-generation-feedback[data-error] {
+  background: #f9eeeb;
+  color: #963f35;
+}
+.studio-quick .image-execution {
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--work-line);
+  border-radius: 8px;
+  background: var(--work-surface);
+  font-size: 12px;
+}
 .studio-results header {
   display: flex;
   align-items: center;

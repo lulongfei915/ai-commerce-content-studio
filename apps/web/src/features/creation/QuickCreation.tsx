@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ArrowRightOutlined,
   ControlOutlined,
+  ExclamationCircleOutlined,
   PictureOutlined,
   PlusOutlined,
   VideoCameraOutlined,
@@ -11,11 +12,19 @@ import {
 import { Modal } from '../../shared/ui/Modal';
 import type { Category, Product } from '../products/api';
 import { CaseBrowser } from '../cases/CaseBrowser';
-import { CreationEditor, type DraftEdits } from './CreationEditor';
-import { ImageProduction } from './ImageProduction';
+import { CreationEditor } from './CreationEditor';
+import { ImageExecutionStatus } from './ImageExecutionStatus';
 import { ParametersFields } from './ParametersFields';
 import { VideoFields } from './VideoFields';
-import { actionError, defaults, draftWrite, type Draft } from './api';
+import {
+  actionError,
+  defaults,
+  draftWrite,
+  saveDraftInputs,
+  type Draft,
+  type DraftEdits,
+} from './api';
+import { useImageExecution } from './useImageExecution';
 
 type Props = {
   product: Product;
@@ -55,6 +64,8 @@ export function QuickCreation({
   const [panel, setPanel] = useState<'settings' | 'case' | 'specs'>();
   const [feedback, setFeedback] = useState<{ id: string; message: string; error?: boolean }>();
   const isVideo = purpose === 'video';
+  const execution = useImageExecution(isVideo ? undefined : selected, token);
+  const working = useRef(false);
   const value: DraftEdits = edits ?? {
     prompt: selected?.prompt ?? '',
     parameters: selected?.parameters ?? defaults,
@@ -79,7 +90,10 @@ export function QuickCreation({
         '置于符合实际用途的日常场景中，采用自然光，保持商品颜色和结构一致。',
         '近距离拍摄实拍可见的结构，用柔和侧光表现层次。',
       ];
-  const prompts = phrases.map((phrase) => `以${product.name}实拍为主体，${phrase}`);
+  const hasPhotos = product.photos.length > 0;
+  const prompts = phrases.map(
+    (phrase) => `以${product.name}${hasPhotos ? '实拍' : ''}为主体，${phrase}`,
+  );
   const disabled = busy || loading;
 
   function change(next: DraftEdits) {
@@ -87,7 +101,8 @@ export function QuickCreation({
     setFeedback(undefined);
   }
   async function withDraft(operation: (draft: Draft) => Promise<void>) {
-    if (disabled) return;
+    if (disabled || working.current) return;
+    working.current = true;
     onBusy(true);
     let id = editorId;
     try {
@@ -102,8 +117,17 @@ export function QuickCreation({
     } catch (cause) {
       setFeedback({ id, message: actionError(cause), error: true });
     } finally {
+      working.current = false;
       onBusy(false);
     }
+  }
+
+  async function saveInputs(draft: Draft) {
+    if (!edits) return draft;
+    const updated = await saveDraftInputs(draft, token, edits);
+    onSaved(updated);
+    onEdit(draft.id, undefined);
+    return updated;
   }
   return (
     <section className="studio-quick" aria-label="快捷创作">
@@ -120,7 +144,11 @@ export function QuickCreation({
             maxLength={6000}
             disabled={disabled}
             value={value.prompt}
-            placeholder={`描述你想要的画面，或添加一份参考。商品外观将以${product.name}实拍为准。`}
+            placeholder={
+              hasPhotos
+                ? `描述你想要的画面，或添加参考。商品外观以${product.name}实拍为准。`
+                : '描述你想要的画面，也可以添加参考素材。'
+            }
             onChange={(e) => change({ ...value, prompt: e.target.value })}
           />
         </div>
@@ -146,30 +174,33 @@ export function QuickCreation({
           </button>
           <button
             className="work-primary studio-save"
-            disabled={disabled || !edits}
+            disabled={disabled || (isVideo ? !edits : execution.inProgress || !value.prompt.trim())}
             onClick={() =>
               void withDraft(async (draft) => {
-                const updated = await draftWrite(
-                  draft,
-                  token,
-                  '',
-                  {
-                    prompt: value.prompt,
-                    ...(isVideo
-                      ? { video_parameters: value.video }
-                      : { parameters: value.parameters }),
-                  },
-                  'PATCH',
-                );
-                onSaved(updated);
-                onEdit(draft.id, undefined);
-                setFeedback({ id: draft.id, message: '草稿已保存' });
+                setFeedback(undefined);
+                const updated = await saveInputs(draft);
+                if (isVideo) {
+                  setFeedback({ id: draft.id, message: '草稿已保存' });
+                  return;
+                }
+                await execution.submit(updated);
               })
             }
           >
-            <ArrowRightOutlined aria-hidden="true" /> 保存草稿
+            <ArrowRightOutlined aria-hidden="true" />{' '}
+            {isVideo ? '保存草稿' : execution.inProgress ? '制作中' : '生成图片'}
           </button>
         </div>
+        {feedback?.id === editorId && (
+          <div
+            className="studio-generation-feedback"
+            data-error={feedback.error || undefined}
+            role={feedback.error ? 'alert' : 'status'}
+          >
+            {feedback.error && <ExclamationCircleOutlined aria-hidden="true" />}
+            <span>{feedback.message}</span>
+          </div>
+        )}
       </div>
       <div className="studio-shortcuts" aria-label="快捷提示词">
         {labels.map((label, i) => (
@@ -186,22 +217,11 @@ export function QuickCreation({
           更多灵感 ›
         </button>
       </div>
-      {feedback?.id === editorId && (
-        <p
-          className={feedback.error ? 'work-error' : 'work-muted'}
-          role={feedback.error ? 'alert' : 'status'}
-        >
-          {feedback.message}
-        </p>
-      )}
-      {selected && !isVideo && panel !== 'settings' && (
-        <ImageProduction
-          key={selected.id}
-          draft={selected}
-          token={token}
-          disabled={disabled || Boolean(edits)}
-          onSaved={onSaved}
-          onPrompt={(prompt) => change({ ...value, prompt })}
+      {selected && !isVideo && execution.job && (
+        <ImageExecutionStatus
+          key={`${selected.id}:${execution.job.id}`}
+          execution={execution}
+          disabled={disabled}
         />
       )}
       {panel === 'specs' && (
@@ -253,6 +273,7 @@ export function QuickCreation({
             onEdit={(next) => onEdit(editorId, next)}
             onSaved={onSaved}
             onBusy={onBusy}
+            imageExecution={execution}
           />
         </Modal>
       )}

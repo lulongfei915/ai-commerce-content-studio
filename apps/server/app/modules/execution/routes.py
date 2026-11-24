@@ -92,7 +92,9 @@ def retry(
             },
         )
     if output.status == "generation_failed" and step.actual_cents == 0:
-        require_budget(db, identity.tenant.id, settings, settings.image_ceiling_cents)
+        require_budget(
+            db, identity.tenant.id, settings, settings.image_ceiling_cents, for_image=True
+        )
         step.reserved_cents, step.actual_cents, step.fee_state = (
             settings.image_ceiling_cents,
             None,

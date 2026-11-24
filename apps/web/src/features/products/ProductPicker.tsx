@@ -1,27 +1,56 @@
-import { SearchBar } from '../../shared/ui/SearchBar';
+import { useState } from 'react';
+import { PictureOutlined, SearchOutlined } from '@ant-design/icons';
 import { useSearchPage } from '../../shared/ui/useSearchPage';
 import { listProducts } from './api';
-import type { Product } from './api';
+import type { Category, Product } from './api';
+import { photoPreviewUrl } from './preview';
 
 type Props = {
+  categories: Category[];
+  initialId?: string;
   selected: Product[];
   onChange: (products: Product[]) => void;
   excluded?: string[];
   revision?: number;
 };
 
-export function ProductPicker({ selected, onChange, excluded = [], revision }: Props) {
+export function ProductPicker({
+  categories,
+  initialId,
+  selected,
+  onChange,
+  excluded = [],
+  revision,
+}: Props) {
   const page = useSearchPage(listProducts, revision);
-  const visible = [
-    ...selected,
-    ...page.items.filter(
+  const [query, setQuery] = useState('');
+  const term = query.trim().toLowerCase();
+  const matches = [
+    ...selected.filter(
       (product) =>
-        !excluded.includes(product.id) && !selected.some((item) => item.id === product.id),
+        !page.items.some((item) => item.id === product.id) &&
+        `${product.name} ${product.sku}`.toLowerCase().includes(term),
     ),
+    ...page.items.filter((product) => !excluded.includes(product.id)),
   ];
+  const initial = matches.find((product) => product.id === initialId);
+  const visible = initial ? [initial, ...matches.filter((product) => product !== initial)] : matches;
   return (
-    <div className="work-form">
-      <SearchBar label="搜索商品或 SKU" onSearch={page.search} />
+    <div className="task-product-picker">
+      <div className="task-product-search">
+        <SearchOutlined aria-hidden="true" />
+        <input
+          type="search"
+          aria-label="搜索可选商品"
+          placeholder="搜索商品名称或 SKU"
+          maxLength={100}
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            page.search(event.target.value);
+          }}
+        />
+      </div>
       {page.error && (
         <p role="alert" className="work-error">
           商品未加载。{' '}
@@ -34,11 +63,13 @@ export function ProductPicker({ selected, onChange, excluded = [], revision }: P
       {!page.loading && !page.error && visible.length === 0 && (
         <p className="work-muted">没有符合条件的可选商品。</p>
       )}
-      <div className="work-options">
+      <div className="task-product-options" role="group" aria-label="可选商品">
         {visible.map((product) => {
           const checked = selected.some((item) => item.id === product.id);
+          const category = categories.find(({ id }) => id === product.category);
+          const photo = product.photos[0];
           return (
-            <label className="work-check product-option" key={product.id}>
+            <label className="task-product-option" key={product.id}>
               <input
                 type="checkbox"
                 checked={checked}
@@ -51,8 +82,18 @@ export function ProductPicker({ selected, onChange, excluded = [], revision }: P
                   )
                 }
               />
-              <span>
-                {product.name} <small>{product.sku}</small>
+              <span className="task-product-thumb">
+                {photo ? (
+                  <img src={photoPreviewUrl(product.id, photo.file_id)} alt="" loading="lazy" />
+                ) : (
+                  <PictureOutlined aria-hidden="true" />
+                )}
+              </span>
+              <span className="task-product-identity">
+                <strong>{product.name}</strong>
+                <small>
+                  {product.sku} · {category?.label ?? product.category}
+                </small>
               </span>
             </label>
           );

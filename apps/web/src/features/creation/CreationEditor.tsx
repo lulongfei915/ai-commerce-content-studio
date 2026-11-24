@@ -12,6 +12,7 @@ import { InputSnapshotDialog } from './InputSnapshotDialog';
 import { CanvasSpecs } from './CanvasSpecs';
 import { VideoFields } from './VideoFields';
 import { ImageProduction } from './ImageProduction';
+import type { ImageExecution } from './useImageExecution';
 import { BoundPhotos } from './BoundPhotos';
 import {
   actionError,
@@ -21,12 +22,12 @@ import {
   issueText,
   loadSnapshot,
   removeReference,
+  saveDraftInputs,
   uploadReference,
   usageLabel,
 } from './api';
-import type { Draft, Issue, Parameters, Reference, VideoParameters } from './api';
+import type { Draft, DraftEdits, Issue, Reference } from './api';
 import './creation.css';
-export type DraftEdits = { prompt: string; parameters: Parameters; video?: VideoParameters };
 
 export function CreationEditor({
   draft,
@@ -40,6 +41,7 @@ export function CreationEditor({
   inCanvas = false,
   previewUrl,
   onLocateReference,
+  imageExecution,
 }: {
   draft: Draft;
   product: Product;
@@ -52,6 +54,7 @@ export function CreationEditor({
   inCanvas?: boolean;
   previewUrl?: (reference: Reference) => string | undefined;
   onLocateReference?: (reference: Reference) => void;
+  imageExecution?: ImageExecution;
 }) {
   const values = edits ?? {
     prompt: draft.prompt,
@@ -360,6 +363,7 @@ export function CreationEditor({
           disabled={busy || dirty || dangling}
           onSaved={onSaved}
           onPrompt={(value) => edit({ ...values, prompt: value })}
+          execution={imageExecution}
         />
       )}
       <footer className="work-actions creative-footer">
@@ -424,22 +428,7 @@ export function CreationEditor({
           type="button"
           className="work-primary"
           disabled={busy || !dirty}
-          onClick={() =>
-            run(
-              () =>
-                draftWrite(
-                  draft,
-                  token,
-                  '',
-                  {
-                    prompt,
-                    ...(isVideo ? { video_parameters: video } : { parameters }),
-                  },
-                  'PATCH',
-                ),
-              'save',
-            )
-          }
+          onClick={() => run(() => saveDraftInputs(draft, token, values), 'save')}
         >
           保存草稿
         </button>

@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     ark_video_model: str = DEFAULT_ARK_VIDEO_MODEL
     ark_timeout_seconds: float = 60.0
     image_budget_cents: int = Field(default=0, ge=0)
+    image_budget_unlimited: bool = False
     image_ceiling_cents: int = Field(default=0, ge=0)
     image_tenant_slots: int = Field(default=4, gt=0)
     image_provider_slots: int = Field(default=8, gt=0)

@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from .schemas import Category, CategoryFields, ConfirmedFact, FactField
 
 PURPOSES = ("main", "detail", "video")
+SPECIFICATION = "specification"
 
 
 def field(key: str, label: str, *required_for: str) -> FactField:
@@ -59,11 +60,14 @@ CATEGORIES: dict[Category, CategoryFields] = {
 
 
 def validate_fields(category: Category, facts: dict[str, ConfirmedFact]) -> None:
-    allowed = {item.key for item in CATEGORIES[category].fields}
+    allowed = {SPECIFICATION, *(item.key for item in CATEGORIES[category].fields)}
     if facts.keys() - allowed:
         raise HTTPException(422, "product_fact_field_invalid")
 
 
 def missing_inputs(category: Category, facts: set[str], has_photo: bool, purpose: str) -> list[str]:
+    photo_issues = [] if has_photo else ["photo_required"]
+    if SPECIFICATION in facts:
+        return photo_issues
     required = [f.key for f in CATEGORIES[category].fields if purpose in f.required_for]
-    return ([] if has_photo else ["photo_required"]) + [key for key in required if key not in facts]
+    return photo_issues + [key for key in required if key not in facts]

@@ -25,7 +25,7 @@ const session = {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test('closing the product form keeps the setup selections and only the chosen scope is sent', async () => {
+test('starting from a catalog product preselects it and keeps the chosen scope when returning from the editor', async () => {
   let payload: unknown;
   const fetchMock = vi.fn<typeof fetch>(async (url, init) => {
     const path = String(url).split('?')[0];
@@ -61,17 +61,23 @@ test('closing the product form keeps the setup selections and only the chosen sc
   vi.stubGlobal('fetch', fetchMock);
   render(<App />);
 
-  fireEvent.click(await screen.findByRole('button', { name: '新建制作' }));
+  const nav = await screen.findByRole('navigation', { name: '工作区' });
+  fireEvent.click(within(nav).getByRole('button', { name: '商品资料' }));
+  fireEvent.click(await screen.findByRole('button', { name: '用此商品制作' }));
   const setup = screen.getByRole('dialog', { name: '新建制作' });
+  expect(within(setup).getByRole('checkbox', { name: /红色帆布鞋/ })).toBeChecked();
+  expect(within(setup).getByRole('checkbox', { name: '商品主图' })).toBeChecked();
+  expect(within(setup).getByText('已选 1 件：红色帆布鞋')).toBeVisible();
+  fireEvent.click(within(setup).getByRole('checkbox', { name: '商品主图' }));
   expect(within(setup).getByRole('button', { name: '进入制作' })).toBeDisabled();
-  fireEvent.click(await within(setup).findByRole('checkbox', { name: /红色帆布鞋/ }));
-  fireEvent.click(within(setup).getByRole('checkbox', { name: '主图' }));
+  fireEvent.click(within(setup).getByRole('checkbox', { name: '商品主图' }));
+  fireEvent.click(within(setup).getByText('制作名称', { exact: true }));
   fireEvent.change(within(setup).getByLabelText('任务名称'), { target: { value: '上新一组' } });
   fireEvent.click(within(setup).getByRole('button', { name: '添加新商品' }));
   const editor = await screen.findByRole('dialog', { name: '添加新商品' });
   fireEvent.click(within(editor).getByRole('button', { name: '关闭' }));
   expect(within(setup).getByRole('checkbox', { name: /红色帆布鞋/ })).toBeChecked();
-  expect(within(setup).getByRole('checkbox', { name: '主图' })).toBeChecked();
+  expect(within(setup).getByRole('checkbox', { name: '商品主图' })).toBeChecked();
   expect(within(setup).getByLabelText('任务名称')).toHaveValue('上新一组');
   fireEvent.click(within(setup).getByRole('button', { name: '进入制作' }));
   expect(await screen.findByRole('heading', { name: '上新一组' })).toBeInTheDocument();

@@ -105,12 +105,17 @@ def test_assistance_binds_draft_version_and_undo(client: TestClient, db: Session
     from app.modules.prompt_assist import routes
 
     monkeypatch.setattr(routes, "suggest", lambda *_: ("棚拍建议", "request-1", {}))
-    monkeypatch.setattr(get_settings(), "image_budget_cents", 10)
-    monkeypatch.setattr(get_settings(), "assistance_ceiling_cents", 5)
+    settings = get_settings()
+    monkeypatch.setattr(settings, "image_budget_cents", 10)
+    monkeypatch.setattr(settings, "assistance_ceiling_cents", 0)
     source = f"{API}/creations/{draft['id']}/assistances"
-    response = client.post(
-        source, headers=headers, json={"kind": "optimize", "expected_version": 1}
-    )
+    data = {"kind": "optimize", "expected_version": 1}
+    rejected = client.post(source, headers=headers, json=data)
+    assert rejected.status_code == 402
+    assert rejected.json() == {"detail": "budget_not_configured"}
+    assert client.get(source).json() == []
+    monkeypatch.setattr(settings, "assistance_ceiling_cents", 5)
+    response = client.post(source, headers=headers, json=data)
     assert response.status_code == 201, response.text
     item = response.json()
     base = f"{API}/assistances/{item['id']}"

@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { Session } from '../auth/session';
 import { actionError } from '../creation/api';
-import type { Draft } from '../creation/api';
-import type { DraftEdits } from '../creation/CreationEditor';
+import type { Draft, DraftEdits } from '../creation/api';
 import type { Category } from '../products/api';
 import type { Task } from '../tasks/api';
 import { CanvasBoard } from './CanvasBoard';

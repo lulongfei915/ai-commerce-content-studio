@@ -74,6 +74,78 @@
 .creative-upload input {
   width: 100%;
 }
+.image-tools-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.image-tools .image-tools-actions .image-analysis-upload {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 12px;
+  border: 1px solid var(--work-line);
+  border-radius: 6px;
+  background: var(--work-field);
+}
+.image-analysis-upload input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.image-analysis-upload:focus-within {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+.image-tools:disabled .image-analysis-upload {
+  opacity: 0.55;
+}
+.image-tools:disabled .image-analysis-upload input {
+  cursor: default;
+}
+.image-execution,
+.image-execution ul,
+.image-execution li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.image-execution ul {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.image-output-status {
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: #edf2e9;
+  color: #465e3f;
+}
+.image-output-status:is(
+  [data-status='generation_failed'],
+  [data-status='save_failed'],
+  [data-status='unknown']
+) {
+  background: #f9eeeb;
+  color: #963f35;
+}
+.workspace .image-execution button,
+.studio-dialog .image-execution button {
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.image-execution > p {
+  flex-basis: 100%;
+}
 @media (max-width: 570px) {
   .creative-parameters {
     grid-template-columns: 1fr;

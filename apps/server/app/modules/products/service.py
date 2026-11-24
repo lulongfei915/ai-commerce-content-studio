@@ -187,8 +187,10 @@ def add_facts(db: Session, product: Product, user: str, data: FactsUpdate) -> Pr
     return product_view(product, fact)
 
 
-def require_generation_inputs(db: Session, product: Product, purpose: str) -> list[ProductPhoto]:
-    """Validate the current SKU facts before an execution can be accepted."""
+def require_generation_inputs(
+    db: Session, product: Product, purpose: str, *, require_complete: bool = True
+) -> list[ProductPhoto]:
+    """Check bound photos and, for production workflows, SKU completeness."""
     fact = get_fact(db, product, product.fact_version)
     photos = [ProductPhoto.model_validate(photo) for photo in fact.photos]
     if purpose not in {*PURPOSES, "clip"}:
@@ -212,9 +214,14 @@ def require_generation_inputs(db: Session, product: Product, purpose: str) -> li
             )
         )
     }
-    issues = missing_inputs(
-        product.category, set(fact.facts), bool(photos), "video" if purpose == "clip" else purpose
-    )
+    issues = []
+    if require_complete:
+        issues = missing_inputs(
+            product.category,
+            set(fact.facts),
+            bool(photos),
+            "video" if purpose == "clip" else purpose,
+        )
     if any(actual.get(photo.file_id) != photo.version for photo in photos):
         issues.append("product_photo_invalid")
     if issues:

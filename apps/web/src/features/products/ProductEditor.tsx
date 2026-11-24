@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { ArrowRightOutlined, UploadOutlined } from '@ant-design/icons';
 
 import { ApiError } from '../../shared/api/client';
 import { Modal } from '../../shared/ui/Modal';
 import { createProduct, updateFacts, uploadPhoto } from './api';
 import type { Category, Facts, Product } from './api';
 import { photoPreviewUrl } from './preview';
+import { specificationKey, specificationLabel, specificationText } from './specification';
+import './products.css';
 
 type Props = {
   categories: Category[];
@@ -18,7 +21,11 @@ type Props = {
 
 export function ProductEditor({ categories, product, token, inSetup, onClose, onSave }: Props) {
   const [category, setCategory] = useState<Category['id']>(product?.category ?? categories[0].id);
-  const [facts, setFacts] = useState<Facts>(product?.facts ?? {});
+  const originalSpecification = specificationText(
+    product,
+    categories.find((item) => item.id === product?.category),
+  );
+  const [specification, setSpecification] = useState(originalSpecification);
   const [existingPhotos, setExistingPhotos] = useState(product?.photos ?? []);
   const [files, setFiles] = useState<File[]>([]);
   const [uploads, setUploads] = useState<Map<File, string>>(() => new Map());
@@ -26,15 +33,6 @@ export function ProductEditor({ categories, product, token, inSetup, onClose, on
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const count = existingPhotos.length + files.length;
-  const fields = categories.find((item) => item.id === category)?.fields ?? [];
-
-  function editFact(key: string, part: 'value' | 'evidence', text: string) {
-    setFacts((current) => ({
-      ...current,
-      [key]: { ...(current[key] ?? { value: '', evidence: '' }), [part]: text },
-    }));
-    setConfirmed(false);
-  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,16 +40,13 @@ export function ProductEditor({ categories, product, token, inSetup, onClose, on
     const form = new FormData(event.currentTarget);
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     const start = submitter?.getAttribute('value') === 'start';
-    const filled: Facts = {};
-    for (const field of fields) {
-      const item = facts[field.key];
-      if (!item || (!item.value.trim() && !item.evidence.trim())) continue;
-      if (!item.value.trim() || !item.evidence.trim()) {
-        setError(`请补齐「${field.label}」及其确认依据，或将两项留空。`);
-        return;
-      }
-      filled[field.key] = item;
-    }
+    const value = specification.trim();
+    const filled: Facts =
+      product && value === originalSpecification.trim()
+        ? product.facts
+        : value
+          ? { [specificationKey]: { value, evidence: '录入人已核对商品信息' } }
+          : {};
     if ((Object.keys(filled).length || count) && !confirmed) {
       setError('请核对并确认已填写的事实和实拍。');
       return;
@@ -100,86 +95,79 @@ export function ProductEditor({ categories, product, token, inSetup, onClose, on
   return (
     <Modal title={product ? '编辑商品资料' : '添加新商品'} onClose={onClose} busy={busy}>
       <form
-        className="work-form"
+        className="product-editor"
         onSubmit={(event) => {
           void save(event);
         }}
       >
-        <fieldset disabled={busy} className="work-form">
-          {!product && (
-            <div className="work-grid">
-              <label>
-                商品名称
-                <input name="name" required maxLength={80} />
-              </label>
-              <label>
-                SKU
-                <input name="sku" required maxLength={60} />
-              </label>
-            </div>
-          )}
-          <label>
-            商品品类
-            <select
-              value={category}
-              disabled={Boolean(product)}
-              onChange={(event) => {
-                setCategory(event.target.value as Category['id']);
-                setFacts({});
-                setConfirmed(false);
-              }}
-            >
-              {categories.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            上传商品实拍
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              onChange={(event) => {
-                const next = Array.from(event.target.files ?? []);
-                event.target.value = '';
-                if (!next.length) return;
-                if (
-                  count + next.length > 8 ||
-                  next.some(
-                    (file) =>
-                      !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ||
-                      file.size > 10 * 1024 * 1024 ||
-                      !file.size,
-                  )
-                ) {
-                  setError('实拍最多 8 张，每张须为 10 MB 以内的 JPG、PNG 或 WebP。');
-                  return;
-                }
-                setFiles((current) => [...current, ...next]);
-                setError('');
-                setConfirmed(false);
-              }}
-            />
-          </label>
-          {count > 0 && (
-            <ul className="photo-list">
-              {product &&
-                existingPhotos.map((photo, index) => (
-                  <li key={photo.file_id}>
-                    <img
-                      src={photoPreviewUrl(product.id, photo.file_id)}
-                      alt={`实拍 ${index + 1}`}
-                    />
+        <div className="product-dialog-body">
+          <fieldset disabled={busy} className="work-form product-fields">
+            <label className="product-upload">
+              <span className="product-upload-icon">
+                <UploadOutlined aria-hidden="true" />
+              </span>
+              <span>
+                <strong>上传商品实拍</strong>
+                <small>JPG、PNG 或 WebP，单张不超过 10 MB，最多 8 张</small>
+              </span>
+              <input
+                aria-label="上传商品实拍"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={(event) => {
+                  const next = Array.from(event.target.files ?? []);
+                  event.target.value = '';
+                  if (!next.length) return;
+                  if (
+                    count + next.length > 8 ||
+                    next.some(
+                      (file) =>
+                        !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ||
+                        file.size > 10 * 1024 * 1024 ||
+                        !file.size,
+                    )
+                  ) {
+                    setError('实拍最多 8 张，每张须为 10 MB 以内的 JPG、PNG 或 WebP。');
+                    return;
+                  }
+                  setFiles((current) => [...current, ...next]);
+                  setError('');
+                  setConfirmed(false);
+                }}
+              />
+            </label>
+            {count > 0 && (
+              <ul className="photo-list">
+                {product &&
+                  existingPhotos.map((photo, index) => (
+                    <li key={photo.file_id}>
+                      <img
+                        src={photoPreviewUrl(product.id, photo.file_id)}
+                        alt={`实拍 ${index + 1}`}
+                      />
+                      <button
+                        type="button"
+                        aria-label={`移除实拍 ${index + 1}`}
+                        onClick={() => {
+                          setExistingPhotos((current) =>
+                            current.filter((item) => item.file_id !== photo.file_id),
+                          );
+                          setConfirmed(false);
+                        }}
+                      >
+                        移除
+                      </button>
+                    </li>
+                  ))}
+                {files.map((file, index) => (
+                  <li key={index}>
+                    <LocalPhoto file={file} />
                     <button
                       type="button"
-                      aria-label={`移除实拍 ${index + 1}`}
+                      aria-label={`移除 ${file.name}`}
                       onClick={() => {
-                        setExistingPhotos((current) =>
-                          current.filter((item) => item.file_id !== photo.file_id),
-                        );
+                        setFiles((current) => current.filter((_, i) => i !== index));
                         setConfirmed(false);
                       }}
                     >
@@ -187,69 +175,81 @@ export function ProductEditor({ categories, product, token, inSetup, onClose, on
                     </button>
                   </li>
                 ))}
-              {files.map((file, index) => (
-                <li key={index}>
-                  <LocalPhoto file={file} />
-                  <button
-                    type="button"
-                    aria-label={`移除 ${file.name}`}
-                    onClick={() => {
-                      setFiles((current) => current.filter((_, i) => i !== index));
-                      setConfirmed(false);
-                    }}
-                  >
-                    移除
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="work-muted">仅填写已确认的事实并注明依据。资料不全时可先保存草稿。</p>
-          {fields.map((field) => (
-            <div key={field.key} className="work-grid">
+              </ul>
+            )}
+            {!product && (
               <label>
-                {field.label}
-                <input
-                  maxLength={500}
-                  value={facts[field.key]?.value ?? ''}
-                  onChange={(event) => editFact(field.key, 'value', event.target.value)}
-                />
+                商品名称
+                <input name="name" required maxLength={80} placeholder="例如：轻行低帮运动鞋" />
               </label>
+            )}
+            <div className="product-field-row">
+              {!product && (
+                <label>
+                  SKU 编码
+                  <input name="sku" required maxLength={60} placeholder="例如 NEW-001" />
+                </label>
+              )}
               <label>
-                {field.label}的确认依据
-                <input
-                  maxLength={500}
-                  value={facts[field.key]?.evidence ?? ''}
-                  placeholder="例如实物标签或检测报告"
-                  onChange={(event) => editFact(field.key, 'evidence', event.target.value)}
-                />
+                商品品类
+                <select
+                  value={category}
+                  disabled={Boolean(product)}
+                  onChange={(event) => {
+                    setCategory(event.target.value as Category['id']);
+                    setConfirmed(false);
+                  }}
+                >
+                  {categories.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
-          ))}
-          <label className="work-check">
-            <input
-              type="checkbox"
-              checked={confirmed}
-              onChange={(event) => setConfirmed(event.target.checked)}
-            />
-            我已核对实拍和已填写的商品事实
-          </label>
-        </fieldset>
+            <label>
+              {specificationLabel}
+              <textarea
+                rows={3}
+                maxLength={500}
+                value={specification}
+                placeholder="例如：米白色、低帮、36–44 码。只填写已确认的信息。"
+                onChange={(event) => {
+                  setSpecification(event.target.value);
+                  setConfirmed(false);
+                }}
+              />
+            </label>
+            <label className="work-check">
+              <input
+                type="checkbox"
+                checked={confirmed}
+                onChange={(event) => setConfirmed(event.target.checked)}
+              />
+              我已核对实拍和上述商品信息
+            </label>
+          </fieldset>
+        </div>
         {error && (
           <p className="work-error" role="alert">
             {error}
           </p>
         )}
-        <footer className="work-actions">
+        <footer className="product-dialog-footer">
           <button type="button" disabled={busy} onClick={onClose}>
             {inSetup ? '返回选择' : '取消'}
           </button>
-          <button type="submit" className="work-primary" disabled={busy}>
+          <button
+            type="submit"
+            className={product || inSetup ? 'work-primary' : undefined}
+            disabled={busy}
+          >
             {busy ? '保存中…' : inSetup ? '保存并选中' : '保存商品'}
           </button>
           {!product && !inSetup && (
-            <button type="submit" value="start" disabled={busy}>
-              保存并开始制作
+            <button type="submit" className="work-primary" value="start" disabled={busy}>
+              <ArrowRightOutlined aria-hidden="true" /> 保存并开始制作
             </button>
           )}
         </footer>

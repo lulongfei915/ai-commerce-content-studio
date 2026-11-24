@@ -9,6 +9,7 @@ export type Capabilities = Schema['Capabilities'];
 export type Issue = Schema['FieldIssue'];
 export type Reference = Schema['ReferenceView'];
 export type VideoParameters = Schema['VideoParameters'];
+export type DraftEdits = { prompt: string; parameters: Parameters; video?: VideoParameters };
 export type ReferenceUsage = Reference['usage'];
 export const usageLabel: Record<NonNullable<ReferenceUsage>, string> = {
   product: '商品实拍',
@@ -64,6 +65,20 @@ export function draftWrite(
     method,
   );
 }
+export function saveDraftInputs(draft: Draft, token: string, edits: DraftEdits) {
+  return draftWrite(
+    draft,
+    token,
+    '',
+    {
+      prompt: edits.prompt,
+      ...(draft.purpose === 'video'
+        ? { video_parameters: edits.video }
+        : { parameters: edits.parameters }),
+    },
+    'PATCH',
+  );
+}
 export function removeReference(draft: Draft, token: string, id: string) {
   return apiWrite<Draft>(
     `/creations/${draft.id}/references/${id}?expected_version=${draft.version}`,
@@ -84,7 +99,8 @@ export function loadSnapshot(draft: Draft) {
 }
 
 const messages: Record<string, string> = {
-  budget_unavailable: '可用预算不足或未配置单次调用上限。',
+  budget_not_configured: 'Studio 尚未配置调用额度，请联系管理员。',
+  budget_unavailable: 'Studio 可用调用额度不足，请联系管理员。',
   review_unavailable: '该版本已处理或未就绪，无法审核。',
   source_review_required: '商品来源已变化，请重新核对。',
   reason_required: '请填写驳回原因。',
