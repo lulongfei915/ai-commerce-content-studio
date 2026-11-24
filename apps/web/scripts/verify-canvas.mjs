@@ -75,7 +75,8 @@ async function navigateEntry(entry, client = page) {
 
 async function openTask(name, client = page) {
   await expect(client.locator('.workspace')).toBeVisible();
-  await navigateEntry('全部任务', client);
+  await navigateEntry('快捷生成', client);
+  await client.getByRole('button', { name: /^(返回)?全部任务$/ }).click();
   const search = client.getByRole('searchbox', { name: '搜索任务、商品或 SKU' });
   await search.fill(name);
   await search.press('Enter');
@@ -339,7 +340,7 @@ try {
   await page.getByLabel('邮箱', { exact: true }).fill(email);
   await page.getByLabel('密码', { exact: true }).fill(password);
   await page.getByRole('button', { name: '登录', exact: true }).click();
-  await expect(page.getByRole('button', { name: '全部任务', exact: true })).toBeVisible();
+  await expect(page.locator('.workspace')).toBeVisible();
   token = (await api('/me')).csrf_token;
   const redPhoto = await upload('红色实拍.jpg', 'sneaker-red.jpg');
   const bluePhoto = await upload('蓝色样品.jpg', 'sneaker-white.jpg');
@@ -449,8 +450,11 @@ try {
   const quickPrompt = '快捷草稿使用独立提示词';
   await expect(page.getByRole('textbox', { name: '提示词', exact: true })).toHaveValue('');
   await page.getByRole('textbox', { name: '提示词', exact: true }).fill(quickPrompt);
-  await page.getByRole('button', { name: '保存草稿', exact: true }).click();
-  await expect(page.getByText('草稿已保存', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /创作设置/ }).click();
+  const quickSettings = page.getByRole('dialog', { name: '创作设置' });
+  await quickSettings.getByRole('button', { name: '保存草稿', exact: true }).click();
+  await expect(quickSettings.getByText('草稿已保存', { exact: true })).toBeVisible();
+  await quickSettings.getByRole('button', { name: '关闭', exact: true }).click();
   const [quickDraft] = await api(`/tasks/${scenario.id}/creations?entry=quick`);
   assert.notEqual(quickDraft.id, firstDraft.id);
   assert.equal(firstDraft.prompt, prompt);

@@ -1,0 +1,128 @@
+.studio-dialog[open]:has(> .case-create) {
+  display: flex;
+  flex-direction: column;
+  width: min(590px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.studio-dialog:has(> .case-create)::backdrop {
+  backdrop-filter: blur(3px);
+}
+
+.studio-dialog:has(> .case-create) > header {
+  flex: none;
+  margin: 0;
+  padding: 14px 24px 6px;
+}
+
+.studio-dialog:has(> .case-create) > header button {
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-color: transparent;
+  color: var(--work-muted);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.studio-dialog:has(> .case-create) > header button:hover:not(:disabled) {
+  background: #f0f3ee;
+}
+
+.studio-dialog .case-create {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 0;
+  font-size: 14px;
+}
+
+.case-create .case-form-body {
+  min-height: 0;
+  padding: 4px 24px 14px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.case-create .case-fields {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  gap: 10px;
+}
+
+.case-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.case-create .case-fields label:not(.work-check) {
+  font-weight: 550;
+}
+
+.case-create .case-fields :is(input:not([type='checkbox']), select) {
+  width: 100%;
+  min-height: 36px;
+  font-weight: 400;
+}
+
+.case-create .case-file {
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px dashed #b5c4a9;
+  border-radius: 8px;
+  background: #f8faf5;
+}
+
+.case-file .anticon {
+  margin-right: 4px;
+  color: #527e3d;
+}
+
+.case-create .case-file input {
+  padding: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.case-file input::file-selector-button {
+  margin-inline-end: 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: #edf2e7;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.case-create .work-muted,
+.case-create .case-form-footer .work-error {
+  font-size: 13px;
+}
+
+.case-create .case-form-footer {
+  display: grid;
+  flex: none;
+  gap: 8px;
+  padding: 10px 24px;
+  border-top: 1px solid var(--work-line);
+  background: #f9faf7;
+}
+
+@media (max-width: 480px) {
+  .studio-dialog:has(> .case-create) > header,
+  .case-create .case-form-body,
+  .case-create .case-form-footer {
+    padding-inline: 16px;
+  }
+
+  .case-field-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+}

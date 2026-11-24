@@ -5,13 +5,11 @@ import {
   ApartmentOutlined,
   AppstoreOutlined,
   CloseOutlined,
-  LogoutOutlined,
   MenuOutlined,
   PlusOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 
-import { roleLabel } from '../auth/session';
 import type { Session } from '../auth/session';
 import { CaseLibrary } from '../cases/CaseLibrary';
 import { TemplateManager } from '../templates/TemplateManager';
@@ -33,12 +31,14 @@ import {
   type CreationEntry,
 } from './entryPreference';
 import { useSidebarLayout } from './useSidebarLayout';
+import { SidebarAccount } from './SidebarAccount';
 import studioMark from './studio-mark.svg';
 import './workspace.css';
 import { StudioResults } from './StudioResults';
 import { CompanyResults } from './CompanyResults';
 import { navigation } from './navigation';
 import './home.css';
+import './resources.css';
 
 type View = CreationEntry | 'tasks' | 'products' | 'templates' | 'cases' | 'reviews' | 'assets';
 
@@ -60,6 +60,7 @@ export function Workspace({
   const { collapsed, mobile, toggle } = useSidebarLayout();
   const toggleLabel = collapsed ? '展开侧栏' : '收起侧栏';
   const [current, setCurrent] = useState<Task>();
+  const [quickPosition, setQuickPosition] = useState<string>();
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryError, setCategoryError] = useState(false);
   const [categoryRetry, setCategoryRetry] = useState(0);
@@ -151,7 +152,7 @@ export function Workspace({
     return !creativeDirty || window.confirm('当前创作草稿有未保存的编辑或正在处理。确定离开？');
   }
 
-  function navigate(next: View) {
+  function navigate(next: View, position?: string) {
     if (view === next) {
       setNavigationOpen(false);
       return;
@@ -167,11 +168,12 @@ export function Workspace({
       setEntry(next);
       rememberEntry(session, next);
     }
+    setQuickPosition(next === 'quick' ? position : undefined);
     setView(next);
     setNavigationOpen(false);
   }
 
-  function openTask(id: string) {
+  function openTask(id: string, destination: View = entry) {
     if (!canLeave()) return;
     taskRequest.current?.abort();
     const request = new AbortController();
@@ -183,7 +185,8 @@ export function Workspace({
         if (!request.signal.aborted) {
           setCurrent(task);
           rememberTask(session, task.id);
-          setView(entry);
+          setQuickPosition(undefined);
+          setView(destination);
           setNavigationOpen(false);
         }
       })
@@ -249,9 +252,7 @@ export function Workspace({
           </button>
         </div>
         <nav className="work-sidebar-nav" aria-label="工作区">
-          <small className="studio-nav-label">WORKSPACE</small>
           <div className="work-creation-nav" role="group" aria-label="创作工作台">
-            <span className="work-creation-label">创作工作台</span>
             {(
               [
                 { id: 'quick', label: '快捷生成', Icon: ThunderboltOutlined },
@@ -309,26 +310,13 @@ export function Workspace({
               </Tooltip>
             ))}
         </nav>
-        <div className="work-company">
-          <h1>{session.tenant.name}</h1>
-          <p className="work-muted">{session.email}</p>
-          <p className="work-muted">
-            <span>{roleLabel[session.role]}</span> · 原件下载
-            {session.permissions.includes('download') ? '已授权' : '未授权'}
-          </p>
-          <button
-            type="button"
-            aria-label="退出登录"
-            title="退出登录"
-            onClick={() => {
-              if (canLeave()) onLogout();
-            }}
-            disabled={busy}
-          >
-            {collapsed && <LogoutOutlined aria-hidden="true" />}
-            <span className="work-nav-label">退出登录</span>
-          </button>
-        </div>
+        <SidebarAccount
+          session={session}
+          busy={busy}
+          onLogout={() => {
+            if (canLeave()) onLogout();
+          }}
+        />
       </aside>
       {navigationOpen && (
         <button
@@ -340,7 +328,7 @@ export function Workspace({
         />
       )}
       <div ref={main} className="work-main">
-        {(!workbench || !current) && (
+        {(view === 'tasks' || (workbench && !current)) && (
           <div className="work-row work-title">
             <h2>
               {workbench
@@ -351,16 +339,13 @@ export function Workspace({
                     : '创作工作台'
                 : view === 'tasks'
                   ? '全部任务'
-                  : view === 'products'
-                    ? '商品资料'
-                    : view === 'cases'
-                      ? '案例库'
-                      : view === 'reviews'
-                        ? '审核中心'
-                        : view === 'assets'
-                          ? '公司资产'
-                          : '公司模板'}
+                  : navigation.find((item) => item.view === view)?.label}
             </h2>
+            {workbench && (
+              <button type="button" onClick={() => navigate('tasks')}>
+                全部任务
+              </button>
+            )}
             {canCreate && (workbench || view === 'tasks') && (
               <button type="button" className="work-primary" onClick={() => setSetup({})}>
                 <PlusOutlined aria-hidden="true" /> 新建制作
@@ -409,6 +394,10 @@ export function Workspace({
             review={view === 'reviews'}
             session={session}
             current={current}
+            onReturn={() => navigate(entry)}
+            onTasks={() => navigate('tasks')}
+            onSelectTask={(id) => openTask(id, 'assets')}
+            onCreatePosition={(position) => navigate('quick', position)}
           />
         )}
         {view === 'cases' && (
@@ -416,11 +405,13 @@ export function Workspace({
             categories={categories}
             token={session.csrf_token}
             canManage={canManage}
+            current={current}
+            canCreate={canCreate}
             canPlayVideo={session.permissions.includes('download')}
           />
         )}
         {view === 'templates' && canManage && (
-          <TemplateManager categories={categories} token={session.csrf_token} />
+          <TemplateManager categories={categories} session={session} />
         )}
         {workbench && current && (
           <TaskStudio
@@ -429,6 +420,7 @@ export function Workspace({
             task={current}
             categories={categories}
             session={session}
+            initialPosition={quickPosition}
             onDirty={setCreativeDirty}
             onBack={() => navigate(view === 'canvas' ? 'quick' : 'tasks')}
             onNew={() => {

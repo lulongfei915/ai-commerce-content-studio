@@ -31,6 +31,7 @@ export function TaskStudio({
   entry,
   task,
   categories,
+  initialPosition,
   onDirty,
   onBack,
   onNew,
@@ -40,6 +41,7 @@ export function TaskStudio({
   entry: CreationEntry;
   task: Task;
   categories: Category[];
+  initialPosition?: string;
   onDirty: (dirty: boolean) => void;
   onBack: () => void;
   onNew: () => void;
@@ -48,7 +50,7 @@ export function TaskStudio({
   const quick = entry === 'quick';
   const canvas = entry === 'canvas';
   const [drafts, setDrafts] = useState<Draft[]>([]);
-  const [active, setActive] = useState('');
+  const [active, setActive] = useState(initialPosition ? `new:${initialPosition}` : '');
   const [edits, setEdits] = useState<Record<string, DraftEdits>>({});
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);

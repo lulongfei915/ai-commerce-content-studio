@@ -2,7 +2,13 @@ import { SearchBar } from '../../shared/ui/SearchBar';
 import { useSearchPage } from '../../shared/ui/useSearchPage';
 import { listTasks } from './api';
 
-export function TaskList({ onOpen }: { onOpen: (id: string) => void }) {
+export function TaskList({
+  onOpen,
+  action = '继续创作',
+}: {
+  onOpen: (id: string) => void;
+  action?: string;
+}) {
   const page = useSearchPage(listTasks);
   return (
     <section className="work-form" aria-label="全部任务">
@@ -28,9 +34,9 @@ export function TaskList({ onOpen }: { onOpen: (id: string) => void }) {
           <button
             type="button"
             onClick={() => onOpen(task.id)}
-            aria-label={`继续创作：${task.name}`}
+            aria-label={`${action}：${task.name}`}
           >
-            继续创作
+            {action}
           </button>
         </article>
       ))}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { DownloadOutlined } from '@ant-design/icons';
+import { createPortal } from 'react-dom';
+import { CheckOutlined, DownloadOutlined } from '@ant-design/icons';
 import { apiDelete, apiFetch, apiWrite } from '../../shared/api/client';
 import type { Session } from '../auth/session';
 import { actionError, type Draft } from '../creation/api';
@@ -12,11 +13,17 @@ export function VersionActions({
   task,
   session,
   refresh,
+  reviewFooter,
+  onAssetChange,
+  onApproved,
 }: {
   id: string;
   task: Task;
   session: Session;
   refresh: () => void;
+  reviewFooter?: HTMLElement | null;
+  onAssetChange?: (asset: TaskResult) => void;
+  onApproved?: () => void;
 }) {
   const [asset, setAsset] = useState<TaskResult>();
   const [reason, setReason] = useState('');
@@ -25,12 +32,18 @@ export function VersionActions({
   const [error, setError] = useState('');
   const [region, setRegion] = useState<number[]>();
   const [revision, setRevision] = useState(0);
-  const [lineage, setLineage] = useState<{ parent_version_id?: string }>();
+  const [lineage, setLineage] = useState<{
+    parent_version_id?: string;
+    decision?: { reason?: string; revocation?: { reason?: string } };
+  }>();
   const token = session.csrf_token;
+  const reviewLayout = reviewFooter !== undefined;
   const path = `/assets/${id}`;
-  const pos = task.positions.find(
-    (p) => p.product_id === asset?.product_id && p.purpose === asset?.purpose,
-  );
+  const pos = reviewLayout
+    ? undefined
+    : task.positions.find(
+        (p) => p.product_id === asset?.product_id && p.purpose === asset?.purpose,
+      );
   const adoption = `/delivery-positions/${pos?.id}/adoption`;
   useEffect(() => {
     if (!pos) return;
@@ -46,7 +59,10 @@ export function VersionActions({
     const ctl = new AbortController();
     void apiFetch<TaskResult>(path, { signal: ctl.signal })
       .then((value) => {
-        if (!ctl.signal.aborted) setAsset(value);
+        if (!ctl.signal.aborted) {
+          setAsset(value);
+          onAssetChange?.(value);
+        }
       })
       .catch((e) => {
         if (!ctl.signal.aborted) setError(actionError(e));
@@ -57,7 +73,7 @@ export function VersionActions({
       })
       .catch(() => {});
     return () => ctl.abort();
-  }, [path, revision]);
+  }, [path, revision, onAssetChange]);
   if (!asset) return error ? <p role="alert">{error}</p> : null;
   const product = task.products.find((p) => p.id === asset.product_id);
   async function run(fn: () => Promise<unknown>) {
@@ -73,10 +89,66 @@ export function VersionActions({
       setBusy(false);
     }
   }
+  const canReview = asset.status === 'pending_review' && session.permissions.includes('review');
+  const decisions = reviewLayout
+    ? (['rejected', 'approved'] as const)
+    : (['approved', 'rejected'] as const);
+  const decisionButtons = canReview && (
+    <div className={reviewLayout ? 'review-dialog-actions' : 'work-actions'}>
+      {decisions.map((decision) => (
+        <button
+          type="button"
+          key={decision}
+          className={reviewLayout && decision === 'approved' ? 'work-primary' : undefined}
+          disabled={busy || ((decision === 'rejected' || !!region) && !reason.trim())}
+          onClick={() =>
+            void run(async () => {
+              await apiWrite(path + '/review', token, {
+                version: asset.version,
+                decision,
+                reason,
+                regions: region
+                  ? [
+                      {
+                        x: region[0] / 100,
+                        y: region[1] / 100,
+                        width: region[2] / 100,
+                        height: region[3] / 100,
+                        note: reason,
+                      },
+                    ]
+                  : [],
+              });
+              if (decision === 'approved' && onApproved) {
+                onApproved();
+              } else if (reviewLayout) {
+                const reviewed = { ...asset, status: decision };
+                setAsset(reviewed);
+                onAssetChange?.(reviewed);
+              }
+            })
+          }
+        >
+          {reviewLayout && decision === 'approved' && <CheckOutlined aria-hidden="true" />}
+          {decision === 'approved'
+            ? reviewLayout
+              ? '批准此版本'
+              : '批准该版本'
+            : reviewLayout
+              ? '驳回返工'
+              : '驳回该版本'}
+        </button>
+      ))}
+    </div>
+  );
   return (
-    <fieldset className="work-form" disabled={busy}>
-      <legend>版本处理</legend>
-      {asset.file_version && (
+    <fieldset className={`work-form${reviewLayout ? ' review-dialog-form' : ''}`} disabled={busy}>
+      <legend className={reviewLayout ? 'review-dialog-legend' : undefined}>版本处理</legend>
+      {lineage?.decision?.reason && <p>审核意见 · {lineage.decision.reason}</p>}
+      {lineage?.decision?.revocation?.reason && (
+        <p>撤回原因 · {lineage.decision.revocation.reason}</p>
+      )}
+      {!reviewLayout && asset.file_version && (
         <a
           target="_blank"
           rel="noreferrer"
@@ -88,93 +160,70 @@ export function VersionActions({
         </a>
       )}
       {lineage?.parent_version_id && <p>返工来源 · {lineage.parent_version_id}</p>}
-      {product?.photos.map((p) => (
-        <a
-          key={p.file_id}
-          href={photoPreviewUrl(product.id, p.file_id)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <img
-            width={90}
-            src={photoPreviewUrl(product.id, p.file_id)}
-            alt={`${product.sku} 实拍 V${p.version}`}
-          />
-        </a>
-      ))}
-      {asset.status === 'pending_review' && session.permissions.includes('review') && (
+      {!reviewLayout &&
+        product?.photos.map((p) => (
+          <a
+            key={p.file_id}
+            href={photoPreviewUrl(product.id, p.file_id)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <img
+              width={90}
+              src={photoPreviewUrl(product.id, p.file_id)}
+              alt={`${product.sku} 实拍 V${p.version}`}
+            />
+          </a>
+        ))}
+      {canReview && (
         <>
           <label>
-            审核意见
+            {reviewLayout ? '审核意见（驳回必填）' : '审核意见'}
             <textarea value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
-          <details>
-            <summary>标注图片区域</summary>
-            {['横坐标', '纵坐标', '宽度', '高度'].map((text, i) => (
-              <label key={text}>
-                {text} %
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={region?.[i] ?? [0, 0, 100, 100][i]}
-                  onChange={(e) => {
-                    const next = [...(region ?? [0, 0, 100, 100])];
-                    next[i] = Number(e.target.value);
-                    setRegion(next);
-                  }}
-                />
-              </label>
-            ))}
-          </details>
-          <div className="work-actions">
-            {(['approved', 'rejected'] as const).map((decision) => (
-              <button
-                type="button"
-                key={decision}
-                disabled={(decision === 'rejected' || !!region) && !reason.trim()}
-                onClick={() =>
-                  void run(() =>
-                    apiWrite(path + '/review', token, {
-                      version: asset.version,
-                      decision,
-                      reason,
-                      regions: region
-                        ? [
-                            {
-                              x: region[0] / 100,
-                              y: region[1] / 100,
-                              width: region[2] / 100,
-                              height: region[3] / 100,
-                              note: reason,
-                            },
-                          ]
-                        : [],
-                    }),
-                  )
-                }
-              >
-                {decision === 'approved' ? '批准该版本' : '驳回该版本'}
-              </button>
-            ))}
-          </div>
+          {!reviewLayout && (
+            <details>
+              <summary>标注图片区域</summary>
+              {['横坐标', '纵坐标', '宽度', '高度'].map((text, i) => (
+                <label key={text}>
+                  {text} %
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={region?.[i] ?? [0, 0, 100, 100][i]}
+                    onChange={(e) => {
+                      const next = [...(region ?? [0, 0, 100, 100])];
+                      next[i] = Number(e.target.value);
+                      setRegion(next);
+                    }}
+                  />
+                </label>
+              ))}
+            </details>
+          )}
+          {!reviewLayout && decisionButtons}
         </>
       )}
+      {reviewFooter && createPortal(decisionButtons, reviewFooter)}
       {asset.status === 'approved' && session.permissions.includes('review') && (
-        <details>
+        <details className="review-revocation">
           <summary>撤回批准</summary>
-          <label>
-            撤回原因
-            <input value={reason} onChange={(e) => setReason(e.target.value)} />
-          </label>
-          <button
-            disabled={!reason.trim()}
-            onClick={() =>
-              void run(() => apiWrite(path + '/revoke', token, { version: asset.version, reason }))
-            }
-          >
-            撤回该版本批准
-          </button>
+          <div className="review-revocation-fields">
+            <label>
+              撤回原因
+              <input value={reason} onChange={(e) => setReason(e.target.value)} />
+            </label>
+            <button
+              type="button"
+              disabled={!reason.trim()}
+              onClick={() =>
+                void run(() => apiWrite(path + '/revoke', token, { version: asset.version, reason }))
+              }
+            >
+              撤回该版本批准
+            </button>
+          </div>
         </details>
       )}
       {asset.status === 'rejected' && session.permissions.includes('create') && (

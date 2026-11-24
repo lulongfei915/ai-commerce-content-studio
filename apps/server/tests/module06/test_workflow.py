@@ -12,9 +12,13 @@ from app.adapters.ark_image import ArkImageClient, ImageGenerationResponse
 from app.main import app
 from app.modules.assets.routes import get_storage
 from app.modules.commerce.models import ModelCall
+from app.modules.creation.models import CreationOutput
+from app.modules.delivery.models import Adoption
+from app.modules.execution.models import ImageStep
+from app.modules.identity.models import Membership
 from app.shared.config import get_settings
 
-from ..module03.test_production_setup import API
+from ..module03.test_production_setup import API, photo
 from ..module05.test_canvas import create_draft, setup_task
 
 
@@ -80,10 +84,37 @@ def test_worker_archives_once_and_delivery_checks_approval(
     assert client.put(adopt, headers=headers, json={"version_id": identifier}).status_code == 409
     review = f"{API}/assets/{identifier}/review"
     decision = {"version": 1, "decision": "approved"}
+    membership = db.get(Membership, ("alpha", "alice"))
+    membership.role = "reviewer"
+    db.commit()
     assert client.post(review, headers=headers, json=decision).status_code == 200
     assert client.post(review, headers=headers, json=decision).status_code == 409
-    receipt = client.put(adopt, headers=headers, json={"version_id": identifier}).json()
+    receipt = client.get(adopt).json()
+    assert receipt is not None
+    assert receipt["version_id"] == identifier
     assert client.get(receipt["download"]).content == png.getvalue()
+    assert client.put(adopt, headers=headers, json={"version_id": identifier}).status_code == 403
+    photo(db, "alternative", "alpha", "alice")
+    db.add(
+        CreationOutput(
+            id="alternative",
+            creation_id=draft["id"],
+            execution_id=job.json()["id"],
+            output_index=1,
+            version=1,
+            status="pending_review",
+            file_id="alternative",
+            file_version=2,
+        )
+    )
+    db.flush()
+    db.add(ImageStep(output_id="alternative", execution_id=job.json()["id"], reserved_cents=0))
+    db.commit()
+    alternative = f"{API}/assets/alternative/review"
+    assert client.post(alternative, headers=headers, json=decision).status_code == 200
+    assert client.get(adopt).json() == receipt
+    membership.role = "admin"
+    db.commit()
     assert client.delete(adopt, headers=headers).status_code == 204
     assert client.get(receipt["download"]).status_code == 409
     second = client.put(adopt, headers=headers, json={"version_id": identifier}).json()
@@ -124,12 +155,56 @@ def test_assistance_binds_draft_version_and_undo(client: TestClient, db: Session
     assert client.post(base + "/apply", headers=headers).status_code == 409
 
 
+def test_delivery_backfill_fills_only_unambiguous_empty_positions(client: TestClient, db: Session):
+    headers, red, blue, task = setup_task(client, db)
+    other = client.post(
+        f"{API}/tasks",
+        headers=headers,
+        json={"product_ids": [red["id"]], "contents": ["main"]},
+    ).json()
+    for owner, product, ids in (
+        (task, red, ["red-a", "red-b"]),
+        (task, blue, ["blue-a"]),
+        (other, red, ["other-red"]),
+    ):
+        draft = create_draft(client, headers, owner, product)
+        for index, identifier in enumerate(ids):
+            photo(db, identifier, "alpha", "alice")
+            db.add(
+                CreationOutput(
+                    id=identifier,
+                    creation_id=draft["id"],
+                    execution_id=f"legacy-{identifier}",
+                    output_index=index,
+                    version=1,
+                    status="approved",
+                    file_id=identifier,
+                    file_version=2,
+                )
+            )
+            db.commit()
+    position_ids = {
+        p["product_id"]: p["id"] for p in task["positions"] if p["purpose"] == "main"
+    }
+    existing = Adoption(
+        position_id=other["positions"][0]["id"], output_id="other-red", token="original"
+    )
+    db.add(existing)
+    db.commit()
+    migration = import_module("migrations.versions.0010_unique_delivery")
+    with Operations.context(MigrationContext.configure(db.connection())):
+        migration.upgrade()
+        migration.upgrade()
+    db.commit()
+    assert db.get(Adoption, position_ids[red["id"]]) is None
+    assert db.get(Adoption, position_ids[blue["id"]]).output_id == "blue-a"
+    assert db.get(Adoption, existing.position_id).token == "original"
+
+
 def test_legacy_archive_remains_reviewable_and_rework_creates_one_child(client, db, monkeypatch):
     from datetime import datetime
 
     from app.modules.assets.models import PrivateFile
-    from app.modules.creation.models import CreationOutput
-    from app.modules.execution.models import ImageStep
 
     headers, product, _, task = setup_task(client, db)
     draft = create_draft(client, headers, task, product, parameters={"count": 3})

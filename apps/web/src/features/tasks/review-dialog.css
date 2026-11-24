@@ -1,0 +1,304 @@
+.studio-dialog[open]:has(> .review-dialog-body) {
+  display: flex;
+  flex-direction: column;
+  width: min(840px, calc(100% - 48px));
+  max-width: none;
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 14px;
+}
+.studio-dialog:has(> .review-dialog-body)::backdrop {
+  backdrop-filter: blur(3px);
+}
+.studio-dialog:has(> .review-dialog-body) > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 22px 8px;
+}
+.studio-dialog:has(> .review-dialog-body) > header h2 {
+  font-size: 18px;
+}
+.studio-dialog:has(> .review-dialog-body) > header button {
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-color: transparent;
+  color: var(--work-muted);
+  font-size: 22px;
+}
+.studio-dialog:has(> .review-dialog-body) > header button:hover {
+  background: #eff2ee;
+}
+.review-dialog-body {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-height: 0;
+  padding: 0 22px 18px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+}
+.review-dialog-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+.review-dialog-heading > div {
+  flex: 1 1 170px;
+  min-width: 0;
+}
+.review-dialog-heading h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.review-dialog-heading p {
+  margin: 4px 0 0;
+  color: var(--work-muted);
+  font-size: 12px;
+}
+.review-dialog-status {
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: #eff2ee;
+  color: var(--work-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.review-dialog-status[data-status='pending_review'] {
+  background: #fcf1db;
+  color: #745015;
+}
+.review-dialog-status[data-status='approved'] {
+  background: #e7f1df;
+  color: #365531;
+}
+.review-dialog-status[data-status='rejected'] {
+  background: #fbefea;
+  color: #843f32;
+}
+.review-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+}
+.review-comparison figure {
+  display: grid;
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  min-width: 0;
+  margin: 0;
+}
+.review-comparison figcaption {
+  margin-bottom: 7px;
+  color: var(--work-muted);
+  font-size: 12px;
+}
+.studio-dialog .review-media {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: clamp(150px, 37dvh, 420px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--work-line);
+  border-radius: 8px;
+  background: #eceee9;
+  object-fit: contain;
+}
+.review-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.review-zoom {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--work-line);
+  border-radius: 5px;
+  background: #fff;
+}
+.review-comparison[data-zoom] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.review-comparison[data-zoom='result'] [data-pane='source'],
+.review-comparison[data-zoom='source'] [data-pane='result'] {
+  display: none;
+}
+.studio-dialog .review-comparison[data-zoom] .review-media {
+  height: min(65dvh, 640px);
+}
+.studio-dialog .review-empty {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  text-align: center;
+  color: var(--work-muted);
+  font-size: 12px;
+}
+.review-photo-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.studio-dialog .review-photo-options button {
+  min-width: 32px;
+  min-height: 32px;
+}
+.studio-dialog .review-photo-options button[aria-pressed='true'] {
+  background: #e7f1df;
+  border-color: #91a888;
+  font-weight: 650;
+}
+.review-dialog-form {
+  gap: 8px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+.review-dialog-form .review-dialog-legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+}
+.review-dialog-form textarea {
+  width: 100%;
+  min-height: 52px;
+  resize: vertical;
+}
+.review-dialog-form label,
+.review-dialog-form summary {
+  font-size: 13px;
+}
+.review-dialog-form .review-revocation {
+  padding-top: 6px;
+  border-top: 1px solid var(--work-line);
+}
+.review-dialog-form .review-revocation summary {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  list-style: none;
+  color: var(--work-muted);
+  cursor: pointer;
+}
+.review-dialog-form .review-revocation summary::-webkit-details-marker {
+  display: none;
+}
+.review-dialog-form .review-revocation summary::before {
+  width: 6px;
+  height: 6px;
+  border: solid currentColor;
+  border-width: 0 1px 1px 0;
+  transform: rotate(-45deg);
+  content: '';
+}
+.review-dialog-form .review-revocation[open] summary::before {
+  transform: translateY(-2px) rotate(45deg);
+}
+.review-dialog-form .review-revocation summary:hover {
+  background: #eff2ee;
+}
+.review-dialog-form .review-revocation summary:focus-visible {
+  outline: 2px solid var(--work-focus);
+  outline-offset: 2px;
+}
+.review-dialog-form .review-revocation-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+  max-width: 540px;
+  margin-top: 6px;
+}
+.review-dialog-form .review-revocation-fields label {
+  flex: 1 1 210px;
+}
+.studio-dialog .review-dialog-form .review-revocation-fields button {
+  min-height: 36px;
+  max-width: 100%;
+  border-color: #e4c5c0;
+  color: var(--work-error, #a1392f);
+  font-size: 13px;
+}
+.studio-dialog .review-dialog-form .review-revocation-fields button:enabled:hover {
+  background: #fbefea;
+}
+.studio-dialog .review-dialog-form .review-revocation-fields input {
+  min-height: 36px;
+}
+.review-dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  gap: 8px 16px;
+  padding: 12px 22px;
+  border-top: 1px solid var(--work-line);
+  background: #f8faf6;
+}
+.review-dialog-footer small {
+  color: var(--work-muted);
+}
+.review-dialog-actions {
+  display: flex;
+  gap: 8px;
+}
+.studio-dialog .review-dialog-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 650;
+  min-height: 38px;
+}
+@media (max-width: 600px) {
+  .studio-dialog[open]:has(> .review-dialog-body) {
+    width: calc(100% - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+  .studio-dialog:has(> .review-dialog-body) > header,
+  .review-dialog-body,
+  .review-dialog-footer {
+    padding-inline: 12px;
+  }
+  .review-dialog-body {
+    gap: 12px;
+    padding-bottom: 12px;
+  }
+  .review-comparison {
+    column-gap: 8px;
+  }
+  .studio-dialog .review-media {
+    height: clamp(106px, 29dvh, 220px);
+  }
+  .review-dialog-footer {
+    flex-wrap: wrap;
+    padding-block: 8px;
+  }
+  .review-dialog-actions {
+    margin-left: auto;
+  }
+}

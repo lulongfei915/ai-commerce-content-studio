@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.modules.assets.models import PrivateFile
 from app.modules.creation.models import Creation, CreationOutput
 from app.modules.creation.results import TaskResult, file_ready, result_view
+from app.modules.delivery.service import fill_open_position, lock_matching_position
 from app.modules.execution.models import Execution, ImageStep
 from app.modules.execution.service import ExecutionState, Submission, submit
 from app.modules.execution.sources import verify_sources
@@ -35,7 +36,9 @@ def version_for(
         .join(Creation)
         .where(Creation.tenant_id == tenant, CreationOutput.id == identifier)
     )
-    row = db.execute(query.with_for_update() if lock else query).first()
+    if lock:
+        query = query.with_for_update().execution_options(populate_existing=True)
+    row = db.execute(query).first()
     if row is None:
         raise HTTPException(404, "asset_version_not_found")
     return row[0], row[1]
@@ -117,6 +120,10 @@ def decide(
     identifier: str, data: Decision, identity: WriteIdentity, db: Database
 ) -> dict[str, str]:
     require_permission(identity, Permission.REVIEW)
+    position = None
+    if data.decision == "approved":
+        _, draft = version_for(db, identity.tenant.id, identifier)
+        position = lock_matching_position(db, draft)
     output, _ = version_for(db, identity.tenant.id, identifier, True)
     check_version(output.version, data.version)
     step = db.get(ImageStep, identifier)
@@ -142,6 +149,9 @@ def decide(
         "decided_at": datetime.utcnow().isoformat() + "Z",
     }
     output.status = data.decision
+    if position is not None:
+        db.flush()
+        fill_open_position(db, position)
     db.commit()
     return {"status": output.status}
 

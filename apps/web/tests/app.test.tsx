@@ -33,11 +33,14 @@ test('signs in to the company and sends the session token for logout', async () 
   fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: session.email } });
   fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'test-password' } });
   fireEvent.click(screen.getByRole('button', { name: '登录' }));
-  expect(await screen.findByRole('heading', { name: '造物电商' })).toBeInTheDocument();
+  const account = await screen.findByRole('button', { name: 'studio，审核员，账号菜单' });
+  expect(screen.queryByText('退出登录')).not.toBeInTheDocument();
   expect(screen.getByText('审核员')).toBeInTheDocument();
   expect(new Headers(fetchMock.mock.calls[1][1]?.headers).get('X-Studio-Login')).toBe('1');
 
-  fireEvent.click(screen.getByRole('button', { name: '退出登录' }));
+  fireEvent.click(account);
+  await waitFor(() => expect(screen.getByText('造物电商')).toBeVisible());
+  fireEvent.click(await screen.findByRole('menuitem', { name: /退出登录/ }));
   await waitFor(() =>
     expect(screen.getByRole('heading', { name: '登录工作台' })).toBeInTheDocument(),
   );
@@ -63,7 +66,7 @@ test('sidebar restores the last available creation entry for each company member
       'page',
     );
   const first = render(<App />);
-  await screen.findByRole('heading', { name: '造物电商' });
+  await screen.findByRole('navigation', { name: '工作区' });
   active('快捷生成');
   fireEvent.click(sidebar().getByRole('button', { name: '批量制作' }));
   active('批量制作');
@@ -73,20 +76,20 @@ test('sidebar restores the last available creation entry for each company member
 
   member = { ...creator, user_id: 'other' };
   const second = render(<App />);
-  await screen.findByRole('heading', { name: '造物电商' });
+  await screen.findByRole('navigation', { name: '工作区' });
   active('快捷生成');
   second.unmount();
 
   member = creator;
   const restored = render(<App />);
-  await screen.findByRole('heading', { name: '造物电商' });
+  await screen.findByRole('navigation', { name: '工作区' });
   active('画布');
   fireEvent.click(sidebar().getByRole('button', { name: '批量制作' }));
   restored.unmount();
 
   member = session;
   render(<App />);
-  await screen.findByRole('heading', { name: '造物电商' });
+  await screen.findByRole('navigation', { name: '工作区' });
   active('快捷生成');
   expect(sidebar().getByRole('button', { name: '批量制作' })).toBeDisabled();
 });

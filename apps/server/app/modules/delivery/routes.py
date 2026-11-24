@@ -20,6 +20,7 @@ from app.modules.reviews.routes import list_versions, version_for
 from app.modules.tasks.models import DeliveryPosition
 
 from .models import Adoption
+from .service import lock_adoption
 
 router = APIRouter(tags=["公司资产与交付"])
 
@@ -103,7 +104,7 @@ def adopt(
     )
     if other and other.position_id != identifier:
         raise HTTPException(409, "version_already_adopted")
-    item = db.get(Adoption, identifier)
+    item = lock_adoption(db, identifier)
     if not item:
         item = Adoption(position_id=identifier, output_id=data.version_id, token=new_id())
         db.add(item)
@@ -121,7 +122,7 @@ def adopt(
 def withdraw(identifier: str, identity: WriteIdentity, db: Database) -> Response:
     require_permission(identity, Permission.ADOPT)
     pos = position(db, identity.tenant.id, identifier)
-    item = db.get(Adoption, identifier)
+    item = lock_adoption(db, identifier)
     if item:
         db.delete(item)
         pos.status = "unfilled"
