@@ -34,7 +34,9 @@ export function ImageExecutionStatus({
         {job.outputs.map((output, index) => (
           <li key={output.id}>
             <span className="image-output-status" data-status={output.status}>
-              图片 {index + 1} · {statusLabel[output.status] ?? output.status}
+              图片 {index + 1} · {output.error === 'result_size_mismatch'
+                ? `尺寸不符${output.result_size ? `（${output.result_size.replace('x', '×')}）` : ''}`
+                : (statusLabel[output.status] ?? output.status)}
             </span>
             {['generation_failed', 'save_failed'].includes(output.status) && (
               <button

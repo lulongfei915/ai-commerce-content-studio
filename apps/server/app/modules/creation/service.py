@@ -8,6 +8,7 @@ from app.modules.products.models import Product
 from app.modules.products.service import get_fact, get_product, require_generation_inputs
 from app.modules.tasks.models import TaskProduct
 from app.modules.templates.service import find_template, version_content
+from app.shared.config import Settings
 from app.shared.studio_errors import FieldIssue, reject
 
 from .capabilities import ImageParameters, validate_parameters
@@ -140,7 +141,9 @@ def reuse_configuration(db: Session, target: Creation, source: Creation) -> Crea
     return save(db, target, product, references, draft.parameters)
 
 
-def build_input_snapshot(db: Session, item: Creation) -> InputSnapshot:
+def build_input_snapshot(
+    db: Session, item: Creation, *, settings: Settings | None = None
+) -> InputSnapshot:
     template_check(db, item)
     draft = view(item)
     product = get_product(db, item.tenant_id, item.product_id)
@@ -153,7 +156,7 @@ def build_input_snapshot(db: Session, item: Creation) -> InputSnapshot:
     validate_references(db, product, draft.references, item)
     files = {photo.file_id for photo in photos} | {ref.file_id for ref in draft.references}
     if item.purpose != "video":
-        validate_parameters(draft.parameters, len(files))
+        validate_parameters(draft.parameters, len(files), settings=settings)
     elif len(files) > 10:
         reject("references", "reference_limit")
     return InputSnapshot(

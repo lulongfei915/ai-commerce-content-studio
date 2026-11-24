@@ -4087,13 +4087,21 @@
             },
             "type": "array",
             "title": "Sizes"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ImageModelOption"
+            },
+            "type": "array",
+            "title": "Models"
           }
         },
         "type": "object",
         "required": [
           "model",
           "max_outputs",
-          "sizes"
+          "sizes",
+          "models"
         ],
         "title": "Capabilities"
       },
@@ -4873,8 +4881,72 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "ImageModelOption": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ark",
+              "gpt-image"
+            ],
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "sizes": {
+            "items": {
+              "$ref": "#/components/schemas/SizeOption"
+            },
+            "type": "array",
+            "title": "Sizes"
+          },
+          "qualities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Qualities"
+          },
+          "default_quality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Quality"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "model",
+          "label",
+          "sizes",
+          "qualities",
+          "default_quality"
+        ],
+        "title": "ImageModelOption"
+      },
       "ImageParameters": {
         "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ark",
+              "gpt-image"
+            ],
+            "title": "Provider",
+            "default": "ark"
+          },
           "model": {
             "type": "string",
             "title": "Model",
@@ -4894,6 +4966,17 @@
             "type": "integer",
             "title": "Count",
             "default": 1
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quality"
           }
         },
         "additionalProperties": false,
@@ -5115,6 +5198,17 @@
               }
             ],
             "title": "Actual Cents"
+          },
+          "result_size": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Size"
           }
         },
         "type": "object",

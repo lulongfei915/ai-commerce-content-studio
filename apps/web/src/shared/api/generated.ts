@@ -1182,6 +1182,8 @@ export interface components {
             max_outputs: number;
             /** Sizes */
             sizes: components["schemas"]["SizeOption"][];
+            /** Models */
+            models: components["schemas"]["ImageModelOption"][];
         };
         /** Card */
         Card: {
@@ -1426,8 +1428,32 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** ImageModelOption */
+        ImageModelOption: {
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "ark" | "gpt-image";
+            /** Model */
+            model: string;
+            /** Label */
+            label: string;
+            /** Sizes */
+            sizes: components["schemas"]["SizeOption"][];
+            /** Qualities */
+            qualities: string[];
+            /** Default Quality */
+            default_quality: string | null;
+        };
         /** ImageParameters */
         ImageParameters: {
+            /**
+             * Provider
+             * @default ark
+             * @enum {string}
+             */
+            provider: "ark" | "gpt-image";
             /**
              * Model
              * @default seedream-5.5
@@ -1448,6 +1474,8 @@ export interface components {
              * @default 1
              */
             count: number;
+            /** Quality */
+            quality?: string | null;
         };
         /** InputSnapshot */
         InputSnapshot: {
@@ -1526,6 +1554,8 @@ export interface components {
             reserved_cents: number;
             /** Actual Cents */
             actual_cents: number | null;
+            /** Result Size */
+            result_size?: string | null;
         };
         /**
          * Permission

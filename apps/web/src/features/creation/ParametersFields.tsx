@@ -1,7 +1,21 @@
 import { useEffect, useState } from 'react';
 
-import { loadCapabilities } from './api';
-import type { Capabilities, Parameters } from './api';
+import { imageModelLabel, loadCapabilities } from './api';
+import type { Capabilities, ImageModelOption, Parameters } from './api';
+
+const providerLabels = { ark: '火山方舟', 'gpt-image': 'GPT Image' };
+const qualityLabels: Record<string, string> = {
+  auto: '自动',
+  low: '低',
+  medium: '中',
+  high: '高',
+  xhigh: '超高',
+  max: '最高',
+};
+
+function sizeKey(size: Pick<Parameters, 'ratio' | 'resolution'>) {
+  return `${size.ratio}/${size.resolution}`;
+}
 
 export function ParametersFields({
   value,
@@ -22,35 +36,104 @@ export function ParametersFields({
       });
     return () => controller.abort();
   }, [retry]);
+
+  const provider = value.provider ?? 'ark';
+  const models = capabilities?.models ?? [];
+  const providers = [...new Set(models.map((item) => item.provider))];
+  const options = models.filter((item) => item.provider === provider);
+  const model = options.find((item) => item.model === value.model);
+  const sizes = model?.sizes ?? (provider === 'ark' && !models.length ? capabilities?.sizes : []);
+  const size = sizes?.find((item) => sizeKey(item) === sizeKey(value));
+
+  function selectModel(next: ImageModelOption) {
+    const nextSize = next.sizes.find((item) => sizeKey(item) === sizeKey(value)) ?? next.sizes[0];
+    if (!nextSize) return;
+    onChange({
+      ...value,
+      provider: next.provider,
+      model: next.model,
+      ratio: nextSize.ratio,
+      resolution: nextSize.resolution,
+      quality: value.quality && next.qualities.includes(value.quality)
+        ? value.quality : (next.default_quality ?? null),
+    });
+  }
+
   return (
-    <div className="creative-parameters">
+    <div className="creative-parameters image-parameters">
+      {providers.length > 0 && (
+        <label>
+          供应商
+          <select
+            value={provider}
+            onChange={(event) => {
+              const next = models.find((item) => item.provider === event.target.value);
+              if (next) selectModel(next);
+            }}
+          >
+            {!providers.includes(provider) && (
+              <option value={provider} disabled>{providerLabels[provider]}（不可用）</option>
+            )}
+            {providers.map((item) => (
+              <option key={item} value={item}>{providerLabels[item]}</option>
+            ))}
+          </select>
+        </label>
+      )}
       <label>
         模型
-        <input
-          readOnly
-          value={value.model === 'seedream-5.5' ? 'Seedream 5.5' : (value.model ?? '')}
-        />
+        {options.length > 0 ? (
+          <select
+            value={value.model}
+            onChange={(event) => {
+              const next = options.find((item) => item.model === event.target.value);
+              if (next) selectModel(next);
+            }}
+          >
+            {!model && <option value={value.model} disabled>{value.model}（不可用）</option>}
+            {options.map((item) => (
+              <option key={item.model} value={item.model}>{item.label}</option>
+            ))}
+          </select>
+        ) : (
+          <input
+            readOnly
+            value={imageModelLabel(value.model) ?? ''}
+          />
+        )}
       </label>
-      {capabilities && (
+      {!!sizes?.length && (
         <label>
           比例 / 清晰度
           <select
-            value={`${value.ratio}/${value.resolution}`}
+            value={sizeKey(value)}
             onChange={(event) => {
-              const option = capabilities.sizes.find(
-                (size) => `${size.ratio}/${size.resolution}` === event.target.value,
-              );
+              const option = sizes.find((item) => sizeKey(item) === event.target.value);
               if (option)
                 onChange({ ...value, ratio: option.ratio, resolution: option.resolution });
             }}
           >
-            {capabilities.sizes.map((size) => (
-              <option
-                value={`${size.ratio}/${size.resolution}`}
-                key={`${size.ratio}/${size.resolution}`}
-              >
-                {size.ratio} · {size.resolution} · {size.width}×{size.height}
+            {!size && <option value={sizeKey(value)} disabled>{sizeKey(value)}（不可用）</option>}
+            {sizes.map((item) => (
+              <option value={sizeKey(item)} key={sizeKey(item)}>
+                {item.ratio} · {item.resolution} · {item.width}×{item.height}
               </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {!!model?.qualities.length && (
+        <label>
+          质量
+          <select
+            value={value.quality ?? model.default_quality ?? ''}
+            onChange={(event) => onChange({ ...value, quality: event.target.value })}
+          >
+            {value.quality && !model.qualities.includes(value.quality) && (
+              <option value={value.quality} disabled>{value.quality}（不可用）</option>
+            )}
+            {model.qualities.map((quality) => (
+              <option key={quality} value={quality}>{qualityLabels[quality] ?? quality}</option>
             ))}
           </select>
         </label>

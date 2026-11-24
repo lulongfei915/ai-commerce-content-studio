@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { imageModelLabel } from './api';
 import type { Parameters, VideoParameters } from './api';
 
 export function CanvasSpecs({
@@ -14,7 +15,8 @@ export function CanvasSpecs({
   return (
     <details className="canvas-specs">
       <summary>
-        <span>{video ? '视频参数' : '图片参数'}</span> · {video ? 'Seedance 2.0' : 'Seedream 5.5'} ·{' '}
+        <span>{video ? '视频参数' : '图片参数'}</span> ·{' '}
+        {video ? 'Seedance 2.0' : imageModelLabel(parameters.model)} ·{' '}
         {spec.ratio} · {spec.resolution} · {video ? `${video.duration}s` : `${parameters.count} 张`}
       </summary>
       {children}

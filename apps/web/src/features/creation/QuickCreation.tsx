@@ -20,6 +20,7 @@ import {
   actionError,
   defaults,
   draftWrite,
+  imageModelLabel,
   saveDraftInputs,
   type Draft,
   type DraftEdits,
@@ -158,7 +159,7 @@ export function QuickCreation({
             {isVideo ? '视频生成' : '图片生成'}
           </b>
           <span>
-            <AppstoreOutlined /> {isVideo ? 'Seedance 2.0' : 'Seedream 5.5'}
+            <AppstoreOutlined /> {isVideo ? 'Seedance 2.0' : imageModelLabel(value.parameters.model)}
           </span>
           <button disabled={disabled} onClick={() => setPanel('specs')}>
             {spec.ratio} · {spec.resolution} <DownOutlined />

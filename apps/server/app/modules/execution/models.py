@@ -32,6 +32,8 @@ class ImageStep(Base):
     fee_state: Mapped[str] = mapped_column(String(20), default="reserved")
     provider_id: Mapped[str | None] = mapped_column(String(200))
     result_url: Mapped[str | None] = mapped_column(Text)
+    result_object_key: Mapped[str | None] = mapped_column(String(256))
+    result_size: Mapped[str | None] = mapped_column(String(24))
     lease: Mapped[datetime | None]
     error: Mapped[str | None] = mapped_column(String(80))
     quality: Mapped[dict[str, Any] | None] = mapped_column(JSON(none_as_null=True))

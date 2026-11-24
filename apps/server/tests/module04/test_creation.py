@@ -106,7 +106,7 @@ def test_creative_draft_preserves_independent_reference_and_prompt(
         json={"expected_version": 1, "kind": "case", "source_id": case["id"]},
     )
     assert added.status_code == 200, added.text
-    assert added.json()["parameters"] == PARAMS
+    assert added.json()["parameters"] == {**PARAMS, "provider": "ark", "quality": None}
     template = client.post(
         f"{API}/templates",
         headers=headers,

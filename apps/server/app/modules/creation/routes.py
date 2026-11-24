@@ -8,6 +8,7 @@ from app.modules.identity.domain import Permission
 from app.modules.identity.models import new_id
 from app.modules.identity.security import (
     ActiveIdentity,
+    AppSettings,
     Database,
     WriteIdentity,
     require_permission,
@@ -17,7 +18,14 @@ from app.modules.tasks.service import get_task
 from app.modules.templates.schemas import VersionInput
 from app.shared.studio_errors import check_version, reject
 
-from .capabilities import MAX_OUTPUTS, MODEL, SIZES, ImageParameters, validate_parameters
+from .capabilities import (
+    MAX_OUTPUTS,
+    MODEL,
+    SIZES,
+    ImageParameters,
+    image_models,
+    validate_parameters,
+)
 from .models import Creation
 from .references import resolve_reference
 from .schemas import (
@@ -55,9 +63,11 @@ def entry_filter(entry: CreationEntry) -> ColumnElement[bool]:
 
 
 @router.get("/creation-capabilities")
-def get_creation_capabilities(identity: ActiveIdentity) -> Capabilities:
+def get_creation_capabilities(identity: ActiveIdentity, settings: AppSettings) -> Capabilities:
     require_permission(identity, Permission.VIEW)
-    return Capabilities(model=MODEL, max_outputs=MAX_OUTPUTS, sizes=SIZES)
+    return Capabilities(
+        model=MODEL, max_outputs=MAX_OUTPUTS, sizes=SIZES, models=image_models(settings)
+    )
 
 
 @router.get("/tasks/{task_id}/creations")

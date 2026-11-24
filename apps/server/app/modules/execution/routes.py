@@ -18,7 +18,15 @@ from app.modules.identity.security import (
 from app.modules.products.schemas import WriteSchema
 
 from .models import Execution, ImageStep
-from .service import ExecutionState, Submission, lock_budget, position_for, state, submit
+from .service import (
+    ExecutionState,
+    Submission,
+    image_ceiling,
+    lock_budget,
+    position_for,
+    state,
+    submit,
+)
 
 router = APIRouter(tags=["图片执行"])
 
@@ -92,11 +100,10 @@ def retry(
             },
         )
     if output.status == "generation_failed" and step.actual_cents == 0:
-        require_budget(
-            db, identity.tenant.id, settings, settings.image_ceiling_cents, for_image=True
-        )
+        ceiling = image_ceiling(settings, job.snapshot.get("provider", "ark"))
+        require_budget(db, identity.tenant.id, settings, ceiling, for_image=True)
         step.reserved_cents, step.actual_cents, step.fee_state = (
-            settings.image_ceiling_cents,
+            ceiling,
             None,
             "reserved",
         )

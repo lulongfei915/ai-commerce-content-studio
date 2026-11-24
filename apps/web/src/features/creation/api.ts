@@ -6,6 +6,7 @@ type Schema = components['schemas'];
 export type Draft = Schema['CreationView'];
 export type Parameters = Schema['ImageParameters'];
 export type Capabilities = Schema['Capabilities'];
+export type ImageModelOption = Schema['ImageModelOption'];
 export type Issue = Schema['FieldIssue'];
 export type Reference = Schema['ReferenceView'];
 export type VideoParameters = Schema['VideoParameters'];
@@ -20,11 +21,16 @@ export const usageLabel: Record<NonNullable<ReferenceUsage>, string> = {
   last_frame: '尾帧',
 };
 export const defaults: Parameters = {
+  provider: 'ark',
   model: 'seedream-5.5',
   ratio: '1:1',
   resolution: '1K',
   count: 1,
 };
+
+export function imageModelLabel(model: Parameters['model']) {
+  return model === defaults.model ? 'Seedream 5.5' : model;
+}
 
 export function loadCapabilities(signal: AbortSignal) {
   return apiFetch<Capabilities>('/creation-capabilities', { signal });
@@ -123,6 +129,7 @@ const messages: Record<string, string> = {
   model_unsupported: '当前模型不可用。',
   ratio_unsupported: '当前模型不支持该比例。',
   resolution_unsupported: '当前模型不支持此比例和清晰度组合。',
+  quality_unsupported: '当前模型不支持该质量档位。',
   output_count_unsupported: '输出张数超出当前规格或参考图数量限制。',
   prompt_required: '请填写提示词。',
   product_inputs_incomplete: '请补齐该 SKU 的对应商品资料。',

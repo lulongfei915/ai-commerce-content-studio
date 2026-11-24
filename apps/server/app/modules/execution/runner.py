@@ -4,11 +4,13 @@ from io import BytesIO
 from typing import Any
 
 import httpx
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.adapters.ark_image import ArkImageClient, ArkImageError, ImageGenerationRequest
+from app.adapters.ark_image import ArkImageClient, ImageGenerationRequest
+from app.adapters.gpt_image import IMAGE_MIME_EXTENSIONS, GptImageClient
+from app.adapters.image_errors import ImageProviderError
 from app.adapters.object_storage import ObjectStorage, S3Storage
 from app.adapters.vision import data_url
 from app.modules.assets.models import PrivateFile
@@ -65,6 +67,54 @@ def read_media(storage: ObjectStorage, sources: list[tuple[str, str]]) -> list[s
     return result
 
 
+def read_object(storage: ObjectStorage, key: str, limit: int) -> bytes:
+    with storage.read(key, None) as stream:
+        result = bytearray()
+        while chunk := stream.read(min(65536, limit + 1 - len(result))):
+            result.extend(chunk)
+            if len(result) > limit:
+                raise ValueError("image_too_large")
+    return bytes(result)
+
+
+def gpt_media(
+    storage: ObjectStorage, sources: list[tuple[str, str]], limit: int
+) -> list[tuple[str, bytes]]:
+    references = []
+    for key, mime in sources:
+        if mime not in IMAGE_MIME_EXTENSIONS:
+            raise ValueError("reference_media_unsupported")
+        references.append((mime, read_object(storage, key, limit)))
+    return references
+
+
+def inline_key(tenant: str, output: str, lease: datetime) -> str:
+    return f"generated/{tenant}/{output}/{lease:%Y%m%d%H%M%S}.png"
+
+
+def target_size(snapshot: dict[str, Any]) -> str:
+    size = snapshot.get("size")
+    if isinstance(size, str):
+        return size
+    legacy = validate_parameters(ImageParameters.model_validate(snapshot["draft"]["parameters"]))
+    return f"{legacy['width']}x{legacy['height']}"
+
+
+class InvalidImageResult(ValueError):
+    pass
+
+
+def measure_png(body: bytes) -> tuple[int, int]:
+    try:
+        with Image.open(BytesIO(body)) as img:
+            if img.format != "PNG":
+                raise InvalidImageResult
+            img.verify()
+            return img.size
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, SyntaxError) as exc:
+        raise InvalidImageResult from exc
+
+
 def process(db: Session, identifier: str, storage: ObjectStorage, settings: Settings) -> None:
     # Serialize slot acquisition across tenants. The transaction ends before any I/O.
     db.execute(select(Tenant.id).order_by(Tenant.id).limit(1).with_for_update())
@@ -79,7 +129,14 @@ def process(db: Session, identifier: str, storage: ObjectStorage, settings: Sett
     if step.lease and step.lease > now:
         db.rollback()
         return
-    if output.status == "generating":
+    snap = job.snapshot
+    gpt = snap.get("provider") == "gpt-image"
+    phase = output.status
+    recovery_key = (
+        inline_key(job.tenant_id, identifier, step.lease)
+        if gpt and phase == "generating" and step.lease else None
+    )
+    if phase == "generating" and recovery_key is None:
         output.status, step.fee_state, step.error = (
             "unknown",
             "unverified",
@@ -88,11 +145,9 @@ def process(db: Session, identifier: str, storage: ObjectStorage, settings: Sett
         step.lease = None
         db.commit()
         return
-    phase = output.status
-    if phase not in ("queued", "saving"):
+    if phase not in ("queued", "saving", "generating"):
         db.rollback()
         return
-    snap = job.snapshot
     try:
         if phase == "queued":
             active = list(
@@ -112,60 +167,75 @@ def process(db: Session, identifier: str, storage: ObjectStorage, settings: Sett
             sources = frozen_media(db, job.tenant_id, snap)
             verify_sources(db, job.tenant_id, snap)
             output.status = "generating"
-        lease = (now + timedelta(seconds=max(300, settings.ark_timeout_seconds * 3))).replace(
-            microsecond=0
-        )
+        timeout = settings.itaiapi_timeout_seconds if gpt else settings.ark_timeout_seconds
+        lease = (now + timedelta(seconds=max(300, timeout * 3))).replace(microsecond=0)
         step.lease = lease
         db.commit()
     except Exception:
-        output.status = "generation_failed" if phase == "queued" else "save_failed"
-        step.error = "input_unavailable" if phase == "queued" else "saving_failed"
         if phase == "queued":
+            output.status, step.error = "generation_failed", "input_unavailable"
             step.fee_state, step.actual_cents = "released", 0
+        elif phase == "generating":
+            output.status, step.error, step.fee_state = (
+                "unknown", "provider_status_unknown", "unverified",
+            )
+        else:
+            output.status, step.error = "save_failed", "saving_failed"
         db.commit()
         return
     sent = False
     cooldown = 0
     try:
-        if phase == "queued":
-            images = read_media(storage, sources)
-            size = validate_parameters(ImageParameters.model_validate(snap["draft"]["parameters"]))
+        if recovery_key is not None:
+            # The previous Worker may have stored the bytes before its DB commit.
+            with storage.read(recovery_key, None):
+                pass
+            step.result_object_key = recovery_key
+            output.status, step.fee_state = "saving", "unverified"
+        elif phase == "queued":
             prompt = snap["draft"]["prompt"]
             if snap["facts"]:
                 prompt += "\n已确认商品事实：" + json.dumps(snap["facts"], ensure_ascii=False)
             if snap.get("feedback"):
                 prompt += "\n返工意见：" + json.dumps(snap["feedback"], ensure_ascii=False)
-            request = ImageGenerationRequest(
-                model=snap["model"],
-                prompt=prompt,
-                image=images or None,
-                size=f"{size['width']}x{size['height']}",
-            )
-            with ArkImageClient(settings) as provider:
-                sent = True
-                result = provider.generate(request)
-            step.provider_id = result.request_id
-            if not result.data[0].url:
-                raise ValueError("missing_result")
-            output.status, step.result_url, step.fee_state = (
-                "saving",
-                str(result.data[0].url),
-                "unverified",
-            )
+            size = target_size(snap)
+            if gpt:
+                references = gpt_media(storage, sources, settings.max_image_bytes)
+                with GptImageClient(settings) as gpt_client:
+                    sent = True
+                    inline = gpt_client.generate(
+                        snap["model"], prompt, size, snap["quality"], references
+                    )
+                step.provider_id = inline.request_id
+                object_key = inline_key(job.tenant_id, identifier, lease)
+                storage.put(object_key, BytesIO(inline.body), "image/png", len(inline.body))
+                step.result_object_key = object_key
+            else:
+                images = read_media(storage, sources)
+                request = ImageGenerationRequest(
+                    model=snap["model"], prompt=prompt, image=images or None, size=size,
+                )
+                with ArkImageClient(settings) as ark_client:
+                    sent = True
+                    result = ark_client.generate(request)
+                step.provider_id = result.request_id
+                if not result.data[0].url:
+                    raise ValueError("missing_result")
+                step.result_url = str(result.data[0].url)
+            output.status, step.fee_state = "saving", "unverified"
         else:
-            body = download(step.result_url or "", settings.max_image_bytes)
-            size = validate_parameters(ImageParameters.model_validate(snap["draft"]["parameters"]))
-            with Image.open(BytesIO(body)) as img:
-                width, height = img.size
-                if img.format != "PNG" or img.size != (size["width"], size["height"]):
-                    raise ValueError("invalid_result")
-                img.verify()
-            key = f"generated/{job.tenant_id}/{identifier}.png"
-            storage.put(key, BytesIO(body), "image/png", len(body))
-            current = db.get(ImageStep, identifier, with_for_update=True, populate_existing=True)
-            if not current or current.lease != lease:
-                db.rollback()
-                return
+            if step.result_object_key:
+                key = step.result_object_key
+                body = read_object(storage, key, settings.max_image_bytes)
+            else:
+                key = f"generated/{job.tenant_id}/{identifier}.png"
+                body = download(step.result_url or "", settings.max_image_bytes)
+            width, height = measure_png(body)
+            step.result_size = f"{width}x{height}"
+            if step.result_size != target_size(snap):
+                raise InvalidImageResult
+            if not step.result_object_key:
+                storage.put(key, BytesIO(body), "image/png", len(body))
             file = PrivateFile(
                 id=identifier,
                 tenant_id=job.tenant_id,
@@ -183,7 +253,10 @@ def process(db: Session, identifier: str, storage: ObjectStorage, settings: Sett
             db.add(file)
             output.file_id, output.file_version, output.status = file.id, 1, "pending_review"
         step.error = None
-    except ArkImageError as exc:
+    except InvalidImageResult:
+        output.status = "result_unavailable"
+        step.error = "result_size_mismatch" if step.result_size else "invalid_result"
+    except ImageProviderError as exc:
         if exc.category == "rate_limited":
             cooldown = min(max(1, exc.retry_after or 30), 86400)
         step.provider_id, step.error = exc.request_id, exc.category
@@ -193,16 +266,20 @@ def process(db: Session, identifier: str, storage: ObjectStorage, settings: Sett
         else:
             output.status, step.fee_state = "unknown", "unverified"
     except Exception:
-        output.status = "unknown" if phase == "queued" else "save_failed"
         if phase == "queued":
-            step.fee_state = "unverified"
+            output.status, step.fee_state, step.error = "unknown", "unverified", "queued_failed"
             if not sent:
                 output.status, step.fee_state, step.actual_cents = (
                     "generation_failed",
                     "released",
                     0,
                 )
-        step.error = f"{phase}_failed"
+        elif phase == "generating":
+            output.status, step.error, step.fee_state = (
+                "unknown", "provider_status_unknown", "unverified",
+            )
+        else:
+            output.status, step.error = "save_failed", "saving_failed"
     # A late response must not overwrite a newer lease or an operator's reconciliation.
     with db.no_autoflush:
         owned = db.execute(

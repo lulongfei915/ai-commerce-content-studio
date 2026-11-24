@@ -32,6 +32,14 @@
 .creative-parameters input {
   width: 100%;
 }
+.creative-parameters.image-parameters {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+}
+.image-parameters label,
+.image-parameters select {
+  min-width: 0;
+  width: 100%;
+}
 .creative-prewrap {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

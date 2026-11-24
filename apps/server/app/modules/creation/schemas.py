@@ -7,7 +7,7 @@ from app.modules.products.schemas import ProductPhoto, ResourceId, WriteSchema
 from app.modules.templates.schemas import VersionInput
 from app.shared.studio_errors import FieldIssue
 
-from .capabilities import ImageParameters, SizeOption
+from .capabilities import ImageModelOption, ImageParameters, SizeOption
 
 CreationEntry = Literal["quick", "canvas", "batch"]
 
@@ -112,3 +112,4 @@ class Capabilities(BaseModel):
     model: str
     max_outputs: int
     sizes: list[SizeOption]
+    models: list[ImageModelOption]

@@ -121,6 +121,23 @@
 - **输出**　`execution`、`commerce`、图片供应商适配器、生成 API 和进度界面。记录调用、预算预留和归档结果。
 - **验证与推送**　对重复提交、Redis 消息丢失、Worker 中断、限流、状态未知、保存失败、未发出取消注入故障。状态未知时保留原请求记录并暂停付费重发，保存失败只重存。真实请求包含固定文件版本对应的媒体（AC-02、05、10、20、22 的图片场景）。提交 `[M1-06] 接通图片生成、预算控制与任务恢复` 并推送。
 
+#### 方舟与 GPT Image 双供应商
+
+2026-11-24 已完成本地实现。适配器实测 `gpt-image-2` 的 1024×1024 `low` 文生图及 1152×1536 `medium` 参考图编辑。其余五个模型均通过 1024×1024 `low` 文生图烟测。[验收记录](../验收/06-09-图片生产闭环验证.md#2026-11-24-gpt-image-双供应商验收)
+
+- [x] **供应商与配置**　新草稿默认使用方舟 Seedream。配置 `ITAIAPI_API_KEY` 后启用 GPT Image，默认模型为 `gpt-image-2`。`ITAIAPI_IMAGE_MODELS` 可以增开 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`、`gpt-image-2.6`、`gpt-image-2.6-flare` 和 `gpt-image-2.6-sunburst`。服务端配置及迁移见[开发指南](../开发指南.md#gpt-image-图片供应商)。
+- [x] **创作参数**　快捷生成、画布和模板编辑共用供应商、模型、尺寸及质量选项。GPT Image 提供 1:1 和 3:4 预设，按实际像素传入 `size`。`gpt-image-2` 和 `gpt-image-2.6` 提供 `low`、`medium`、`high`、`auto`，Flare 和 Sunburst 另提供 `xhigh`、`max`。界面按能力表展示选项，真实网关覆盖按模型和组合记录。服务端拒绝超出能力表及启用列表的选项。
+- [x] **GPT Image 调用**　纯文生图向 `POST /images/generations` 发送 JSON，包含 `model`、`prompt`、`size`、`quality`、`output_format: "png"`、`n: 1`。带商品实拍或参考图时，从私有存储读取快照指定的版本，向 `POST /images/edits` 发送相同参数及 multipart `image` 或 `image[]`。从 `data[0].b64_json` 解码图片，每份产出单独请求。
+- [x] **快照、预算和保存**　执行快照冻结供应商、模型、目标像素、质量和素材版本。旧任务按方舟读取，返工继承原快照。按供应商配置的单张上界预留费用。GPT Image 字节持久化到私有存储，保存重试读取原对象。检查 PNG、字节上限及实际像素，尺寸不符时记录实际值并拦截送审。超时进入待核实。
+
+**验证方式**
+
+1. **请求与选项。** 用 `httpx.MockTransport` 验证方舟和 GPT Image 请求各自的地址、鉴权、文生图 JSON、参考图表单、精确宽高和质量。通过前端测试验证供应商切换后刷新可选项和合法默认值，保存与刷新能够恢复选择。后端拒绝非法尺寸、质量和未启用模型，校验失败时实际供应商调用数为零。
+2. **归档与恢复。** 模拟有效 Base64 PNG、损坏结果、`1024x1024` 请求返回 `1254x1254`、401/403、模型未绑定、429、超时和存储失败。验证合法图进入待审核，尺寸不符不进入待审核，重复提交及 Worker 恢复不会重复付费，归档重试保留原图，旧快照和方舟 PNG 回归通过。
+3. **真实烟测与业务验收。** 用受控预算和合成商品图，先跑 `gpt-image-2` 的 1:1、`low` 文生图，再跑预定启用模型的 3:4、`medium` 参考图编辑。每个新增模型或开放的尺寸、质量组合按能力表补验。在快捷和画布分别核对选项、队列、私有归档、审核及下载字节。保留脱敏参数、请求 ID（如返回）、耗时、实际宽高和图片证据，更新 [图片生产闭环验证](../验收/06-09-图片生产闭环验证.md)。
+
+接口和字段以 [OpenAI 图片生成指南的尺寸与质量](https://developers.openai.com/api/docs/guides/image-generation#size-and-quality-options)、[Create image](https://developers.openai.com/api/reference/resources/images/methods/generate)、[Create image edit](https://developers.openai.com/api/reference/resources/images/methods/edit) 及 [模型下线公告](https://developers.openai.com/api/docs/deprecations) 为基线。itaiapi 的密钥权限、模型 ID、参数组合和输出尺寸以网关实测为准。方舟参数见 [Seedream 5.5 指南](../模型使用指南/Seedream-5.5-模型使用指南.md)。
+
 ### 07 · 图片人工审核与返工
 
 - [x] **本地实现与验证**　图片通过归档格式及尺寸校验后直接待审核。审核决定绑定图片版本，驳回理由必填，带区域意见的返工只新建指定输出的下一版本。

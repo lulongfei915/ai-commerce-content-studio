@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.modules.commerce.models import ModelCall
+from app.modules.creation.capabilities import validate_parameters
 from app.modules.creation.models import Creation, CreationOutput
 from app.modules.creation.results import asset_id_for
 from app.modules.creation.service import build_input_snapshot, get_creation
@@ -30,6 +31,7 @@ class OutputState(BaseModel):
     provider_id: str | None
     reserved_cents: int
     actual_cents: int | None
+    result_size: str | None = None
 
 
 class ExecutionState(BaseModel):
@@ -55,6 +57,7 @@ def state(db: Session, job: Execution) -> ExecutionState:
                 provider_id=s.provider_id,
                 reserved_cents=s.reserved_cents,
                 actual_cents=s.actual_cents,
+                result_size=s.result_size,
             )
             for o, s in rows
         ],
@@ -89,6 +92,12 @@ def require_budget(
         raise HTTPException(402, "budget_unavailable")
 
 
+def image_ceiling(settings: Settings, provider: str) -> int:
+    if provider == "gpt-image" and settings.itaiapi_image_ceiling_cents is not None:
+        return settings.itaiapi_image_ceiling_cents
+    return settings.image_ceiling_cents
+
+
 def submit(
     db: Session,
     tenant: str,
@@ -116,11 +125,6 @@ def submit(
     check_version(draft.version, data.expected_version)
     if draft.purpose == "video" or draft.entry == "batch":
         raise HTTPException(422, "image_entry_required")
-    snapshot = build_input_snapshot(db, draft).model_dump()
-    product = get_product(db, tenant, draft.product_id)
-    snapshot["facts"] = get_fact(db, product, snapshot["product_fact_version"]).facts
-    snapshot["category"] = product.category
-    snapshot["model"] = settings.ark_image_model
     count = 1 if parent else int(draft.parameters["count"])
     if parent:
         old = db.get(Execution, parent.execution_id)
@@ -129,8 +133,23 @@ def submit(
             raise HTTPException(409, "rework_unavailable")
         snapshot = {**old.snapshot, "feedback": step.decision}
         snapshot["draft"] = {**snapshot["draft"], "version": data.expected_version}
+    else:
+        source = build_input_snapshot(db, draft, settings=settings)
+        params = source.draft.parameters
+        size = validate_parameters(params, settings=settings)
+        product = get_product(db, tenant, draft.product_id)
+        snapshot = {
+            **source.model_dump(),
+            "facts": get_fact(db, product, source.product_fact_version).facts,
+            "category": product.category,
+            "provider": params.provider,
+            "model": params.model if params.provider == "gpt-image" else settings.ark_image_model,
+            "size": f"{size['width']}x{size['height']}",
+            "quality": (params.quality or "low") if params.provider == "gpt-image" else None,
+        }
     verify_sources(db, tenant, snapshot)
-    require_budget(db, tenant, settings, count * settings.image_ceiling_cents, for_image=True)
+    ceiling = image_ceiling(settings, snapshot.get("provider", "ark"))
+    require_budget(db, tenant, settings, count * ceiling, for_image=True)
     job = Execution(
         id=new_id(),
         tenant_id=tenant,
@@ -171,7 +190,7 @@ def submit(
             ImageStep(
                 output_id=output.id,
                 execution_id=job.id,
-                reserved_cents=settings.image_ceiling_cents,
+                reserved_cents=ceiling,
             )
         )
     position = position_for(db, draft)
