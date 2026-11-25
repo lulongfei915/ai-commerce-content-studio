@@ -10,22 +10,25 @@ import {
   AppstoreOutlined,
 } from '@ant-design/icons';
 import { Modal } from '../../shared/ui/Modal';
-import type { Category, Product } from '../products/api';
+import { updateFacts, uploadPhoto, type Category, type Product } from '../products/api';
 import { CaseBrowser } from '../cases/CaseBrowser';
 import { CreationEditor } from './CreationEditor';
-import { ImageExecutionStatus } from './ImageExecutionStatus';
 import { ParametersFields } from './ParametersFields';
+import { QuickMaterials, SelectedQuickMaterials } from './QuickMaterials';
 import { VideoFields } from './VideoFields';
 import {
   actionError,
   defaults,
   draftWrite,
   imageModelLabel,
+  referencePreview,
+  removeReference,
   saveDraftInputs,
+  uploadReference,
   type Draft,
   type DraftEdits,
 } from './api';
-import { useImageExecution } from './useImageExecution';
+import type { ImageExecution } from './useImageExecution';
 
 type Props = {
   product: Product;
@@ -43,8 +46,11 @@ type Props = {
     primary: boolean,
   ) => Promise<Draft | undefined>;
   onSaved: (draft: Draft) => void;
+  onProductSaved: (product: Product) => void;
   onEdit: (id: string, edits: DraftEdits | undefined) => void;
   onBusy: (busy: boolean) => void;
+  execution: ImageExecution;
+  onImageSubmitting: (count: number) => void;
 };
 
 export function QuickCreation({
@@ -59,13 +65,15 @@ export function QuickCreation({
   loading,
   onCreate,
   onSaved,
+  onProductSaved,
   onEdit,
   onBusy,
+  execution,
+  onImageSubmitting,
 }: Props) {
-  const [panel, setPanel] = useState<'settings' | 'case' | 'specs'>();
+  const [panel, setPanel] = useState<'settings' | 'case' | 'specs' | 'product' | 'reference'>();
   const [feedback, setFeedback] = useState<{ id: string; message: string; error?: boolean }>();
   const isVideo = purpose === 'video';
-  const execution = useImageExecution(isVideo ? undefined : selected, token);
   const working = useRef(false);
   const value: DraftEdits = edits ?? {
     prompt: selected?.prompt ?? '',
@@ -89,9 +97,12 @@ export function QuickCreation({
     : [
         '简洁暖灰背景，柔和自然光，突出商品真实轮廓与细节，画面留出适当呼吸空间。',
         '置于符合实际用途的日常场景中，采用自然光，保持商品颜色和结构一致。',
-        '近距离拍摄实拍可见的结构，用柔和侧光表现层次。',
+        '近距离拍摄商品结构，用柔和侧光表现层次。',
       ];
-  const hasPhotos = product.photos.length > 0;
+  const references = selected?.references ?? [];
+  const hasPhotos = isVideo
+    ? product.photos.length > 0
+    : references.some((ref) => ref.usage === 'product');
   const prompts = phrases.map(
     (phrase) => `以${product.name}${hasPhotos ? '实拍' : ''}为主体，${phrase}`,
   );
@@ -101,10 +112,12 @@ export function QuickCreation({
     onEdit(editorId, next);
     setFeedback(undefined);
   }
-  async function withDraft(operation: (draft: Draft) => Promise<void>) {
+  async function withDraft(operation: (draft: Draft) => Promise<void>, imageCount = 0) {
     if (disabled || working.current) return;
     working.current = true;
     onBusy(true);
+    if (imageCount) onImageSubmitting(imageCount);
+    setFeedback(undefined);
     let id = editorId;
     try {
       const draft = selected ?? (await onCreate(product.id, purpose, true));
@@ -119,6 +132,7 @@ export function QuickCreation({
       setFeedback({ id, message: actionError(cause), error: true });
     } finally {
       working.current = false;
+      if (imageCount) onImageSubmitting(0);
       onBusy(false);
     }
   }
@@ -130,14 +144,65 @@ export function QuickCreation({
     onEdit(draft.id, undefined);
     return updated;
   }
+
+  function addMaterial(operation: (draft: Draft) => Promise<Draft>) {
+    void withDraft(async (draft) => {
+      onSaved(await operation(draft));
+      setPanel(undefined);
+    });
+  }
+
+  function addPhoto(draft: Draft, photo: Product['photos'][number]) {
+    return draftWrite(draft, token, '/references', {
+      kind: 'upload',
+      usage: 'product',
+      source_id: photo.file_id,
+      file_version: photo.version,
+    });
+  }
+
+  function uploadMaterial(file: File, asProductPhoto: boolean) {
+    if (file.size > 10 * 1024 * 1024) {
+      setFeedback({ id: editorId, message: '图片不能超过 10 MB。', error: true });
+      return;
+    }
+    addMaterial(async (draft) => {
+      if (!asProductPhoto) return uploadReference(draft, token, file);
+      const id = await uploadPhoto(file, token);
+      const updated = await updateFacts(
+        product.id,
+        {
+          expected_version: product.version,
+          photo_ids: [...product.photos.map((photo) => photo.file_id), id],
+        },
+        token,
+      );
+      onProductSaved(updated);
+      const photo = updated.photos.find((item) => item.file_id === id);
+      if (!photo) throw new Error('找不到刚上传的商品实拍。');
+      try {
+        return await addPhoto(draft, photo);
+      } catch (cause) {
+        throw new Error(
+          `实拍已保存到商品资料。加入本次生成失败，可重新选择该实拍。${actionError(cause)}`,
+        );
+      }
+    });
+  }
   return (
     <section className="studio-quick" aria-label="快捷创作">
       <div className="studio-composer">
         <div className="studio-input">
-          <button className="studio-reference" disabled={disabled} onClick={() => setPanel('case')}>
-            <PlusOutlined />
+          <button
+            className="studio-reference"
+            disabled={disabled}
+            aria-label={isVideo ? '参考素材' : '添加素材'}
+            onClick={() => setPanel(isVideo ? 'case' : 'product')}
+          >
+            <PlusOutlined aria-hidden="true" />
             <span>
-              参考素材{selected?.references.length ? ` ${selected.references.length}` : ''}
+              {isVideo ? '参考素材' : '添加素材'}
+              {references.length ? ` ${references.length}` : ''}
             </span>
           </button>
           <textarea
@@ -153,13 +218,23 @@ export function QuickCreation({
             onChange={(e) => change({ ...value, prompt: e.target.value })}
           />
         </div>
+        {!isVideo && selected && (
+          <SelectedQuickMaterials
+            draft={selected}
+            disabled={disabled}
+            remove={(ref) =>
+              void withDraft(async (draft) => onSaved(await removeReference(draft, token, ref.id)))
+            }
+          />
+        )}
         <div className="studio-toolbar">
           <b>
             {isVideo ? <VideoCameraOutlined /> : <PictureOutlined />}{' '}
             {isVideo ? '视频生成' : '图片生成'}
           </b>
           <span>
-            <AppstoreOutlined /> {isVideo ? 'Seedance 2.0' : imageModelLabel(value.parameters.model)}
+            <AppstoreOutlined />{' '}
+            {isVideo ? 'Seedance 2.0' : imageModelLabel(value.parameters.model)}
           </span>
           <button disabled={disabled} onClick={() => setPanel('specs')}>
             {spec.ratio} · {spec.resolution} <DownOutlined />
@@ -177,15 +252,17 @@ export function QuickCreation({
             className="work-primary studio-save"
             disabled={disabled || (isVideo ? !edits : execution.inProgress || !value.prompt.trim())}
             onClick={() =>
-              void withDraft(async (draft) => {
-                setFeedback(undefined);
-                const updated = await saveInputs(draft);
-                if (isVideo) {
-                  setFeedback({ id: draft.id, message: '草稿已保存' });
-                  return;
-                }
-                await execution.submit(updated);
-              })
+              void withDraft(
+                async (draft) => {
+                  const updated = await saveInputs(draft);
+                  if (isVideo) {
+                    setFeedback({ id: draft.id, message: '草稿已保存' });
+                    return;
+                  }
+                  await execution.submit(updated);
+                },
+                isVideo ? 0 : value.parameters.count,
+              )
             }
           >
             <ArrowRightOutlined aria-hidden="true" />{' '}
@@ -214,17 +291,10 @@ export function QuickCreation({
             / &nbsp;{label}
           </button>
         ))}
-        <button disabled={disabled} onClick={() => setPanel('case')}>
+        <button disabled={disabled} onClick={() => setPanel(isVideo ? 'case' : 'reference')}>
           更多灵感 ›
         </button>
       </div>
-      {selected && !isVideo && execution.job && (
-        <ImageExecutionStatus
-          key={`${selected.id}:${execution.job.id}`}
-          execution={execution}
-          disabled={disabled}
-        />
-      )}
       {panel === 'specs' && (
         <Modal title="画面规格" onClose={() => setPanel(undefined)}>
           <div className="work-form">
@@ -263,6 +333,29 @@ export function QuickCreation({
           {feedback?.error && <p role="alert">{feedback.message}</p>}
         </Modal>
       )}
+      {(panel === 'product' || panel === 'reference') && (
+        <QuickMaterials
+          product={product}
+          purpose={purpose}
+          categories={categories}
+          references={references}
+          startWith={panel}
+          busy={disabled}
+          error={feedback?.error ? feedback.message : undefined}
+          onClose={() => {
+            setPanel(undefined);
+            setFeedback(undefined);
+          }}
+          onPhoto={(photo) => addMaterial((draft) => addPhoto(draft, photo))}
+          onUploadPhoto={(file) => uploadMaterial(file, true)}
+          onUpload={(file) => uploadMaterial(file, false)}
+          onCase={(id) =>
+            addMaterial((draft) =>
+              draftWrite(draft, token, '/references', { kind: 'case', source_id: id }),
+            )
+          }
+        />
+      )}
       {panel === 'settings' && selected && (
         <Modal title="创作设置" busy={busy} onClose={() => setPanel(undefined)}>
           <CreationEditor
@@ -275,6 +368,7 @@ export function QuickCreation({
             onSaved={onSaved}
             onBusy={onBusy}
             imageExecution={execution}
+            previewUrl={isVideo ? undefined : (ref) => referencePreview(selected, ref)}
           />
         </Modal>
       )}

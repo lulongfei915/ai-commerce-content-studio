@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   CheckOutlined,
   ControlOutlined,
@@ -9,7 +9,9 @@ import {
 import { Modal } from '../../shared/ui/Modal';
 import { resultPreview, type TaskResult } from '../creation/results';
 import { statusLabel } from '../canvas/status';
+import type { ImageExecution } from '../creation/useImageExecution';
 import { VersionActions } from './VersionActions';
+import { StudioImagePlaceholder, type ImageSlot } from './StudioImagePlaceholder';
 import type { Session } from '../auth/session';
 import type { Task } from './api';
 import white from './sneaker-white.jpg';
@@ -87,6 +89,9 @@ export function StudioResults({
   task,
   session,
   refresh,
+  imageExecution,
+  submittingCount = 0,
+  imageControlsDisabled = false,
 }: {
   results: TaskResult[];
   taskId?: string;
@@ -96,11 +101,17 @@ export function StudioResults({
   task?: Task;
   session?: Session;
   refresh?: () => void;
+  imageExecution?: ImageExecution;
+  submittingCount?: number;
+  imageControlsDisabled?: boolean;
 }) {
   const [media, setMedia] = useState('all');
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<Artwork[]>([]);
   const [filter, setFilter] = useState(false);
+  useEffect(() => {
+    if (submittingCount) setMedia((current) => (current === 'video' ? 'image' : current));
+  }, [submittingCount]);
   const gallery: Artwork[] = taskId
     ? results.map((result) => ({
         id: result.version_id,
@@ -119,6 +130,30 @@ export function StudioResults({
   const visible = gallery.filter(
     (item) => (media === 'all' || media === item.media) && (!status || status === item.status),
   );
+  const slots: ImageSlot[] = [
+    ...Array.from({ length: submittingCount }, (_, index) => ({
+      id: `submitting:${index}`,
+      index,
+    })),
+    ...Object.entries(imageExecution?.jobs ?? {}).flatMap(([owner, job]) =>
+      job.outputs.map((output, index) => ({ id: output.id, index, work: { owner, job, output } })),
+    ),
+  ];
+  const galleryIds = new Set(gallery.map((item) => item.id));
+  const remaining = new Map(visible.map((item) => [item.id, item]));
+  const cards: { id: string; item?: Artwork; slot?: ImageSlot }[] = [];
+  if (media !== 'video') {
+    for (const slot of slots) {
+      const item = remaining.get(slot.id);
+      if (item) {
+        cards.push({ id: slot.id, item });
+        remaining.delete(slot.id);
+      } else if (!galleryIds.has(slot.id)) {
+        cards.push({ id: slot.id, slot });
+      }
+    }
+  }
+  for (const item of remaining.values()) cards.push({ id: item.id, item });
   const picked = gallery.filter((item) => selected.includes(item.id));
   return (
     <section id="studio-results" className="studio-results" aria-label="创作结果">
@@ -164,53 +199,64 @@ export function StudioResults({
         </label>
       )}
       <div className="studio-result-grid">
-        {visible.map((item) => (
+        {cards.map(({ id, item, slot }) => (
           <article
-            key={item.id}
+            key={id}
             className="studio-result-card"
-            data-asset-id={item.assetId}
-            data-version-id={item.assetId ? item.id : undefined}
+            data-asset-id={item?.assetId}
+            data-version-id={item?.assetId ? item.id : undefined}
           >
-            <button
-              className="studio-preview"
-              aria-label={`查看 ${item.name}`}
-              onClick={() => setPreview([item])}
-            >
-              <Preview item={item} />
-            </button>
-            <span className="studio-type">
-              <PictureOutlined /> {item.type}
-            </span>
-            <button
-              className="studio-check"
-              aria-label={`选择 ${item.name}`}
-              aria-pressed={selected.includes(item.id)}
-              disabled={!selected.includes(item.id) && picked.length >= 2}
-              onClick={() =>
-                setSelected(
-                  selected.includes(item.id)
-                    ? selected.filter((id) => id !== item.id)
-                    : [...selected, item.id],
-                )
-              }
-            >
-              {selected.includes(item.id) && <CheckOutlined />}
-            </button>
-            <footer>
-              <b>{item.name}</b>
-              <div>
-                <span>
-                  {item.status === 'example'
-                    ? '原型示例'
-                    : (statusLabel[item.status] ?? item.status)}
+            {slot && (
+              <StudioImagePlaceholder
+                slot={slot}
+                update={imageExecution?.update}
+                disabled={imageControlsDisabled}
+              />
+            )}
+            {item && (
+              <>
+                <button
+                  className="studio-preview"
+                  aria-label={`查看 ${item.name}`}
+                  onClick={() => setPreview([item])}
+                >
+                  <Preview item={item} />
+                </button>
+                <span className="studio-type">
+                  <PictureOutlined /> {item.type}
                 </span>
-                {item.version && <small>V{item.version}</small>}
-              </div>
-            </footer>
+                <button
+                  className="studio-check"
+                  aria-label={`选择 ${item.name}`}
+                  aria-pressed={selected.includes(item.id)}
+                  disabled={!selected.includes(item.id) && picked.length >= 2}
+                  onClick={() =>
+                    setSelected(
+                      selected.includes(item.id)
+                        ? selected.filter((id) => id !== item.id)
+                        : [...selected, item.id],
+                    )
+                  }
+                >
+                  {selected.includes(item.id) && <CheckOutlined />}
+                </button>
+                <footer>
+                  <b title={item.name}>{item.name}</b>
+                  <div>
+                    <span>
+                      {item.status === 'example'
+                        ? '原型示例'
+                        : (statusLabel[item.status] ?? item.status)}
+                    </span>
+                    {item.version && <small>V{item.version}</small>}
+                  </div>
+                </footer>
+              </>
+            )}
           </article>
         ))}
       </div>
-      {!visible.length && <p className="studio-empty">暂无符合条件的结果</p>}
+      {!cards.length && <p className="studio-empty">暂无符合条件的结果</p>}
       {!!picked.length && (
         <div className="work-actions">
           已选 {picked.length} 份{' '}

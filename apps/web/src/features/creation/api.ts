@@ -1,4 +1,4 @@
-import { ApiError, apiFetch, apiWrite } from '../../shared/api/client';
+import { ApiError, apiFetch, apiPrefix, apiWrite } from '../../shared/api/client';
 import { uploadMedia } from '../../shared/api/upload';
 import type { components } from '../../shared/api/generated';
 
@@ -92,6 +92,9 @@ export function removeReference(draft: Draft, token: string, id: string) {
     undefined,
     'DELETE',
   );
+}
+export function referencePreview(draft: Draft, ref: Reference) {
+  return `${apiPrefix}/creations/${encodeURIComponent(draft.id)}/references/${encodeURIComponent(ref.id)}/preview`;
 }
 export async function uploadReference(draft: Draft, token: string, file: File) {
   const source_id = await uploadMedia(file, token);

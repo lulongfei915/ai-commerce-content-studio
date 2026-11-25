@@ -422,6 +422,19 @@ export function Workspace({
             session={session}
             initialPosition={quickPosition}
             onDirty={setCreativeDirty}
+            onProductSaved={(product) => {
+              setCurrent((task) =>
+                task?.id === current.id
+                  ? {
+                      ...task,
+                      products: task.products.map((item) =>
+                        item.id === product.id ? product : item,
+                      ),
+                    }
+                  : task,
+              );
+              setRevision((value) => value + 1);
+            }}
             onBack={() => navigate(view === 'canvas' ? 'quick' : 'tasks')}
             onNew={() => {
               if (canLeave()) setSetup({});

@@ -170,7 +170,9 @@ export function CreationEditor({
               {product.sku} · {isVideo ? '视频' : draft.purpose === 'main' ? '主图' : '详情素材'}
             </span>
           </div>
-          <BoundPhotos product={product} />
+          {(isVideo || inCanvas || draft.entry === 'canvas' || draft.entry === 'batch') && (
+            <BoundPhotos product={product} />
+          )}
         </div>
         {!inCanvas && (
           <>

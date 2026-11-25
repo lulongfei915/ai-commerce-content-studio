@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.products.models import Product
+from app.modules.products.schemas import ProductPhoto
 from app.modules.products.service import get_fact, get_product, require_generation_inputs
 from app.modules.tasks.models import TaskProduct
 from app.modules.templates.service import find_template, version_content
@@ -17,6 +18,10 @@ from .references import resolve_reference, validate_references
 from .schemas import ApplyTemplate, CreationView, InputSnapshot, ReferenceInput, ReferenceView
 
 REFERENCE_TAG = re.compile(r"\[\[ref:([^\]\r\n]+)\]\]")
+
+
+def is_quick_image(entry: str | None, purpose: str) -> bool:
+    return entry in (None, "quick") and purpose in ("main", "detail")
 
 
 def get_creation(db: Session, tenant: str, identifier: str, *, lock: bool = False) -> Creation:
@@ -56,8 +61,10 @@ def save(
     *,
     validate_sources: bool = True,
 ) -> CreationView:
-    fact = get_fact(db, product, product.fact_version)
-    files = {ref.file_id for ref in references} | {str(photo["file_id"]) for photo in fact.photos}
+    files = {ref.file_id for ref in references}
+    if not is_quick_image(item.entry, item.purpose):
+        fact = get_fact(db, product, product.fact_version)
+        files.update(str(photo["file_id"]) for photo in fact.photos)
     if validate_sources:
         validate_references(db, product, references, item)
     if item.purpose == "video":
@@ -151,8 +158,14 @@ def build_input_snapshot(
         reject("prompt", "prompt_required")
     if set(REFERENCE_TAG.findall(draft.prompt)) - {ref.id for ref in draft.references}:
         reject("prompt", "reference_label_dangling")
-    quick_image = item.entry in (None, "quick") and item.purpose in ("main", "detail")
-    photos = require_generation_inputs(db, product, draft.purpose, require_complete=not quick_image)
+    if is_quick_image(item.entry, item.purpose):
+        photos = [
+            ProductPhoto(file_id=ref.file_id, version=ref.file_version)
+            for ref in draft.references
+            if ref.usage == "product"
+        ]
+    else:
+        photos = require_generation_inputs(db, product, draft.purpose)
     validate_references(db, product, draft.references, item)
     files = {photo.file_id for photo in photos} | {ref.file_id for ref in draft.references}
     if item.purpose != "video":

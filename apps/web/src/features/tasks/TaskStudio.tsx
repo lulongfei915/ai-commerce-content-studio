@@ -12,8 +12,9 @@ import { actionError, createDraft, listDrafts } from '../creation/api';
 import type { Draft, DraftEdits } from '../creation/api';
 import { QuickCreation } from '../creation/QuickCreation';
 import { getTaskResults, type TaskResult } from '../creation/results';
+import { useImageExecution } from '../creation/useImageExecution';
 import { BatchCreation } from '../creation/BatchCreation';
-import type { Category } from '../products/api';
+import type { Category, Product } from '../products/api';
 import type { Task } from './api';
 import { purposeLabel } from './api';
 import { Modal } from '../../shared/ui/Modal';
@@ -35,6 +36,7 @@ export function TaskStudio({
   onDirty,
   onBack,
   onNew,
+  onProductSaved,
   children,
 }: {
   session: Session;
@@ -45,6 +47,7 @@ export function TaskStudio({
   onDirty: (dirty: boolean) => void;
   onBack: () => void;
   onNew: () => void;
+  onProductSaved: (product: Product) => void;
   children: ReactNode;
 }) {
   const quick = entry === 'quick';
@@ -65,6 +68,7 @@ export function TaskStudio({
   const [resultsError, setResultsError] = useState(false);
   const [resultsRetry, setResultsRetry] = useState(0);
   const [status, setStatus] = useState('');
+  const [submittingCount, setSubmittingCount] = useState(0);
   const position = task.positions.find((item) => `new:${item.id}` === active) ?? task.positions[0];
   const selected =
     drafts.find((item) => item.id === active) ??
@@ -79,6 +83,11 @@ export function TaskStudio({
   );
   const purpose = selected?.purpose ?? position?.purpose;
   const editorId = selected?.id ?? `new:${position?.id}`;
+  const imageExecution = useImageExecution(
+    canCreate && quick && purpose !== 'video' ? selected : undefined,
+    token,
+    task.id,
+  );
   useEffect(() => {
     const refresh = (e: Event) => {
       if ((e as CustomEvent).detail === task.id) setResultsRetry((n) => n + 1);
@@ -261,17 +270,24 @@ export function TaskStudio({
               loading={loading || Boolean(error)}
               onCreate={create}
               onSaved={save}
+              onProductSaved={onProductSaved}
               onEdit={edit}
               onBusy={setEditing}
+              execution={imageExecution}
+              onImageSubmitting={(count) => {
+                setSubmittingCount(count);
+                if (count) setStatus('');
+              }}
             />
           )}
-          {resultsError ? (
+          {resultsError && (
             <p role="alert">
               创作结果未加载。 <button onClick={() => setResultsRetry((n) => n + 1)}>重试</button>
             </p>
-          ) : results ? (
+          )}
+          {(results || submittingCount > 0 || Object.keys(imageExecution.jobs).length > 0) ? (
             <StudioResults
-              results={results}
+              results={results ?? []}
               session={session}
               task={task}
               refresh={() => setResultsRetry((n) => n + 1)}
@@ -279,8 +295,11 @@ export function TaskStudio({
               status={status}
               onStatus={setStatus}
               canPlayVideo={session.permissions.includes('download')}
+              imageExecution={imageExecution}
+              submittingCount={submittingCount}
+              imageControlsDisabled={busy}
             />
-          ) : (
+          ) : !resultsError && (
             <p role="status">正在读取创作结果…</p>
           )}
           {!canCreate && children}

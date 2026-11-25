@@ -1,9 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from sqlalchemy import or_, select
 from sqlalchemy.sql.elements import ColumnElement
 
+from app.modules.assets.preview import image_preview
+from app.modules.assets.routes import Storage
+from app.modules.cases.service import ready_file
 from app.modules.identity.domain import Permission
 from app.modules.identity.models import new_id
 from app.modules.identity.security import (
@@ -46,6 +49,7 @@ from .service import (
     apply_template,
     build_input_snapshot,
     get_creation,
+    is_quick_image,
     member_product,
     readiness,
     reuse_configuration,
@@ -116,11 +120,14 @@ def create_creation(
         )
         if existing is not None:
             return view(existing)
-    fact = get_fact(db, product, product.fact_version)
     if data.purpose != "video":
         if data.video_parameters is not None:
             reject("video_parameters", "parameters_media_mismatch")
-        validate_parameters(data.parameters, len(fact.photos))
+        photo_count = (
+            0 if is_quick_image(data.entry, data.purpose)
+            else len(get_fact(db, product, product.fact_version).photos)
+        )
+        validate_parameters(data.parameters, photo_count)
     item = Creation(
         tenant_id=tenant,
         task_id=task_id,
@@ -236,6 +243,34 @@ def add_creation_reference(
     if any(ref.file_id == reference.file_id for ref in draft.references):
         reject(field, "reference_duplicate")
     return save(db, item, product, [*draft.references, reference], draft.parameters)
+
+
+@router.get(
+    "/creations/{creation_id}/references/{reference_id}/preview",
+    operation_id="previewCreationReference",
+    response_class=Response,
+    responses={
+        200: {"content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}}}
+    },
+)
+def preview_creation_reference(
+    creation_id: str, reference_id: str, identity: ActiveIdentity, db: Database, storage: Storage
+) -> Response:
+    require_permission(identity, Permission.VIEW)
+    item = get_creation(db, identity.tenant.id, creation_id)
+    ref = next((ref for ref in view(item).references if ref.id == reference_id), None)
+    if ref is None or ref.media != "image":
+        raise HTTPException(404, "reference_not_found")
+    product = member_product(db, item.tenant_id, item.task_id, item.product_id)
+    resolved = resolve_reference(db, product, ref, "references", item.purpose, draft=item)
+    if (resolved.file_id, resolved.file_version, resolved.source_version) != (
+        ref.file_id, ref.file_version, ref.source_version,
+    ):
+        reject("references", "reference_version_invalid")
+    key = ready_file(db, item.tenant_id, resolved.file_id, "references").object_key
+    assert key is not None
+    db.rollback()
+    return image_preview(storage, key)
 
 
 @router.patch("/creations/{creation_id}/references/{reference_id}")

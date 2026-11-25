@@ -4,15 +4,32 @@ import type { components } from '../../shared/api/generated';
 import type { Draft } from './api';
 
 type Job = components['schemas']['ExecutionState'];
-const active = new Set(['queued', 'generating', 'saving']);
+export const activeImageStatuses = new Set(['queued', 'generating', 'saving']);
+export const archivedImageStatuses = new Set([
+  'pending_review',
+  'needs_review',
+  'approved',
+  'rejected',
+]);
 
-export function useImageExecution(draft: Draft | undefined, token: string) {
+export function useImageExecution(
+  draft: Draft | undefined,
+  token: string,
+  taskId = draft?.task_id,
+) {
   const [jobs, setJobs] = useState<Record<string, Job>>({});
+  const latestJobs = useRef(jobs);
   const request = useRef<{ id: string; version: number; key: string }>();
   const draftId = draft?.id;
-  const taskId = draft?.task_id;
   const job = draftId ? jobs[draftId] : undefined;
-  const inProgress = Boolean(job?.outputs.some((output) => active.has(output.status)));
+  const inProgress = Boolean(job?.outputs.some((output) => activeImageStatuses.has(output.status)));
+  const hasActiveJobs = Object.values(jobs).some((item) =>
+    item.outputs.some((output) => activeImageStatuses.has(output.status)),
+  );
+
+  useEffect(() => {
+    latestJobs.current = jobs;
+  }, [jobs]);
 
   useEffect(() => {
     if (!draftId) return;
@@ -27,25 +44,45 @@ export function useImageExecution(draft: Draft | undefined, token: string) {
   }, [draftId]);
 
   useEffect(() => {
-    if (!job || !inProgress || !draftId) return;
+    if (!hasActiveJobs) return;
     const ctl = new AbortController();
+    const polling = new Set<string>();
     const timer = window.setInterval(() => {
-      void apiFetch<Job>(`/executions/${job.id}`, { signal: ctl.signal })
-        .then((next) => {
-          if (ctl.signal.aborted) return;
-          setJobs((current) =>
-            current[draftId]?.id === job.id ? { ...current, [draftId]: next } : current,
-          );
-          if (!next.outputs.some((output) => active.has(output.status)))
-            window.dispatchEvent(new CustomEvent('studio-results', { detail: taskId }));
-        })
-        .catch(() => {});
+      for (const [owner, currentJob] of Object.entries(latestJobs.current)) {
+        if (
+          polling.has(currentJob.id) ||
+          !currentJob.outputs.some((output) => activeImageStatuses.has(output.status))
+        )
+          continue;
+        polling.add(currentJob.id);
+        void apiFetch<Job>(`/executions/${currentJob.id}`, { signal: ctl.signal })
+          .then((next) => {
+            if (ctl.signal.aborted || latestJobs.current[owner] !== currentJob) return;
+            setJobs((current) =>
+              current[owner] === currentJob ? { ...current, [owner]: next } : current,
+            );
+            const newlyArchived = next.outputs.some(
+              (output) =>
+                archivedImageStatuses.has(output.status) &&
+                currentJob.outputs.some(
+                  (old) => old.id === output.id && activeImageStatuses.has(old.status),
+                ),
+            );
+            if (
+              newlyArchived ||
+              !next.outputs.some((output) => activeImageStatuses.has(output.status))
+            )
+              window.dispatchEvent(new CustomEvent('studio-results', { detail: taskId }));
+          })
+          .catch(() => {})
+          .finally(() => polling.delete(currentJob.id));
+      }
     }, 2000);
     return () => {
       clearInterval(timer);
       ctl.abort();
     };
-  }, [draftId, taskId, job, inProgress]);
+  }, [taskId, hasActiveJobs]);
 
   async function submit(input: Draft) {
     if (request.current?.id !== input.id || request.current.version !== input.version) {
@@ -56,17 +93,20 @@ export function useImageExecution(draft: Draft | undefined, token: string) {
       expected_version: input.version,
       idempotency_key: pending.key,
     });
-    setJobs((current) => ({ ...current, [input.id]: next }));
+    setJobs((current) => ({
+      [input.id]: next,
+      ...Object.fromEntries(Object.entries(current).filter(([id]) => id !== input.id)),
+    }));
     if (request.current === pending) request.current = undefined;
   }
 
-  async function update(path: string) {
-    if (!draftId) return;
+  async function update(path: string, owner = draftId) {
+    if (!owner) return;
     const next = await apiWrite<Job>(path, token);
-    setJobs((current) => ({ ...current, [draftId]: next }));
+    setJobs((current) => ({ ...current, [owner]: next }));
   }
 
-  return { job, inProgress, submit, update };
+  return { job, jobs, inProgress, submit, update };
 }
 
 export type ImageExecution = ReturnType<typeof useImageExecution>;

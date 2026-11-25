@@ -1954,6 +1954,58 @@
         }
       }
     },
+    "/api/v1/creations/{creation_id}/references/{reference_id}/preview": {
+      "get": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Preview Creation Reference",
+        "operationId": "previewCreationReference",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          },
+          {
+            "name": "reference_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Reference Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/creations/{creation_id}/references/{reference_id}": {
       "patch": {
         "tags": [

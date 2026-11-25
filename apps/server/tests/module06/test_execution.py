@@ -62,26 +62,58 @@ def test_quick_image_without_product_inputs_reaches_provider_as_text(client, db,
     assert rejected.json()["detail"]["code"] == "product_inputs_incomplete"
 
 
-def test_quick_image_with_incomplete_facts_keeps_valid_product_photo(client, db, monkeypatch):
-    headers, _, product, task = setup_task(client, db)
+def test_quick_image_sends_only_explicitly_selected_product_photos(client, db, monkeypatch):
+    headers, other_product, product, task = setup_task(client, db)
     draft = create_draft(client, headers, task, product, entry="quick")
-    monkeypatch.setattr(get_settings(), "image_budget_cents", 2)
+    monkeypatch.setattr(get_settings(), "image_budget_cents", 3)
     monkeypatch.setattr(get_settings(), "image_ceiling_cents", 1)
-    path = f"{API}/creations/{draft['id']}/executions"
+    path = f"{API}/creations/{draft['id']}"
     data = {"expected_version": 1, "idempotency_key": "photo"}
-    response = client.post(path, headers=headers, json=data)
+    response = client.post(path + "/executions", headers=headers, json=data)
     assert response.status_code == 202, response.text
     job = db.get(Execution, response.json()["id"])
-    assert job.snapshot["product_photos"] == product["photos"]
+    assert runner.frozen_media(db, job.tenant_id, job.snapshot) == []
     assert job.snapshot["product_fact_version"] == product["fact_version"]
+
+    def select_photo(source):
+        return client.post(
+            path + "/references",
+            headers=headers,
+            json={
+                "expected_version": 1,
+                "kind": "upload",
+                "usage": "product",
+                "source_id": source["file_id"],
+                "file_version": source["version"],
+            },
+        )
+
+    other = select_photo(other_product["photos"][0])
+    assert other.status_code == 422
+    assert other.json()["detail"]["code"] == "reference_other_sku"
+    added = select_photo(product["photos"][0])
+    assert added.status_code == 200, added.text
+    response = client.post(
+        path + "/executions",
+        headers=headers,
+        json={"expected_version": added.json()["version"], "idempotency_key": "selected"},
+    )
+    assert response.status_code == 202, response.text
+    job = db.get(Execution, response.json()["id"])
+    assert job.snapshot["references"] == added.json()["references"]
+    assert runner.frozen_media(db, job.tenant_id, job.snapshot) == [
+        ("sample-blue-canvas", "image/png"),
+    ]
 
     photo = db.get(PrivateFile, "blue-canvas")
     assert photo is not None
     photo.status = "inactive"
     db.commit()
-    rejected = client.post(path, headers=headers, json={**data, "idempotency_key": "inactive"})
-    assert rejected.status_code == 422
-    assert rejected.json()["detail"]["fields"] == ["product_photo_invalid"]
+    assert client.get(path + "/readiness").json()["issues"][0]["code"] == "reference_not_ready"
+    ref = added.json()["references"][0]["id"]
+    removed = client.delete(f"{path}/references/{ref}?expected_version=2", headers=headers)
+    assert removed.status_code == 200, removed.text
+    assert client.get(path + "/readiness").json() == {"issues": []}
 
 
 def test_idempotent_submission_reserves_budget_and_cancel_releases_it(
