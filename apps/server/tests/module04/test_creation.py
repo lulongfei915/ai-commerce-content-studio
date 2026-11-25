@@ -26,6 +26,10 @@ def test_template_publish_creates_immutable_versions(client: TestClient) -> None
         url, headers=headers, json={**body, "prompt": "第二版", "expected_version": 2}
     )
     assert edited.status_code == 200
+    manager = client.get(f"{API}/templates?manage=true").json()["items"][0]
+    assert manager["has_unpublished_changes"]
+    assert manager["published_content"]["prompt"] == "第一版"
+    assert manager["content"]["prompt"] == "第二版"
     assert client.get(f"{url}/versions/1").json()["prompt"] == "第一版"
     assert (
         client.post(f"{url}/publish", headers=headers, json={"expected_version": 3}).json()[

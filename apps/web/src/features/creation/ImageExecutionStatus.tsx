@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { statusLabel } from '../canvas/status';
 import { actionError } from './api';
-import type { ImageExecution } from './useImageExecution';
+import { canRetryExecution, executionStatus, type ImageExecution } from './useImageExecution';
 
 export function ImageExecutionStatus({
   execution,
@@ -34,11 +33,10 @@ export function ImageExecutionStatus({
         {job.outputs.map((output, index) => (
           <li key={output.id}>
             <span className="image-output-status" data-status={output.status}>
-              图片 {index + 1} · {output.error === 'result_size_mismatch'
-                ? `尺寸不符${output.result_size ? `（${output.result_size.replace('x', '×')}）` : ''}`
-                : (statusLabel[output.status] ?? output.status)}
+              {job.media === 'video' ? '视频' : '图片'} {index + 1} ·{' '}
+              {executionStatus(job.media, output)}
             </span>
-            {['generation_failed', 'save_failed'].includes(output.status) && (
+            {canRetryExecution(job.media, output) && (
               <button
                 type="button"
                 disabled={disabled || busy}

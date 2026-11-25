@@ -18,6 +18,8 @@ export function ImageProduction({
   onSaved,
   onPrompt,
   execution,
+  promptToolsOnly = false,
+  unsaved = false,
 }: {
   draft: Draft;
   token: string;
@@ -25,6 +27,8 @@ export function ImageProduction({
   onSaved: (draft: Draft) => void;
   onPrompt: (text: string) => void;
   execution?: ImageExecution;
+  promptToolsOnly?: boolean;
+  unsaved?: boolean;
 }) {
   const localExecution = useImageExecution(execution ? undefined : draft, token);
   const [cards, setCards] = useState<Card[]>([]);
@@ -82,7 +86,7 @@ export function ImageProduction({
     <fieldset className="work-form image-tools" disabled={busy || disabled}>
       <legend>图片工具</legend>
       <div className="image-tools-actions">
-        <CompanyAssetPicker draft={draft} token={token} onSaved={onSaved} />
+        {!promptToolsOnly && <CompanyAssetPicker draft={draft} token={token} onSaved={onSaved} />}
         <select aria-label="快捷词卡片" value={cardId} onChange={(e) => setCardId(e.target.value)}>
           <option value="">选择快捷词</option>
           {cards.map((c) => (
@@ -101,6 +105,7 @@ export function ImageProduction({
         )}
         <button
           type="button"
+          disabled={unsaved}
           onClick={() =>
             draft.prompt.trim()
               ? void run(() => requestSuggestion())
@@ -112,6 +117,7 @@ export function ImageProduction({
         <label className="image-analysis-upload">
           <FileImageOutlined aria-hidden="true" /> 解析参考图
           <input
+            disabled={unsaved}
             aria-label="解析参考图"
             type="file"
             accept="image/png,image/jpeg,image/webp"
@@ -128,7 +134,7 @@ export function ImageProduction({
           <p>{assist.suggestion}</p>
           <button
             type="button"
-            disabled={assist.status !== 'ready' || draft.version !== assist.source_version}
+            disabled={unsaved || assist.status !== 'ready' || draft.version !== assist.source_version}
             onClick={() =>
               void run(async () => {
                 const updated = await apiWrite<Draft>(`/assistances/${assist.id}/apply`, token);
@@ -145,7 +151,7 @@ export function ImageProduction({
             type="button"
             title="撤销建议"
             aria-label="撤销建议"
-            disabled={assist.status !== 'applied'}
+            disabled={unsaved || assist.status !== 'applied'}
             onClick={() =>
               void run(async () => {
                 const updated = await apiWrite<Draft>(`/assistances/${assist.id}/undo`, token);

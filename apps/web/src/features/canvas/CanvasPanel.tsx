@@ -31,7 +31,7 @@ export function CanvasPanel({
     function place() {
       const bounds = stage.getBoundingClientRect();
       const node = anchor?.getBoundingClientRect();
-      const preferredWidth = Math.min(editor ? 532 : 448, bounds.width - 24);
+      const preferredWidth = Math.min(editor ? 728 : 448, bounds.width - 24);
       const nodeLeft = (node?.left ?? bounds.left) - bounds.left;
       const nodeTop = (node?.top ?? bounds.top) - bounds.top;
       const below = (node?.bottom ?? bounds.top) - bounds.top + 12;
@@ -72,7 +72,11 @@ export function CanvasPanel({
   }, [anchor, editor, stage]);
   useLayoutEffect(() => {
     const origin = document.activeElement as HTMLElement | null;
-    close.current?.focus({ preventScroll: true });
+    const prompt =
+      stage.clientWidth > 700 && editor
+        ? panel.current?.querySelector<HTMLTextAreaElement>('textarea[aria-label="提示词"]')
+        : null;
+    (prompt ?? close.current)?.focus({ preventScroll: true });
     return () => {
       function restoreFocus() {
         if (stage.querySelector('.canvas-panel')) return;
@@ -88,7 +92,7 @@ export function CanvasPanel({
       }
       requestAnimationFrame(() => requestAnimationFrame(restoreFocus));
     };
-  }, [returnFocusId, stage]);
+  }, [editor, returnFocusId, stage]);
   useEffect(() => {
     function onEscape(event: KeyboardEvent) {
       if (event.key !== 'Escape' || stage.querySelector('dialog[open]')) return;
@@ -117,7 +121,7 @@ export function CanvasPanel({
         aria-modal={!editor}
         aria-labelledby={label}
         style={style}
-        className={`canvas-panel${editor ? ' canvas-panel-editor' : ''} nodrag nopan nowheel`}
+        className={`canvas-panel${editor ? ' canvas-panel-editor canvas-composer-panel' : ''} nodrag nopan nowheel`}
         onKeyDown={(event) => {
           if (event.target instanceof HTMLElement && !panel.current?.contains(event.target)) return;
           if (editor || event.key !== 'Tab' || !panel.current) return;

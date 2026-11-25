@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 from PIL import Image, UnidentifiedImageError
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.adapters.ark_image import ArkImageClient, ImageGenerationRequest
@@ -130,6 +130,11 @@ def process(db: Session, identifier: str, storage: ObjectStorage, settings: Sett
         db.rollback()
         return
     snap = job.snapshot
+    if snap.get("media") == "video":
+        from .video_runner import process_video
+
+        process_video(db, job, output, step, storage, settings, now)
+        return
     gpt = snap.get("provider") == "gpt-image"
     phase = output.status
     recovery_key = (
@@ -156,6 +161,9 @@ def process(db: Session, identifier: str, storage: ObjectStorage, settings: Sett
                     .join(ImageStep)
                     .join(CreationOutput, CreationOutput.id == ImageStep.output_id)
                     .where(CreationOutput.status.in_(("generating", "unknown")))
+                    .where(
+                        func.coalesce(Execution.snapshot["media"].as_string(), "image") != "video"
+                    )
                 )
             )
             if (

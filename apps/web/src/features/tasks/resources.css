@@ -119,6 +119,27 @@
   min-height: 0;
   object-fit: contain;
 }
+.resource-art {
+  position: relative;
+}
+.case-storyboard {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: white;
+  padding: 4px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.case-license-note {
+  display: block;
+  font-size: 10px;
+  color: var(--work-muted);
+}
+.workspace .resource-copy footer button[aria-pressed='true'] {
+  background: #e7f1df;
+  color: #426634;
+}
 .resource-copy {
   flex: 1;
   padding: 12px;
@@ -252,4 +273,8 @@
   .resource-gallery {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+.library-filter-row {
+  flex-basis: 100%;
+  flex-wrap: wrap;
 }

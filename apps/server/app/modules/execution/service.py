@@ -1,3 +1,5 @@
+from typing import Any, Literal
+
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -7,7 +9,8 @@ from app.modules.commerce.models import ModelCall
 from app.modules.creation.capabilities import validate_parameters
 from app.modules.creation.models import Creation, CreationOutput
 from app.modules.creation.results import asset_id_for
-from app.modules.creation.service import build_input_snapshot, get_creation
+from app.modules.creation.schemas import InputSnapshot, VideoParameters
+from app.modules.creation.service import REFERENCE_TAG, build_input_snapshot, get_creation
 from app.modules.identity.models import Tenant, new_id
 from app.modules.products.service import get_fact, get_product
 from app.modules.tasks.models import DeliveryPosition
@@ -36,6 +39,7 @@ class OutputState(BaseModel):
 
 class ExecutionState(BaseModel):
     id: str
+    media: Literal["image", "video"] = "image"
     outputs: list[OutputState]
 
 
@@ -48,6 +52,7 @@ def state(db: Session, job: Execution) -> ExecutionState:
     )
     return ExecutionState(
         id=job.id,
+        media="video" if job.snapshot.get("media") == "video" else "image",
         outputs=[
             OutputState(
                 id=o.id,
@@ -69,33 +74,86 @@ def lock_budget(db: Session, tenant: str) -> None:
 
 
 def require_budget(
-    db: Session, tenant: str, settings: Settings, amount: int, *, for_image: bool = False
+    db: Session, tenant: str, settings: Settings, amount: int, *,
+    for_image: bool = False, for_video: bool = False,
 ) -> None:
+    if for_video and settings.video_budget_unlimited:
+        return
+    budget = settings.video_budget_cents if for_video else settings.image_budget_cents
+    missing = "video_budget_not_configured" if for_video else "budget_not_configured"
     if amount <= 0:
-        raise HTTPException(402, "budget_not_configured")
+        raise HTTPException(402, missing)
     if for_image and settings.image_budget_unlimited:
         return
-    if settings.image_budget_cents <= 0:
-        raise HTTPException(402, "budget_not_configured")
+    if budget <= 0:
+        raise HTTPException(402, missing)
+    media = func.coalesce(Execution.snapshot["media"].as_string(), "image")
     rows = db.scalars(
-        select(ImageStep).join(Execution).where(Execution.tenant_id == tenant).with_for_update()
+        select(ImageStep).join(Execution).where(
+            Execution.tenant_id == tenant, media == ("video" if for_video else "image"),
+        ).with_for_update()
     )
     committed = sum(
         s.actual_cents if s.actual_cents is not None else s.reserved_cents for s in rows
     )
-    committed += sum(
-        db.scalars(
-            select(ModelCall.reserved_cents).where(ModelCall.tenant_id == tenant).with_for_update()
+    if not for_video:
+        committed += sum(
+            db.scalars(
+                select(ModelCall.reserved_cents).where(ModelCall.tenant_id == tenant)
+                .with_for_update()
+            )
         )
-    )
-    if committed + amount > settings.image_budget_cents:
-        raise HTTPException(402, "budget_unavailable")
+    if committed + amount > budget:
+        raise HTTPException(402, "video_budget_unavailable" if for_video else "budget_unavailable")
 
 
 def image_ceiling(settings: Settings, provider: str) -> int:
     if provider == "gpt-image" and settings.itaiapi_image_ceiling_cents is not None:
         return settings.itaiapi_image_ceiling_cents
     return settings.image_ceiling_cents
+
+
+def require_video_provider(settings: Settings) -> None:
+    if not settings.ark_api_key or not settings.ark_api_key.get_secret_value().strip():
+        raise HTTPException(503, "video_provider_not_configured")
+
+
+def video_snapshot(source: InputSnapshot, settings: Settings) -> dict[str, Any]:
+    require_video_provider(settings)
+    frames = [ref for ref in source.references if ref.usage in {"first_frame", "last_frame"}]
+    if frames and (
+        len(frames) != len(source.references) or {ref.usage for ref in frames} == {"last_frame"}
+    ):
+        raise HTTPException(422, "video_frame_combination_unsupported")
+    if sum(ref.media == "video" for ref in source.references) > 3:
+        raise HTTPException(422, "video_reference_limit")
+    if sum(ref.media == "image" for ref in source.references) > 9:
+        raise HTTPException(422, "video_reference_limit")
+    if any(ref.media == "video" for ref in source.references) and not (
+        settings.storage_signed_endpoint or ""
+    ).startswith("https://"):
+        raise HTTPException(503, "video_reference_storage_not_configured")
+    ordered = (
+        sorted(frames, key=lambda ref: ref.usage) if frames else source.references
+    )
+    labels = {}
+    for media, label in (("image", "图片"), ("video", "视频")):
+        labels.update({
+            ref.id: f"{label}{index}"
+            for index, ref in enumerate((ref for ref in ordered if ref.media == media), 1)
+        })
+    params = source.draft.video_parameters or VideoParameters()
+    return {
+        **source.model_dump(exclude={"references"}),
+        "references": [ref.model_dump() for ref in ordered],
+        "media": "video",
+        "provider": "ark",
+        "model": settings.ark_video_model,
+        "video_request": {
+            **params.model_dump(exclude={"model", "count"}),
+            "prompt": REFERENCE_TAG.sub(lambda match: labels[match[1]], source.draft.prompt),
+        },
+    }
 
 
 def submit(
@@ -123,9 +181,20 @@ def submit(
             raise HTTPException(409, "idempotency_conflict")
         return state(db, prior)
     check_version(draft.version, data.expected_version)
-    if draft.purpose == "video" or draft.entry == "batch":
+    is_video = draft.purpose == "video"
+    if draft.entry == "batch" or (is_video and parent):
         raise HTTPException(422, "image_entry_required")
-    count = 1 if parent else int(draft.parameters["count"])
+    count = 1 if parent or is_video else int(draft.parameters["count"])
+    if is_video and db.scalar(
+        select(CreationOutput.id)
+        .join(Execution, Execution.id == CreationOutput.execution_id)
+        .where(
+            Execution.creation_id == draft.id,
+            CreationOutput.status.in_(("queued", "generating", "saving")),
+        )
+        .limit(1).with_for_update()
+    ):
+        raise HTTPException(409, "video_execution_in_progress")
     if parent:
         old = db.get(Execution, parent.execution_id)
         step = db.get(ImageStep, parent.id)
@@ -133,6 +202,8 @@ def submit(
             raise HTTPException(409, "rework_unavailable")
         snapshot = {**old.snapshot, "feedback": step.decision}
         snapshot["draft"] = {**snapshot["draft"], "version": data.expected_version}
+    elif is_video:
+        snapshot = video_snapshot(build_input_snapshot(db, draft, settings=settings), settings)
     else:
         source = build_input_snapshot(db, draft, settings=settings)
         params = source.draft.parameters
@@ -148,8 +219,13 @@ def submit(
             "quality": (params.quality or "low") if params.provider == "gpt-image" else None,
         }
     verify_sources(db, tenant, snapshot)
-    ceiling = image_ceiling(settings, snapshot.get("provider", "ark"))
-    require_budget(db, tenant, settings, count * ceiling, for_image=True)
+    ceiling = (
+        settings.video_ceiling_cents if is_video
+        else image_ceiling(settings, snapshot.get("provider", "ark"))
+    )
+    require_budget(
+        db, tenant, settings, count * ceiling, for_image=not is_video, for_video=is_video,
+    )
     job = Execution(
         id=new_id(),
         tenant_id=tenant,
@@ -193,11 +269,12 @@ def submit(
                 reserved_cents=ceiling,
             )
         )
-    position = position_for(db, draft)
-    if position is None:
-        raise HTTPException(409, "position_unavailable")
-    if position.status == "unfilled":
-        position.status = "reserved"
+    if not is_video:
+        position = position_for(db, draft)
+        if position is None:
+            raise HTTPException(409, "position_unavailable")
+        if position.status == "unfilled":
+            position.status = "reserved"
     db.commit()
     return state(db, job)
 

@@ -9,9 +9,10 @@ type Props = {
   children: ReactNode;
   onClose: () => void;
   busy?: boolean;
+  className?: string;
 };
 
-export function Modal({ title, children, onClose, busy = false }: Props) {
+export function Modal({ title, children, onClose, busy = false, className = '' }: Props) {
   const container = useContext(ModalContainer);
   const ref = useRef<HTMLDialogElement>(null);
   const label = useId();
@@ -21,6 +22,7 @@ export function Modal({ title, children, onClose, busy = false }: Props) {
     const trigger = document.activeElement;
     if (!dialog) return;
     dialog.showModal();
+    dialog.querySelector<HTMLElement>('[data-initial-focus]')?.focus();
     return () => {
       dialog.close();
       if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
@@ -30,7 +32,7 @@ export function Modal({ title, children, onClose, busy = false }: Props) {
   return createPortal(
     <dialog
       ref={ref}
-      className={`studio-dialog${container ? ' studio-dialog-in-canvas' : ''}`}
+      className={`studio-dialog ${className}${container ? ' studio-dialog-in-canvas' : ''}`}
       style={
         bounds
           ? {

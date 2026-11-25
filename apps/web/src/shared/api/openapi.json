@@ -106,6 +106,154 @@
         }
       }
     },
+    "/api/v1/company/records": {
+      "get": {
+        "tags": [
+          "公司管理"
+        ],
+        "summary": "Records",
+        "operationId": "records_api_v1_company_records_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecordView"
+                  },
+                  "type": "array",
+                  "title": "Response Records Api V1 Company Records Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/company/members": {
+      "get": {
+        "tags": [
+          "公司管理"
+        ],
+        "summary": "Members",
+        "operationId": "members_api_v1_company_members_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MemberView"
+                  },
+                  "type": "array",
+                  "title": "Response Members Api V1 Company Members Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/company/members/{user_id}": {
+      "patch": {
+        "tags": [
+          "公司管理"
+        ],
+        "summary": "Edit",
+        "operationId": "edit_api_v1_company_members__user_id__patch",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean",
+                  "title": "Response Edit Api V1 Company Members  User Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/company/members/{user_id}/disable": {
+      "post": {
+        "tags": [
+          "公司管理"
+        ],
+        "summary": "Disable",
+        "operationId": "disable_api_v1_company_members__user_id__disable_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Handover"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/files/uploads": {
       "post": {
         "tags": [
@@ -2181,7 +2329,7 @@
     "/api/v1/outputs/{identifier}/reconcile": {
       "post": {
         "tags": [
-          "图片执行"
+          "生成执行"
         ],
         "summary": "Reconcile",
         "operationId": "reconcile_api_v1_outputs__identifier__reconcile_post",
@@ -2233,7 +2381,7 @@
     "/api/v1/outputs/{identifier}/retry": {
       "post": {
         "tags": [
-          "图片执行"
+          "生成执行"
         ],
         "summary": "Retry",
         "operationId": "retry_api_v1_outputs__identifier__retry_post",
@@ -2275,7 +2423,7 @@
     "/api/v1/creations/{creation_id}/executions": {
       "get": {
         "tags": [
-          "图片执行"
+          "生成执行"
         ],
         "summary": "History",
         "operationId": "history_api_v1_creations__creation_id__executions_get",
@@ -2319,7 +2467,7 @@
       },
       "post": {
         "tags": [
-          "图片执行"
+          "生成执行"
         ],
         "summary": "Start",
         "operationId": "start_api_v1_creations__creation_id__executions_post",
@@ -2371,7 +2519,7 @@
     "/api/v1/executions/{execution_id}": {
       "get": {
         "tags": [
-          "图片执行"
+          "生成执行"
         ],
         "summary": "Progress",
         "operationId": "progress_api_v1_executions__execution_id__get",
@@ -2413,7 +2561,7 @@
     "/api/v1/executions/{execution_id}/cancel": {
       "post": {
         "tags": [
-          "图片执行"
+          "生成执行"
         ],
         "summary": "Cancel",
         "operationId": "cancel_api_v1_executions__execution_id__cancel_post",
@@ -3042,6 +3190,298 @@
         }
       }
     },
+    "/api/v1/assets/{identifier}/source": {
+      "get": {
+        "tags": [
+          "公司素材"
+        ],
+        "summary": "Source",
+        "operationId": "source_api_v1_assets__identifier__source_get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/{identifier}/reference-targets": {
+      "get": {
+        "tags": [
+          "公司素材"
+        ],
+        "summary": "Targets",
+        "operationId": "targets_api_v1_assets__identifier__reference_targets_get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CreationView"
+                  },
+                  "title": "Response Targets Api V1 Assets  Identifier  Reference Targets Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/{identifier}/reference-draft": {
+      "post": {
+        "tags": [
+          "公司素材"
+        ],
+        "summary": "New Reference Draft",
+        "operationId": "new_reference_draft_api_v1_assets__identifier__reference_draft_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReferenceDraftInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferencedDraft"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/requirements/preview": {
+      "post": {
+        "tags": [
+          "交付清单"
+        ],
+        "summary": "Preview",
+        "operationId": "preview_api_v1_tasks__task_id__requirements_preview_post",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Preview Api V1 Tasks  Task Id  Requirements Preview Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/requirements": {
+      "put": {
+        "tags": [
+          "交付清单"
+        ],
+        "summary": "Configure",
+        "operationId": "configure_api_v1_tasks__task_id__requirements_put",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/delivery-package": {
+      "get": {
+        "tags": [
+          "交付清单"
+        ],
+        "summary": "Export",
+        "operationId": "export_api_v1_tasks__task_id__delivery_package_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/prompt-cards": {
       "get": {
         "tags": [
@@ -3463,7 +3903,8 @@
                 {
                   "enum": [
                     "main",
-                    "detail"
+                    "detail",
+                    "video"
                   ],
                   "type": "string"
                 },
@@ -4814,6 +5255,15 @@
             "type": "string",
             "title": "Id"
           },
+          "media": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video"
+            ],
+            "title": "Media",
+            "default": "image"
+          },
           "outputs": {
             "items": {
               "$ref": "#/components/schemas/OutputState"
@@ -4932,6 +5382,27 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Handover": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "successor": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Successor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expected_version",
+          "successor"
+        ],
+        "title": "Handover"
       },
       "ImageModelOption": {
         "properties": {
@@ -5171,6 +5642,71 @@
         ],
         "title": "MediaFile"
       },
+      "MemberEdit": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "download_allowed": {
+            "type": "boolean",
+            "title": "Download Allowed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expected_version",
+          "role",
+          "download_allowed"
+        ],
+        "title": "MemberEdit"
+      },
+      "MemberView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          },
+          "download_allowed": {
+            "type": "boolean",
+            "title": "Download Allowed"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "tasks": {
+            "type": "integer",
+            "title": "Tasks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "role",
+          "active",
+          "download_allowed",
+          "version",
+          "tasks"
+        ],
+        "title": "MemberView"
+      },
       "NodePosition": {
         "properties": {
           "x": {
@@ -5287,6 +5823,31 @@
         ],
         "title": "Permission"
       },
+      "PlanEdit": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/Requirement"
+            },
+            "type": "array",
+            "maxItems": 150,
+            "minItems": 1,
+            "title": "Rows"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "rows"
+        ],
+        "title": "PlanEdit"
+      },
       "PositionResponse": {
         "properties": {
           "id": {
@@ -5309,6 +5870,50 @@
           "status": {
             "type": "string",
             "title": "Status"
+          },
+          "module": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module"
+          },
+          "ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ratio"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
           }
         },
         "type": "object",
@@ -5564,6 +6169,40 @@
         ],
         "title": "Reconciliation"
       },
+      "RecordView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "actor",
+          "action",
+          "detail",
+          "created_at"
+        ],
+        "title": "RecordView"
+      },
       "ReferenceCreate": {
         "properties": {
           "expected_version": {
@@ -5599,6 +6238,11 @@
             "title": "Usage",
             "default": "expression"
           },
+          "company_library": {
+            "type": "boolean",
+            "title": "Company Library",
+            "default": false
+          },
           "file_version": {
             "anyOf": [
               {
@@ -5632,6 +6276,48 @@
           "source_id"
         ],
         "title": "ReferenceCreate"
+      },
+      "ReferenceDraftInput": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Request Id"
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "source_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Source Version"
+          },
+          "file_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "File Version"
+          },
+          "add_product": {
+            "type": "boolean",
+            "title": "Add Product"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task_id",
+          "request_id",
+          "expected_version",
+          "source_version",
+          "file_version",
+          "add_product"
+        ],
+        "title": "ReferenceDraftInput"
       },
       "ReferenceEdit": {
         "properties": {
@@ -5782,6 +6468,22 @@
         ],
         "title": "ReferenceView"
       },
+      "ReferencedDraft": {
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/CreationView"
+          },
+          "task": {
+            "$ref": "#/components/schemas/TaskResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "draft",
+          "task"
+        ],
+        "title": "ReferencedDraft"
+      },
       "Region": {
         "properties": {
           "x": {
@@ -5825,6 +6527,77 @@
           "note"
         ],
         "title": "Region"
+      },
+      "Requirement": {
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "title": "Product Id"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "main",
+              "detail",
+              "video"
+            ],
+            "title": "Purpose"
+          },
+          "module": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Module"
+          },
+          "count": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Count"
+          },
+          "ratio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ratio"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "product_id",
+          "purpose",
+          "module",
+          "count"
+        ],
+        "title": "Requirement"
       },
       "ReuseDraft": {
         "properties": {
@@ -5913,6 +6686,56 @@
           "height"
         ],
         "title": "SizeOption"
+      },
+      "SourceDetails": {
+        "properties": {
+          "product": {
+            "type": "string",
+            "title": "Product"
+          },
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "creator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Creator"
+          },
+          "template": {
+            "type": "string",
+            "title": "Template"
+          },
+          "evidence": {
+            "type": "string",
+            "title": "Evidence"
+          },
+          "referenceable": {
+            "type": "boolean",
+            "title": "Referenceable"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "product",
+          "task",
+          "creator",
+          "template",
+          "evidence",
+          "referenceable",
+          "status"
+        ],
+        "title": "SourceDetails"
       },
       "Submission": {
         "properties": {
@@ -6084,6 +6907,86 @@
       },
       "TaskResult": {
         "properties": {
+          "category_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Label"
+          },
+          "task_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Name"
+          },
+          "scene": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scene"
+          },
+          "matching_positions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matching Positions"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
+          },
           "sku": {
             "type": "string",
             "title": "Sku",
@@ -6260,9 +7163,20 @@
             "type": "string",
             "enum": [
               "main",
-              "detail"
+              "detail",
+              "video"
             ],
             "title": "Purpose"
+          },
+          "video_parameters": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VideoParameters"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "prompt": {
             "type": "string",
@@ -6330,9 +7244,20 @@
             "type": "string",
             "enum": [
               "main",
-              "detail"
+              "detail",
+              "video"
             ],
             "title": "Purpose"
+          },
+          "video_parameters": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VideoParameters"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "prompt": {
             "type": "string",
@@ -6449,6 +7374,21 @@
           },
           "content": {
             "$ref": "#/components/schemas/TemplateContent"
+          },
+          "published_content": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TemplateContent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_unpublished_changes": {
+            "type": "boolean",
+            "title": "Has Unpublished Changes",
+            "default": false
           }
         },
         "type": "object",

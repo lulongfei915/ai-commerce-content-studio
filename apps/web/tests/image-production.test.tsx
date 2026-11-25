@@ -24,12 +24,12 @@ function deferredResponse() {
 }
 
 function QuickEditorFixture(
-  props: Omit<ComponentProps<typeof QuickCreation>, 'execution' | 'onImageSubmitting'>,
+  props: Omit<ComponentProps<typeof QuickCreation>, 'execution' | 'onSubmitting'>,
 ) {
   const execution = useImageExecution(props.selected, props.token);
   return (
     <>
-      <QuickCreation {...props} execution={execution} onImageSubmitting={vi.fn()} />
+      <QuickCreation {...props} execution={execution} onSubmitting={vi.fn()} />
       <StudioResults results={[]} taskId="task-one" imageExecution={execution} />
     </>
   );
@@ -63,6 +63,7 @@ test('quick generation reserves result slots before submission and replaces them
     video_parameters: null,
   };
   const previous: TaskResult = {
+    sku: product.sku,
     task_id: 'task',
     product_id: product.id,
     creation_id: draft.id,

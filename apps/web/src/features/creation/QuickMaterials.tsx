@@ -91,7 +91,8 @@ export function QuickMaterials({
               categories={categories}
               category={product.category}
               purpose={purpose}
-              imageOnly
+              imageOnly={purpose !== 'video'}
+              allowVideo={purpose === 'video'}
               disabled={busy}
               onPick={(item) => onCase(item.id)}
             />
@@ -148,7 +149,7 @@ export function SelectedQuickMaterials({
             <img src={referencePreview(draft, ref)} alt={ref.label} />
           )}
           <span title={ref.label}>
-            <b>{ref.usage === 'product' ? '商品实拍' : '参考图'}</b>
+            <b>{ref.usage === 'product' ? '商品实拍' : ref.media === 'video' ? '参考视频' : '参考图'}</b>
             <small>{ref.label}</small>
           </span>
           {ref.origin === 'independent' && (

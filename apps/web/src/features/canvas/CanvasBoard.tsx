@@ -33,6 +33,7 @@ import {
 import type { FlowNode } from './graph';
 import { MediaNode } from './MediaNode';
 import { useCanvasCamera } from './useCanvasCamera';
+import { useComposerCamera } from './useComposerCamera';
 
 const nodeTypes = { studio: MediaNode };
 
@@ -104,8 +105,8 @@ function Board(props: BoardProps) {
     [layout.value],
   );
   const modelNodes = useMemo(
-    () => projectNodes(canvas.nodes, positions, task),
-    [canvas.nodes, positions, task],
+    () => projectNodes(canvas, positions, task),
+    [canvas, positions, task],
   );
   const [nodes, setNodes, onNodesChange] = useNodesState(modelNodes);
   useEffect(() => setNodes(modelNodes), [modelNodes, setNodes]);
@@ -159,6 +160,8 @@ function Board(props: BoardProps) {
     [edges, focused, selectedEdge, visibleIds],
   );
   const focusedNode = byId.get(focused);
+  const editing = panel?.kind === 'edit' ? byId.get(panel.id) : undefined;
+  useComposerCamera(flow, stage, editing?.id);
   const connect = useCallback(
     (sourceId: string, targetId: string) => {
       const source = byId.get(sourceId);
@@ -269,6 +272,7 @@ function Board(props: BoardProps) {
       />
       <div
         className="canvas-stage"
+        data-editing-media={editing?.media}
         ref={stage}
         onDoubleClick={(event) => {
           if (
@@ -339,7 +343,7 @@ function Board(props: BoardProps) {
             aria-label="节点画布"
           >
             <Background gap={23} size={1} color="#38383b" />
-            {focusedNode && visibleIds.has(focused) && !menu && (
+            {focusedNode && visibleIds.has(focused) && !menu && !editing && (
               <NodeToolbar
                 nodeId={focused}
                 isVisible

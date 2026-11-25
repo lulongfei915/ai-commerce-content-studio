@@ -20,6 +20,7 @@ class Task(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     tenant_id: Mapped[str] = mapped_column(String(36))
     created_by: Mapped[str] = mapped_column(String(36))
+    owner_id: Mapped[str | None] = mapped_column(String(36))
     name: Mapped[str] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(24), default="draft")
     version: Mapped[int] = mapped_column(default=1)
@@ -48,7 +49,7 @@ class DeliveryPosition(Base):
     __tablename__ = "delivery_positions"
     __table_args__ = (
         UniqueConstraint(
-            "tenant_id", "task_id", "product_id", "purpose", name="uq_delivery_positions_scope"
+            "task_id", "product_id", "purpose", "module", "sequence", name="uq_delivery_slot"
         ),
         ForeignKeyConstraint(
             ["tenant_id", "task_id", "product_id"],
@@ -61,5 +62,10 @@ class DeliveryPosition(Base):
     task_id: Mapped[str] = mapped_column(String(36))
     product_id: Mapped[str] = mapped_column(String(36))
     purpose: Mapped[str] = mapped_column(String(40))
+    module: Mapped[str] = mapped_column(String(40), default="")
+    sequence: Mapped[int] = mapped_column(default=0)
+    ratio: Mapped[str | None] = mapped_column(String(12))
+    resolution: Mapped[str | None] = mapped_column(String(12))
+    duration: Mapped[int | None]
     status: Mapped[str] = mapped_column(String(24), default="unfilled")
     created_at: Mapped[datetime] = mapped_column(DateTime(), default=datetime.utcnow)

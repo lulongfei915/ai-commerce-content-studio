@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Modal } from '../../shared/ui/Modal';
 import type { CreativeCase } from '../cases/api';
 import { purposeLabel, type Task } from '../tasks/api';
-import { listDrafts, draftWrite, actionError, type Draft } from './api';
+import { listDrafts, draftWrite, removeReference, actionError, type Draft } from './api';
 import type { TaskResult } from './results';
 
 export function ReferenceTarget({
@@ -11,12 +11,14 @@ export function ReferenceTarget({
   token,
   onClose,
   onSaved,
+  existingDrafts,
 }: {
   task: Task;
   source: CreativeCase | TaskResult;
   token: string;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (draft: Draft, removed: boolean) => void;
+  existingDrafts?: Draft[];
 }) {
   const [drafts, setDrafts] = useState<Draft[]>();
   const [target, setTarget] = useState('');
@@ -24,10 +26,14 @@ export function ReferenceTarget({
   const [error, setError] = useState('');
   useEffect(() => {
     const ctl = new AbortController();
-    void Promise.all(
-      (['quick', 'canvas', 'batch'] as const).map((entry) =>
-        listDrafts(task.id, ctl.signal, entry),
-      ),
+    void (
+      existingDrafts
+        ? Promise.resolve([existingDrafts])
+        : Promise.all(
+            (['quick', 'canvas', 'batch'] as const).map((entry) =>
+              listDrafts(task.id, ctl.signal, entry),
+            ),
+          )
     )
       .then((groups) => {
         if (ctl.signal.aborted) return;
@@ -41,19 +47,28 @@ export function ReferenceTarget({
                 (source.media === 'image' || draft.purpose === 'video')
               : draft.product_id === source.product_id &&
                 draft.id !== source.creation_id &&
+                (source.media === 'image' || draft.purpose === 'video') &&
                 source.referenceable,
           );
         setDrafts(compatible);
-        setTarget(compatible[0]?.id ?? '');
+        const added = compatible.find(
+          (d) =>
+            'category' in source &&
+            d.references.some((r) => r.kind === 'case' && r.source_id === source.id),
+        );
+        setTarget(added?.id ?? compatible[0]?.id ?? '');
       })
       .catch((e) => {
         if (!ctl.signal.aborted) setError(actionError(e));
       });
     return () => ctl.abort();
-  }, [task, source]);
+  }, [task, source, existingDrafts]);
   const draft = drafts?.find((d) => d.id === target);
+  const existing =
+    'category' in source &&
+    draft?.references.find((r) => r.kind === 'case' && r.source_id === source.id);
   return (
-    <Modal title="添加参考至制作" busy={busy} onClose={onClose}>
+    <Modal title={existing ? '管理已添加参考' : '添加参考至制作'} busy={busy} onClose={onClose}>
       <div className="work-form">
         <strong>{task.name}</strong>
         {drafts?.length ? (
@@ -75,26 +90,28 @@ export function ReferenceTarget({
         {error && <p role="alert">{error}</p>}
         <button
           className="work-primary"
-          disabled={!draft || busy}
+          disabled={!draft || busy || (!!existing && existing.origin === 'template')}
           onClick={async () => {
             if (!draft) return;
             setBusy(true);
             setError('');
             try {
-              await draftWrite(
-                draft,
-                token,
-                '/references',
-                'category' in source
-                  ? { kind: 'case', source_id: source.id }
-                  : {
-                      kind: 'result',
-                      source_id: source.version_id,
-                      source_version: source.version,
-                      file_version: source.file_version,
-                    },
-              );
-              onSaved();
+              const updated = existing
+                ? await removeReference(draft, token, existing.id)
+                : await draftWrite(
+                    draft,
+                    token,
+                    '/references',
+                    'category' in source
+                      ? { kind: 'case', source_id: source.id }
+                      : {
+                          kind: 'result',
+                          source_id: source.version_id,
+                          source_version: source.version,
+                          file_version: source.file_version,
+                        },
+                  );
+              onSaved(updated, !!existing);
             } catch (e) {
               setError(actionError(e));
             } finally {
@@ -102,7 +119,7 @@ export function ReferenceTarget({
             }
           }}
         >
-          确认添加
+          {existing ? (existing.origin === 'template' ? '模板附带参考' : '确认移除') : '确认添加'}
         </button>
       </div>
     </Modal>

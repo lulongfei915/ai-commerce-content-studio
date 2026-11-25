@@ -10,15 +10,16 @@ from app.modules.identity.security import (
     WriteIdentity,
     require_permission,
 )
+from app.modules.identity.team import record
 from app.modules.products.schemas import Category
 from app.shared.studio_errors import check_version
 
 from .models import Template, TemplateVersion
 from .schemas import (
-    ImagePurpose,
     TemplateContent,
     TemplateEdit,
     TemplatePage,
+    TemplatePurpose,
     TemplateStatus,
     TemplateView,
     VersionInput,
@@ -34,7 +35,7 @@ def list_templates(
     db: Database,
     manage: bool = False,
     category: Category | None = None,
-    purpose: ImagePurpose | None = None,
+    purpose: TemplatePurpose | None = None,
     cursor: Annotated[str | None, Query(max_length=36)] = None,
 ) -> TemplatePage:
     require_permission(identity, Permission.MANAGE if manage else Permission.VIEW)
@@ -56,10 +57,14 @@ def list_templates(
     page = list(db.scalars(query.order_by(Template.id).limit(31)))
     items = []
     for item in page[:30]:
-        if not manage and item.published_version is not None:
-            items.append(view(item, version_content(db, item, item.published_version)))
-        else:
-            items.append(view(item))
+        published = (
+            version_content(db, item, item.published_version) if item.published_version else None
+        )
+        row = view(item, None if manage else published)
+        if manage and published:
+            row.published_content = published
+            row.has_unpublished_changes = published != row.content
+        items.append(row)
     return TemplatePage(items=items, next_cursor=page[29].id if len(page) > 30 else None)
 
 
@@ -92,6 +97,7 @@ def publish_template(
     require_permission(identity, Permission.MANAGE)
     item = find_template(db, identity.tenant.id, template_id, lock=True)
     check_version(item.version, data.expected_version)
+    record(db, identity, "发布模板", f"{item.draft['name']} · V{(item.published_version or 0) + 1}")
     return publish(db, item)
 
 
@@ -105,6 +111,7 @@ def set_template_status(
     if item.published_version is None:
         raise HTTPException(409, "template_not_published")
     item.enabled = data.enabled
+    record(db, identity, "启用模板" if data.enabled else "停用模板", item.draft["name"])
     item.version += 1
     db.commit()
     return view(item)

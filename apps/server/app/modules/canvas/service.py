@@ -52,7 +52,7 @@ def project(db: Session, task: Task, user_id: str, layout: LayoutView) -> Canvas
     active_status = {
         output.creation_id: output.status
         for output, owner, _ in outputs
-        if owner.entry == "canvas" and output.status in {"queued", "running", "saving"}
+        if owner.entry == "canvas" and output.status in {"queued", "running", "generating", "saving"}
     }
     edges: list[CanvasEdge] = []
     references: dict[str, ReferenceView] = {}

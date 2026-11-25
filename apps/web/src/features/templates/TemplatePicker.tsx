@@ -72,8 +72,9 @@ export function TemplatePicker({
           <div className="work-card work-form">
             <p className="creative-prewrap">{selected.content.prompt}</p>
             <p>
-              将应用 {selected.content.parameters?.ratio} ·{' '}
-              {selected.content.parameters?.resolution} · {selected.content.parameters?.count} 张
+              {selected.content.purpose === 'video'
+                ? `将应用 ${selected.content.video_parameters?.ratio} · ${selected.content.video_parameters?.resolution} · ${selected.content.video_parameters?.duration} 秒`
+                : `将应用 ${selected.content.parameters?.ratio} · ${selected.content.parameters?.resolution} · ${selected.content.parameters?.count} 张`}
             </p>
             {!!selected.content.case_ids?.length && (
               <div className="photo-list" aria-label="模板附带案例">

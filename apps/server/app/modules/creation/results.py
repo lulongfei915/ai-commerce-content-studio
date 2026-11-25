@@ -22,6 +22,13 @@ IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 class TaskResult(BaseModel):
+    category_label: str | None = None
+    task_name: str | None = None
+    scene: str | None = None
+    matching_positions: list[str] | None = None
+    width: int | None = None
+    height: int | None = None
+    duration: float | None = None
     sku: str = ""
     task_id: str
     purpose: str
@@ -81,6 +88,9 @@ def asset_id_for(output: CreationOutput) -> str:
 def result_view(output: CreationOutput, owner: Creation, file: PrivateFile | None) -> TaskResult:
     ready = file_ready(file, output.file_version)
     return TaskResult(
+        width=file.width if file else None,
+        height=file.height if file else None,
+        duration=file.duration_seconds if file else None,
         task_id=owner.task_id,
         purpose=owner.purpose,
         asset_id=asset_id_for(output),

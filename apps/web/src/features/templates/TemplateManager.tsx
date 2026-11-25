@@ -1,16 +1,19 @@
 import { useCallback, useState } from 'react';
-import { SearchOutlined } from '@ant-design/icons';
-import { roleLabel, type Session } from '../auth/session';
-import { purposeLabel } from '../tasks/api';
+import { PlusOutlined, QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import type { Session } from '../auth/session';
+import { CompanyRecords, CompanyTeam } from './CompanyTeam';
 
 import { Modal } from '../../shared/ui/Modal';
 import { useSearchPage } from '../../shared/ui/useSearchPage';
 import { CaseBrowser } from '../cases/CaseBrowser';
-import { ParametersFields } from '../creation/ParametersFields';
-import { actionError, defaults } from '../creation/api';
+import { TemplateFields } from './TemplateFields';
+import { actionError } from '../creation/api';
 import type { Category } from '../products/api';
 import { listTemplates, loadTemplateVersion, templateAction, writeTemplate } from './api';
 import type { Template, TemplateContent } from './api';
+import { TemplateCard, TemplateDetails } from './TemplateCard';
+import { starterTemplates, matchesTemplate, newTemplate } from './starters';
+import './company.css';
 
 export function TemplateManager({
   categories,
@@ -24,6 +27,20 @@ export function TemplateManager({
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
   const [state, setState] = useState('');
+  const [media, setMedia] = useState('');
+  const [help, setHelp] = useState(false);
+  const [details, setDetails] = useState<{
+    content: TemplateContent;
+    number: number | null;
+    item: Template;
+  }>();
+  const [versions, setVersions] = useState<Template>();
+  const [publish, setPublish] = useState<{
+    name: string;
+    version: number;
+    item?: Template;
+    edits?: TemplateContent;
+  }>();
   const load = useCallback(
     (_query: string, cursor: string | null, signal: AbortSignal) =>
       listTemplates(true, cursor, signal),
@@ -37,12 +54,24 @@ export function TemplateManager({
   const [pickCases, setPickCases] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const templates = page.items.filter(
-    (t) =>
-      t.content.name.toLowerCase().includes(query.trim().toLowerCase()) &&
-      (!category || t.content.category === category) &&
-      (!state || state === (!t.published_version ? 'draft' : t.enabled ? 'published' : 'disabled')),
-  );
+  const presets = !page.loading && !page.error && !page.hasPrevious && !page.items.length;
+  const catalog = presets
+    ? starterTemplates().filter((t) => categories.some((c) => c.id === t.content.category))
+    : page.items;
+  const templates = catalog.filter(t => matchesTemplate(t, { query, category, media, state }));
+  function clearFilters() {
+    setCategory('');
+    setMedia('');
+    setState('');
+    setQuery('');
+  }
+  function showDetails(t: Template) {
+    const number = t.published_version;
+    run(
+      () => (number ? loadTemplateVersion(t.id, number) : Promise.resolve(t.content)),
+      (content) => setDetails({ content, number, item: t }),
+    );
+  }
 
   function run<T>(operation: () => Promise<T>, success: (value: T) => void) {
     setBusy(true);
@@ -54,61 +83,44 @@ export function TemplateManager({
   }
   function open(template?: Template) {
     setError('');
-    setItem(template);
-    setEditor(
-      template?.content ?? {
-        name: '',
-        category: categories[0].id,
-        purpose: 'main',
-        prompt: '',
-        parameters: defaults,
-      },
-    );
+    setItem(template?.version ? template : undefined);
+    setEditor(template?.content ?? newTemplate(categories[0].id));
   }
   return (
-    <section className="resource-section" aria-label="公司模板">
+    <section className="resource-section company-management" aria-label="公司模板">
       <header className="resource-heading">
         <h2>公司管理</h2>
-        <small>{session.tenant.name}</small>
+        <div className="work-actions">
+          <small>{session.tenant.name}</small>
+          <button onClick={() => setHelp(true)}>
+            <QuestionCircleOutlined /> 使用说明
+          </button>
+        </div>
       </header>
       <div className="resource-tabs" aria-label="公司管理分类" role="group">
         {['模板与标准', '成员与权限', '操作记录'].map((label) => (
           <button key={label} aria-pressed={label === tab} onClick={() => setTab(label)}>
             {label}
+            {label === '模板与标准' && (
+              <small>
+                {' '}
+                {catalog.length}
+                {page.next ? '+' : ''}
+              </small>
+            )}
           </button>
         ))}
       </div>
-      {tab === '成员与权限' && (
-        <article className="resource-slot">
-          <h3>当前成员</h3>
-          <p>
-            {session.email} · {roleLabel[session.role]}
-          </p>
-          <p>
-            {session.permissions
-              .map(
-                (p) =>
-                  ({
-                    view: '查看',
-                    manage: '管理',
-                    create: '创作',
-                    review: '审核',
-                    adopt: '采用',
-                    download: '下载',
-                  })[p],
-              )
-              .join(' · ')}
-          </p>
-        </article>
-      )}
+      {tab === '成员与权限' && <CompanyTeam session={session} />}
       {tab === '操作记录' && (
         <section className="resource-section">
+          <CompanyRecords />
           <h3>模板发布记录</h3>
           {page.items
             .filter((t) => t.published_version)
             .map((t) => (
               <article key={t.id} className="resource-slot">
-                <strong>{t.content.name}</strong>
+                <strong>{t.published_content?.name ?? t.content.name}</strong>
                 <label>
                   已发布版本{' '}
                   <select
@@ -138,7 +150,7 @@ export function TemplateManager({
         </section>
       )}
       {tab === '模板与标准' && (
-        <div className="resource-toolbar">
+        <div className="resource-toolbar company-template-toolbar">
           <label className="resource-search">
             <SearchOutlined />
             <input
@@ -161,8 +173,14 @@ export function TemplateManager({
               </option>
             ))}
           </select>
+          <select aria-label="模板媒体" value={media} onChange={(e) => setMedia(e.target.value)}>
+            <option value="">全部媒体</option>
+            <option value="image">图片</option>
+            <option value="video">视频</option>
+          </select>
           <select aria-label="模板状态" value={state} onChange={(e) => setState(e.target.value)}>
             <option value="">全部状态</option>
+            {presets && <option value="preset">预设</option>}
             <option value="draft">草稿</option>
             <option value="published">已发布</option>
             <option value="disabled">已停用</option>
@@ -173,7 +191,7 @@ export function TemplateManager({
             className="work-primary"
             onClick={() => open()}
           >
-            新建模板
+            <PlusOutlined /> 新增模板
           </button>
         </div>
       )}
@@ -189,81 +207,49 @@ export function TemplateManager({
       {tab === '模板与标准' && !page.loading && !page.error && !templates.length && (
         <p className="resource-empty">暂无符合条件的公司模板。</p>
       )}
-      {!editor && !stop && error && (
+      {!editor && !stop && !publish && error && (
         <p role="alert" className="work-error">
           {error}
         </p>
       )}
       {tab === '模板与标准' && (
-        <div className="resource-template-grid">
-          {templates.map((template) => (
-            <article key={template.id} className="resource-slot">
-              <div>
-                <small>
-                  {categories.find((c) => c.id === template.content.category)?.label} ·{' '}
-                  {purposeLabel[template.content.purpose]}
-                </small>
-                <h3>{template.content.name}</h3>
-                <p className="work-muted">
-                  {template.published_version
-                    ? `已发布 V${template.published_version} · ${template.enabled ? '启用' : '停用'}`
-                    : '未发布'}
-                </p>
-              </div>
-              <div className="work-actions">
-                <button type="button" disabled={busy} onClick={() => open(template)}>
-                  编辑草稿
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => run(() => templateAction(token, template, 'publish'), page.reload)}
-                >
-                  发布新版本
-                </button>
-                {template.published_version !== null && (
-                  <>
-                    <label>
-                      版本{' '}
-                      <select
-                        aria-label={`${template.content.name}历史版本`}
-                        value=""
-                        disabled={busy}
-                        onChange={(event) => {
-                          const number = Number(event.target.value);
-                          if (number)
-                            run(
-                              () => loadTemplateVersion(template.id, number),
-                              (content) => setHistory({ number, content }),
-                            );
-                        }}
-                      >
-                        <option value="">查看历史</option>
-                        {Array.from({ length: template.published_version }, (_, index) => (
-                          <option key={index} value={index + 1}>
-                            V{index + 1}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        if (template.enabled) {
-                          setError('');
-                          setStop(template);
-                        } else run(() => templateAction(token, template, 'status'), page.reload);
-                      }}
-                    >
-                      {template.enabled ? '停用' : '重新启用'}
-                    </button>
-                  </>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
+        <>
+          <div className="company-count">
+            <small role="status">
+              {page.hasPrevious || page.next ? '本页' : '显示'} {templates.length} /{' '}
+              {catalog.length} 个模板
+            </small>
+            {(query || category || state || media) && (
+              <button onClick={clearFilters}>清空筛选</button>
+            )}
+          </div>
+          <div className="resource-template-grid company-template-grid">
+            {templates.map((template) => (
+              <TemplateCard
+                key={template.id}
+                template={template}
+                categories={categories}
+                busy={busy}
+                details={() => showDetails(template)}
+                versions={() => setVersions(template)}
+                edit={() => open(template)}
+                toggle={() => {
+                  setError('');
+                  setStop(template);
+                }}
+                publish={() => {
+                  setError('');
+                  setPublish({
+                    item: presets ? undefined : template,
+                    edits: presets ? template.content : undefined,
+                    name: template.content.name,
+                    version: (template.published_version ?? 0) + 1,
+                  });
+                }}
+              />
+            ))}
+          </div>
+        </>
       )}
       <div className="work-actions">
         {page.hasPrevious && (
@@ -277,31 +263,81 @@ export function TemplateManager({
           </button>
         )}
       </div>
+      {help && (
+        <Modal title="公司管理说明" onClose={() => setHelp(false)}>
+          <p>
+            保存草稿后可继续编辑。确认发布时生成新版本，历史制作保留原版本。停用模板会阻止使用该模板的新提交。
+          </p>
+        </Modal>
+      )}
+      {details && (
+        <Modal title="模板配置" onClose={() => setDetails(undefined)}>
+          <TemplateDetails
+            content={details.content}
+            number={details.number}
+            categories={categories}
+          />
+          <button
+            onClick={() => {
+              open(details.item);
+              setDetails(undefined);
+            }}
+          >
+            编辑模板
+          </button>
+        </Modal>
+      )}
+      {versions && (
+        <Modal title="模板版本记录" onClose={() => setVersions(undefined)}>
+          <div className="work-form">
+            {Array.from({ length: versions.published_version ?? 0 }, (_, i) => {
+              const number = versions.published_version! - i;
+              return (
+                <button
+                  key={number}
+                  disabled={busy}
+                  onClick={() =>
+                    run(
+                      () => loadTemplateVersion(versions.id, number),
+                      (content) => setHistory({ number, content }),
+                    )
+                  }
+                >
+                  查看 V{number}
+                </button>
+              );
+            })}
+            {error && <p role="alert">{error}</p>}
+          </div>
+        </Modal>
+      )}
       {history && (
         <Modal
           title={`${history.content.name} · V${history.number}`}
           onClose={() => setHistory(undefined)}
         >
-          <div className="work-form">
-            <p className="creative-prewrap">{history.content.prompt}</p>
-            <p>
-              {history.content.parameters?.ratio} · {history.content.parameters?.resolution} ·{' '}
-              {history.content.parameters?.count} 张
-            </p>
-            {!!history.content.check_rules?.length && (
-              <ul>
-                {history.content.check_rules.map((rule, index) => (
-                  <li key={index}>{rule}</li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <TemplateDetails
+            content={history.content}
+            number={history.number}
+            categories={categories}
+          />
         </Modal>
       )}
       {stop && (
-        <Modal title="停用公司模板" onClose={() => setStop(undefined)} busy={busy}>
+        <Modal
+          title={stop.enabled ? '停用公司模板' : '启用公司模板'}
+          onClose={() => setStop(undefined)}
+          busy={busy}
+        >
           <div className="work-form">
-            <p>停用后，使用此模板的草稿需重新选择模板或取消应用，才能提交生成。</p>
+            <p>
+              {stop.enabled
+                ? '停用后，使用此模板的草稿需重新选择模板或取消应用，才能提交生成。'
+                : '启用后，成员可选择最新发布版本。'}
+            </p>
+            <button disabled={busy} onClick={() => setStop(undefined)}>
+              取消
+            </button>
             {error && (
               <p role="alert" className="work-error">
                 {error}
@@ -320,14 +356,15 @@ export function TemplateManager({
                 )
               }
             >
-              确认停用
+              {stop.enabled ? '确认停用' : '确认启用'}
             </button>
           </div>
         </Modal>
       )}
       {editor && (
         <Modal
-          title={item ? '编辑模板草稿' : '新建公司模板'}
+          title={item ? '编辑公司模板' : '新增公司模板'}
+          className="company-editor-dialog"
           onClose={() => setEditor(undefined)}
           busy={busy}
         >
@@ -345,96 +382,89 @@ export function TemplateManager({
                 );
             }}
           >
-            <fieldset className="work-form" disabled={busy}>
-              <label>
-                模板名称
-                <input
-                  required
-                  maxLength={120}
-                  value={editor.name}
-                  onChange={(event) => setEditor({ ...editor, name: event.target.value })}
-                />
-              </label>
-              <div className="work-grid">
-                <label>
-                  适用品类
-                  <select
-                    value={editor.category}
-                    onChange={(event) =>
-                      setEditor({
-                        ...editor,
-                        category: event.target.value as Category['id'],
-                        case_ids: [],
-                      })
-                    }
-                  >
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  用途
-                  <select
-                    value={editor.purpose}
-                    onChange={(event) =>
-                      setEditor({
-                        ...editor,
-                        purpose: event.target.value as TemplateContent['purpose'],
-                      })
-                    }
-                  >
-                    <option value="main">主图</option>
-                    <option value="detail">详情素材</option>
-                  </select>
-                </label>
-              </div>
-              <label>
-                默认提示词
-                <textarea
-                  rows={4}
-                  maxLength={6000}
-                  value={editor.prompt ?? ''}
-                  onChange={(event) => setEditor({ ...editor, prompt: event.target.value })}
-                />
-              </label>
-              <ParametersFields
-                value={editor.parameters ?? defaults}
-                onChange={(parameters) => setEditor({ ...editor, parameters })}
-              />
-              <label>
-                人工审核要点（每行一条）
-                <textarea
-                  rows={3}
-                  defaultValue={editor.check_rules?.join('\n')}
-                  onChange={(event) =>
-                    setEditor({
-                      ...editor,
-                      check_rules: event.target.value
-                        .split('\n')
-                        .map((line) => line.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                />
-              </label>
-              <button type="button" onClick={() => setPickCases(true)}>
-                管理附带案例 · {editor.case_ids?.length ?? 0}
-              </button>
-            </fieldset>
+            <div className="company-editor-body">
+            <p>保存草稿不会影响已发布版本。商品名称、SKU 与事实可使用变量，实际采用时带入。</p>
+            <TemplateFields
+              editor={editor}
+              setEditor={setEditor}
+              categories={categories}
+              busy={busy}
+              onCases={() => setPickCases(true)}
+            />
             {error && (
               <p role="alert" className="work-error">
                 {error}
               </p>
             )}
-            <div className="work-actions">
-              <button type="submit" className="work-primary" disabled={busy}>
-                保存模板草稿
+            </div>
+            <div className="work-actions company-editor-footer">
+              <button type="button" disabled={busy} onClick={() => setEditor(undefined)}>
+                取消
+              </button>
+              <button type="submit" disabled={busy}>
+                保存草稿
+              </button>
+              <button
+                type="button"
+                className="work-primary"
+                disabled={busy}
+                onClick={() => {
+                  if (!editor.name.trim() || !editor.prompt?.trim()) {
+                    setError(!editor.name.trim() ? '请填写模板名称。' : '请填写默认提示词。');
+                    return;
+                  }
+                  setError('');
+                  setPublish({
+                    item,
+                    edits: editor,
+                    name: editor.name,
+                    version: (item?.published_version ?? 0) + 1,
+                  });
+                }}
+              >
+                发布版本
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+      {publish && (
+        <Modal title="确认发布模板" busy={busy} onClose={() => setPublish(undefined)}>
+          <div className="work-form">
+            <p>
+              将「{publish.name}」发布为 V{publish.version}？现有制作保留原版本。
+            </p>
+            {error && <p role="alert">{error}</p>}
+            <div className="work-actions">
+              <button disabled={busy} onClick={() => setPublish(undefined)}>
+                {editor ? '返回编辑' : '取消'}
+              </button>
+              <button
+                className="work-primary"
+                disabled={busy}
+                onClick={() =>
+                  run(
+                    async () => {
+                      let target = publish.item;
+                      if (publish.edits) {
+                        target = await writeTemplate(token, publish.edits, target);
+                        setItem(target);
+                        setPublish({ ...publish, edits: undefined, item: target });
+                      }
+                      return templateAction(token, target!, 'publish');
+                    },
+                    () => {
+                      setPublish(undefined);
+                      setEditor(undefined);
+                      page.reload();
+                    },
+                  )
+                }
+              >
+                确认发布
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
       {editor && pickCases && (

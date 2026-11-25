@@ -59,3 +59,14 @@ class LoginSession(Base):
     user_id: Mapped[str] = mapped_column(String(36))
     csrf_token: Mapped[str] = mapped_column(String(64))
     expires_at: Mapped[datetime] = mapped_column(DateTime(), index=True)
+
+
+class CompanyRecord(Base):
+    __tablename__ = "company_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id"), index=True)
+    actor: Mapped[str] = mapped_column(String(254))
+    action: Mapped[str] = mapped_column(String(64))
+    detail: Mapped[str] = mapped_column(String(600))
+    created_at: Mapped[datetime] = mapped_column(DateTime(), default=datetime.utcnow)

@@ -4,20 +4,24 @@ import {
   ControlOutlined,
   DownOutlined,
   DownloadOutlined,
+  QuestionCircleOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
-import { ApiError, apiFetch } from '../../shared/api/client';
+import { ApiError, apiFetch, apiPrefix } from '../../shared/api/client';
+import { DeliveryRequirements } from './DeliveryRequirements';
 import { Modal } from '../../shared/ui/Modal';
 import type { Session } from '../auth/session';
 import { statusLabel } from '../canvas/status';
 import { resultPreview, type TaskResult } from '../creation/results';
-import { actionError } from '../creation/api';
-import { ReferenceTarget } from '../creation/ReferenceTarget';
+import { actionError, type Draft } from '../creation/api';
+import { LibraryReference, LibrarySource } from './LibraryDialogs';
+import './library.css';
 import { getTask, purposeLabel, type Task } from './api';
 import { ReviewDialog } from './ReviewDialog';
 import { VersionActions } from './VersionActions';
 import { DeliveryChecklist, type Adoption } from './DeliveryChecklist';
 import { TaskList } from './TaskList';
+import { LibraryFilters, libraryDefaults, matchesFilters } from './LibraryFilters';
 
 function Artwork({ item }: { item: TaskResult }) {
   return item.media === 'image' && item.file_version ? (
@@ -38,6 +42,8 @@ export function CompanyResults({
   onTasks,
   onSelectTask,
   onCreatePosition,
+  onTaskChange,
+  onReferenced,
 }: {
   review: boolean;
   session: Session;
@@ -46,18 +52,23 @@ export function CompanyResults({
   onTasks?: () => void;
   onSelectTask?: (id: string) => void;
   onCreatePosition?: (id: string) => void;
+  onTaskChange?: (task: Task) => void;
+  onReferenced?: (draft: Draft) => void;
 }) {
   const [library, setLibrary] = useState(false);
+  const [libraryHelp, setLibraryHelp] = useState(false);
   const delivery = !review && !library;
   const [allTasks, setAllTasks] = useState(!current);
   const [status, setStatus] = useState(review ? 'pending_review' : 'approved');
   const [query, setQuery] = useState('');
-  const [media, setMedia] = useState('');
+  const [filters, setFilters] = useState(libraryDefaults);
   const [taskPicker, setTaskPicker] = useState(false);
   const [requirements, setRequirements] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [items, setItems] = useState<TaskResult[]>([]);
   const [adoptions, setAdoptions] = useState<Record<string, Adoption | null>>({});
   const [selected, setSelected] = useState<TaskResult>();
+  const [positionId, setPositionId] = useState<string>();
   const [sourceTask, setSourceTask] = useState<Task>();
   const [detailError, setDetailError] = useState('');
   const [reference, setReference] = useState<TaskResult>();
@@ -120,7 +131,7 @@ export function CompanyResults({
     return () => ctl.abort();
   }, [delivery, review, current, allTasks, revision]);
   useEffect(() => {
-    if (!selected) return;
+    if (!selected || library) return;
     const ctl = new AbortController();
     setDetailError('');
     setSourceTask(undefined);
@@ -132,24 +143,29 @@ export function CompanyResults({
         if (!ctl.signal.aborted) setDetailError(actionError(e));
       });
     return () => ctl.abort();
-  }, [selected]);
+  }, [selected, library]);
   const rows = items.filter(
     (item) =>
-      (!status || item.status === status) &&
-      (!media || item.media === media) &&
-      `${item.label} ${item.sku} ${item.task_id} ${item.product_id}`
+      (review ? !status || item.status === status : matchesFilters(item, filters)) &&
+      `${item.label} ${item.sku} ${item.task_name ?? ''} ${item.task_id} ${item.product_id}`
         .toLowerCase()
         .includes(query.trim().toLowerCase()),
   );
+  const filled = Object.values(adoptions).filter(
+    (a) =>
+      a &&
+      items.some((i) => i.version_id === a.version_id && i.status === 'approved' && i.previewable),
+  ).length;
+  const canConfigure = !!onTaskChange && session.permissions.includes('create');
   return (
     <section className={`resource-section${review ? '' : ' delivery-page'}`}>
-      <header className="resource-heading">
+      <header className={`resource-heading${library ? ' library-heading' : ''}`}>
         <div>
           <h2>{review ? '审核中心' : '资产与交付'}</h2>
           {review ? (
             <p>核对商品一致性，完成素材审核。</p>
           ) : library ? (
-            <p>公司范围 · 素材来源与版本</p>
+            <span className="library-scope">公司范围</span>
           ) : (
             <div className="delivery-context" aria-label="交付任务">
               {onTasks && (
@@ -168,7 +184,11 @@ export function CompanyResults({
             </div>
           )}
         </div>
-        {current && (
+        {library && <div className="library-heading-actions">
+          {current && <button title="返回创作" aria-label="返回创作" onClick={onReturn}><ArrowLeftOutlined /></button>}
+          <button title="公司素材使用说明" aria-label="公司素材使用说明" onClick={() => setLibraryHelp(true)}><QuestionCircleOutlined /></button>
+        </div>}
+        {current && !library && (
           <button onClick={onReturn}>{review || library ? '返回创作' : '返回此任务创作'}</button>
         )}
       </header>
@@ -188,14 +208,25 @@ export function CompanyResults({
               </button>
             ))}
           </div>
+          {library && <small className="library-team">跨任务浏览 · {session.tenant.name}</small>}
           {delivery && current && (
             <div className="delivery-toolbar-actions">
               <button onClick={() => setRequirements(true)}>
-                <ControlOutlined aria-hidden="true" /> 查看交付要求
+                <ControlOutlined aria-hidden="true" />{' '}
+                {canConfigure ? '配置交付要求' : '查看交付要求'}
               </button>
-              <span title="交付包导出待模块 10 开放">
-                <button className="work-primary" disabled>
-                  <DownloadOutlined aria-hidden="true" /> 导出交付包
+              <span>
+                <button
+                  className="work-primary"
+                  disabled={!filled || loading || !session.permissions.includes('download')}
+                  onClick={() => setExporting(true)}
+                >
+                  <DownloadOutlined aria-hidden="true" />{' '}
+                  {filled
+                    ? filled === current.positions.length
+                      ? '导出完整交付包'
+                      : '导出部分交付包'
+                    : '导出交付包'}
                 </button>
               </span>
             </div>
@@ -203,7 +234,7 @@ export function CompanyResults({
         </div>
       )}
       {!delivery && (
-        <div className="resource-toolbar">
+        <div className={`resource-toolbar${library ? ' library-controls' : ''}`}>
           {review && (
             <div className="resource-segments" role="group" aria-label="审核状态">
               {['pending_review', 'rejected', 'approved', 'revoked', ''].map((s) => (
@@ -235,28 +266,14 @@ export function CompanyResults({
             />
           </label>
           {!review && (
-            <>
-              <select
-                aria-label="素材媒体"
-                value={media}
-                onChange={(e) => setMedia(e.target.value)}
-              >
-                <option value="">全部媒体</option>
-                <option value="image">图片</option>
-                <option value="video">视频</option>
-              </select>
-              <select
-                aria-label="素材审核状态"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                {['approved', 'pending_review', 'rejected', 'revoked', ''].map((s) => (
-                  <option key={s} value={s}>
-                    {statusLabel[s] ?? '全部状态'}
-                  </option>
-                ))}
-              </select>
-            </>
+            <LibraryFilters
+              items={items}
+              count={loading || error ? undefined : rows.length}
+              filters={filters}
+              setFilters={setFilters}
+              query={query}
+              setQuery={setQuery}
+            />
           )}
         </div>
       )}
@@ -278,7 +295,10 @@ export function CompanyResults({
             canAdopt={session.permissions.includes('adopt')}
             canDownload={session.permissions.includes('download')}
             token={session.csrf_token}
-            onOpen={setSelected}
+            onOpen={(asset, id) => {
+              setPositionId(id);
+              setSelected(asset);
+            }}
             onCreate={session.permissions.includes('create') ? onCreatePosition : undefined}
             onRefresh={() => setRevision((n) => n + 1)}
           />
@@ -316,27 +336,24 @@ export function CompanyResults({
           </div>
         ) : (
           <>
-            <small>找到 {rows.length} 份素材</small>
-            <div className="resource-gallery">
+            <div className="resource-gallery library-gallery">
               {rows.map((i) => (
                 <article className="resource-card" key={i.version_id}>
-                  <button className="resource-art" onClick={() => setSelected(i)}>
+                  <button className="resource-art" aria-label={`查看${i.label}的来源与版本`} onClick={() => setSelected(i)}>
                     <Artwork item={i} />
                   </button>
                   <div className="resource-copy">
-                    <small>
-                      V{i.version} · {statusLabel[i.status] ?? i.status}
-                    </small>
+                    <div className="library-meta"><small>V{i.version} · {i.media === 'video' ? '视频' : '图片'}</small><span>{statusLabel[i.status] ?? i.status}</span></div>
                     <h3>{i.label}</h3>
-                    <p>{i.sku}</p>
+                    <p>
+                      {i.sku} · {i.scene || '未记录场景'}
+                    </p>
+                    <small>来源：{i.task_name ?? i.task_id}</small>
                     <footer>
                       <button onClick={() => setSelected(i)}>来源与版本</button>
                       <button
                         disabled={
-                          !current ||
-                          !session.permissions.includes('create') ||
-                          !i.referenceable ||
-                          i.media !== 'image'
+                          !current || !session.permissions.includes('create') || !i.referenceable
                         }
                         onClick={() => setReference(i)}
                       >
@@ -350,7 +367,7 @@ export function CompanyResults({
             {!rows.length && <p className="resource-empty">没有符合条件的公司素材</p>}
           </>
         ))}
-      {selected && review && (
+      {selected && (review || (delivery && selected.status === 'pending_review')) && (
         <ReviewDialog
           key={selected.version_id}
           item={selected}
@@ -365,7 +382,10 @@ export function CompanyResults({
           refresh={() => setRevision((n) => n + 1)}
         />
       )}
-      {selected && !review && (
+      {library && selected && <LibrarySource key={selected.version_id} item={selected}
+        canUse={!!current && session.permissions.includes('create')} canPlay={session.permissions.includes('download')}
+        close={() => setSelected(undefined)} reference={() => { setReference(selected); setSelected(undefined); }} />}
+      {selected && delivery && selected.status !== 'pending_review' && (
         <Modal
           title={`${selected.sku} · ${selected.label} · V${selected.version}`}
           onClose={() => setSelected(undefined)}
@@ -376,10 +396,15 @@ export function CompanyResults({
             {sourceTask && (
               <>
                 <p>来源任务 · {sourceTask.name}</p>
+                <p>
+                  {sourceTask.products.find((p) => p.id === selected.product_id)?.name} ·{' '}
+                  {selected.sku}
+                </p>
                 <VersionActions
                   key={selected.version_id}
                   id={selected.version_id}
                   task={delivery && current ? current : sourceTask}
+                  positionId={delivery ? positionId : undefined}
                   session={session}
                   refresh={() => setRevision((n) => n + 1)}
                 />
@@ -399,7 +424,42 @@ export function CompanyResults({
           />
         </Modal>
       )}
-      {requirements && current && (
+      {libraryHelp && (
+        <Modal title="公司素材使用说明" onClose={() => setLibraryHelp(false)}>
+          <p>
+            公司素材默认显示已批准版本。选择同 SKU
+            的兼容草稿即可引用，来源和版本会随引用保存，新产出单独审核。
+          </p>
+        </Modal>
+      )}
+      {exporting && current && (
+        <Modal title="核对交付包" onClose={() => setExporting(false)}>
+          <p>
+            已配齐 {filled}/{current.positions.length}，待补齐 {current.positions.length - filled}
+            。包内附版本及缺口清单。
+          </p>
+          <a
+            href={`${apiPrefix}/tasks/${current.id}/delivery-package`}
+            download
+            onClick={() => setExporting(false)}
+          >
+            下载交付包
+          </a>
+        </Modal>
+      )}
+      {requirements && current && canConfigure && (
+        <DeliveryRequirements
+          task={current}
+          token={session.csrf_token}
+          onClose={() => setRequirements(false)}
+          onSave={(t) => {
+            onTaskChange?.(t);
+            setRequirements(false);
+            setMessage('交付要求已保存，采用与缺口已重新核对。');
+          }}
+        />
+      )}
+      {requirements && current && !canConfigure && (
         <Modal title="当前交付要求" onClose={() => setRequirements(false)}>
           <dl className="delivery-requirements">
             {current.products.map((product) => (
@@ -419,14 +479,17 @@ export function CompanyResults({
         </Modal>
       )}
       {reference && current && (
-        <ReferenceTarget
+        <LibraryReference
+          key={`${current.id}:${reference.version_id}`}
           task={current}
-          source={reference}
+          item={reference}
           token={session.csrf_token}
-          onClose={() => setReference(undefined)}
-          onSaved={() => {
+          close={() => setReference(undefined)}
+          saved={(draft, updatedTask) => {
+            if (updatedTask) onTaskChange?.(updatedTask);
             setReference(undefined);
-            setMessage('已添加至目标草稿');
+            setMessage('已引用批准版本，保留来源与版本。');
+            onReferenced?.(draft);
           }}
         />
       )}

@@ -20,8 +20,14 @@ from .schemas import ApplyTemplate, CreationView, InputSnapshot, ReferenceInput,
 REFERENCE_TAG = re.compile(r"\[\[ref:([^\]\r\n]+)\]\]")
 
 
-def is_quick_image(entry: str | None, purpose: str) -> bool:
-    return entry in (None, "quick") and purpose in ("main", "detail")
+def uses_explicit_image_references(entry: str | None, purpose: str) -> bool:
+    return entry in (None, "quick", "canvas") and purpose in ("main", "detail")
+
+
+def uses_explicit_references(entry: str | None, purpose: str) -> bool:
+    return uses_explicit_image_references(entry, purpose) or (
+        entry in (None, "quick", "canvas") and purpose == "video"
+    )
 
 
 def get_creation(db: Session, tenant: str, identifier: str, *, lock: bool = False) -> Creation:
@@ -62,7 +68,7 @@ def save(
     validate_sources: bool = True,
 ) -> CreationView:
     files = {ref.file_id for ref in references}
-    if not is_quick_image(item.entry, item.purpose):
+    if not uses_explicit_references(item.entry, item.purpose):
         fact = get_fact(db, product, product.fact_version)
         files.update(str(photo["file_id"]) for photo in fact.photos)
     if validate_sources:
@@ -101,8 +107,18 @@ def apply_template(
         if all(item.file_id != ref.file_id for item in refs):
             refs.append(ref)
     item.template_id, item.template_version = template.id, data.template_version
+    if content.purpose == "video" and content.video_parameters:
+        item.video_parameters = content.video_parameters.model_dump()
     if data.prompt_action == "replace":
-        item.prompt = content.prompt
+        facts = get_fact(db, product, product.fact_version).facts
+        values = {
+            "商品名称": product.name,
+            "SKU": product.sku,
+            "商品事实": "、".join(str(f["value"]) for f in facts.values()) or "已确认的商品外观",
+        }
+        item.prompt = re.sub(
+            r"\{\{(商品名称|SKU|商品事实)\}\}", lambda m: values[m[1]], content.prompt
+        )
     return save(db, item, product, refs, content.parameters)
 
 
@@ -158,7 +174,7 @@ def build_input_snapshot(
         reject("prompt", "prompt_required")
     if set(REFERENCE_TAG.findall(draft.prompt)) - {ref.id for ref in draft.references}:
         reject("prompt", "reference_label_dangling")
-    if is_quick_image(item.entry, item.purpose):
+    if uses_explicit_references(item.entry, item.purpose):
         photos = [
             ProductPhoto(file_id=ref.file_id, version=ref.file_version)
             for ref in draft.references

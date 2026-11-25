@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { apiFetch } from '../../shared/api/client';
 import { Modal } from '../../shared/ui/Modal';
 import { draftWrite, actionError, type Draft } from './api';
@@ -8,10 +9,14 @@ export function CompanyAssetPicker({
   draft,
   token,
   onSaved,
+  children,
+  disabled,
 }: {
   draft: Draft;
   token: string;
   onSaved: (draft: Draft) => void;
+  children?: ReactNode;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<TaskResult[]>([]);
@@ -35,8 +40,9 @@ export function CompanyAssetPicker({
   }, [open, draft.product_id]);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)}>
-        公司资产
+      <button type="button" disabled={disabled} title="公司资产" aria-label="公司资产"
+        onClick={() => setOpen(true)}>
+        {children ?? '公司资产'}
       </button>
       {open && (
         <Modal title="引用公司资产" busy={busy} onClose={() => setOpen(false)}>

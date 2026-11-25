@@ -42,6 +42,16 @@ afterEach(() => {
 
 test('gallery sends a licensed company case only to the explicitly selected compatible draft', async () => {
   let write;
+  let removal;
+  const canvas = {
+    id: 'canvas',
+    product_id: 'shoe',
+    purpose: 'main',
+    entry: 'canvas',
+    version: 7,
+    references: [],
+    prompt: '自然光',
+  };
   const item = {
     id: 'case',
     name: '侧光测试案例',
@@ -58,23 +68,18 @@ test('gallery sends a licensed company case only to the explicitly selected comp
         next_cursor: null,
       });
     if (url.includes('/creations?'))
-      return Response.json(
-        url.includes('entry=canvas')
-          ? [
-              {
-                id: 'canvas',
-                product_id: 'shoe',
-                purpose: 'main',
-                entry: 'canvas',
-                version: 7,
-                prompt: '自然光',
-              },
-            ]
-          : [],
-      );
+      return Response.json(url.includes('entry=canvas') ? [canvas] : []);
     if (url.endsWith('/canvas/references')) {
       write = JSON.parse(String(init.body));
-      return Response.json({});
+      return Response.json({
+        ...canvas,
+        version: 8,
+        references: [{ id: 'ref', kind: 'case', source_id: 'case', origin: 'independent' }],
+      });
+    }
+    if (init.method === 'DELETE') {
+      removal = url;
+      return Response.json({ ...canvas, version: 9 });
     }
     return new Response(null, { status: 404 });
   });
@@ -88,12 +93,18 @@ test('gallery sends a licensed company case only to the explicitly selected comp
       canPlayVideo
     />,
   );
-  expect(await screen.findByRole('button', { name: '暂不可引用' })).toBeDisabled();
+  await screen.findAllByText('侧光测试案例');
+  expect(screen.getAllByRole('button', { name: '暂不可引用' })).toHaveLength(7);
   fireEvent.click(screen.getByRole('button', { name: '添加参考' }));
   await screen.findByRole('option', { name: /画布.*SHOE/ });
   fireEvent.click(screen.getByRole('button', { name: '确认添加' }));
   await screen.findByText('已添加至目标草稿');
+  expect(screen.getByRole('button', { name: '已添加' })).toBeEnabled();
   expect(write).toEqual({ expected_version: 7, kind: 'case', source_id: 'case' });
+  fireEvent.click(screen.getByRole('button', { name: '已添加' }));
+  fireEvent.click(await screen.findByRole('button', { name: '确认移除' }));
+  await screen.findByText('已从目标草稿移除');
+  expect(removal).toMatch(/\/canvas\/references\/ref\?expected_version=8$/);
 });
 
 test('delivery counts a receipt only for an approved version and limits viewer actions', async () => {
@@ -133,6 +144,50 @@ test('delivery counts a receipt only for an approved version and limits viewer a
   await screen.findByText('审核意见 · 已核对');
   expect(screen.queryByRole('button', { name: '采用至交付' })).toBeNull();
   expect(screen.queryByRole('link', { name: /^下载/ })).toBeNull();
+});
+
+test('version details withdraw the selected position when two slots share a purpose', async () => {
+  const slots = ['first', 'second'].map((id) => ({ ...task.positions[0], id }));
+  const current = { ...task, positions: slots };
+  const asset = {
+    version_id: 'v',
+    task_id: task.id,
+    product_id: 'shoe',
+    purpose: 'main',
+    label: '白底图',
+    sku: 'SHOE',
+    version: 1,
+    status: 'approved',
+    media: 'image',
+    previewable: true,
+  };
+  let withdrawn = '';
+  vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+    if (url.endsWith('/adoption')) {
+      if (init.method === 'DELETE') {
+        withdrawn = url;
+        return new Response(null, { status: 204 });
+      }
+      return Response.json(
+        url.includes('/second/') && !withdrawn ? { version_id: 'v', download: '/v' } : null,
+      );
+    }
+    if (url.includes('/assets?')) return Response.json([asset]);
+    if (url.endsWith('/tasks/task')) return Response.json(current);
+    if (url.endsWith('/assets/v')) return Response.json(asset);
+    return Response.json({});
+  });
+  render(
+    <CompanyResults
+      current={current}
+      session={{ ...session, permissions: ['adopt', 'view'] }}
+      review={false}
+      onReturn={() => {}}
+    />,
+  );
+  fireEvent.click(await screen.findByRole('button', { name: '查看版本' }));
+  fireEvent.click(await screen.findByRole('button', { name: '撤回采用' }));
+  await waitFor(() => expect(withdrawn).toMatch(/\/second\/adoption$/));
 });
 
 test('review dialog compares the result with product photos and submits a versioned decision', async () => {
@@ -318,23 +373,28 @@ test('delivery can adopt a compatible approved version and offers to create an e
 
 test('company management can open an immutable published version from the records tab', async () => {
   vi.stubGlobal('fetch', async (url: string) =>
-    url.endsWith('/versions/1')
-      ? Response.json({
-          name: '标准主图',
-          category: 'apparel',
-          purpose: 'main',
-          prompt: '已发布的提示词',
-        })
-      : Response.json({
-          items: [
-            {
-              id: 'tpl',
-              published_version: 1,
-              enabled: true,
-              content: { name: '下一版草稿', category: 'apparel', purpose: 'main' },
-            },
-          ],
-        }),
+    url.endsWith('/company/records')
+      ? Response.json([])
+      : url.endsWith('/versions/1')
+        ? Response.json({
+            name: '标准主图',
+            category: 'apparel',
+            purpose: 'main',
+            prompt: '已发布的提示词',
+          })
+        : Response.json({
+            items: [
+              {
+                id: 'tpl',
+                published_version: 1,
+                enabled: true,
+                version: 3,
+                published_content: { name: '标准主图', category: 'apparel', purpose: 'main' },
+                has_unpublished_changes: true,
+                content: { name: '下一版草稿', category: 'apparel', purpose: 'main' },
+              },
+            ],
+          }),
   );
   render(
     <TemplateManager
@@ -342,7 +402,8 @@ test('company management can open an immutable published version from the record
       session={{ ...session, role: 'admin', permissions: ['manage'] }}
     />,
   );
-  await screen.findByRole('heading', { name: '下一版草稿' });
+  await screen.findByRole('heading', { name: '标准主图' });
+  expect(screen.getByText('有待发布修改')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: '操作记录' }));
   fireEvent.change(screen.getByLabelText('已发布版本'), { target: { value: '1' } });
   await waitFor(() => expect(screen.getByRole('dialog')).toHaveTextContent('已发布的提示词'));

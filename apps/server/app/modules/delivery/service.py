@@ -1,10 +1,13 @@
+from collections.abc import Sequence
+
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.assets.models import PrivateFile
+from app.modules.creation.capabilities import GPT_SIZES, SIZES
 from app.modules.creation.models import Creation, CreationOutput
-from app.modules.creation.results import file_ready
+from app.modules.creation.results import TaskResult, file_ready
 from app.modules.execution.models import Execution
 from app.modules.execution.sources import verify_sources
 from app.modules.identity.models import new_id
@@ -13,8 +16,30 @@ from app.modules.tasks.models import DeliveryPosition
 from .models import Adoption
 
 
-def lock_matching_position(db: Session, draft: Creation) -> DeliveryPosition | None:
-    return db.scalar(
+def matches_spec(position: DeliveryPosition, file: PrivateFile | TaskResult) -> bool:
+    if not position.ratio:
+        return True
+    if position.purpose == "video":
+        a, b = map(int, position.ratio.split(":"))
+        duration = file.duration_seconds if isinstance(file, PrivateFile) else file.duration
+        return bool(
+            file.width
+            and file.height
+            and file.width * b == file.height * a
+            and min(file.width, file.height) == int((position.resolution or "0p")[:-1])
+            and duration
+            and abs(duration - (position.duration or 0)) < 0.5
+        )
+    return any(
+        s["ratio"] == position.ratio
+        and s["resolution"] == position.resolution
+        and (s["width"], s["height"]) == (file.width, file.height)
+        for s in SIZES + GPT_SIZES
+    )
+
+
+def lock_matching_positions(db: Session, draft: Creation) -> Sequence[DeliveryPosition]:
+    return db.scalars(
         select(DeliveryPosition)
         .where(
             DeliveryPosition.tenant_id == draft.tenant_id,
@@ -22,8 +47,9 @@ def lock_matching_position(db: Session, draft: Creation) -> DeliveryPosition | N
             DeliveryPosition.product_id == draft.product_id,
             DeliveryPosition.purpose == draft.purpose,
         )
+        .order_by(DeliveryPosition.id)
         .with_for_update()
-    )
+    ).all()
 
 
 def lock_adoption(db: Session, position_id: str) -> Adoption | None:
@@ -53,11 +79,11 @@ def fill_open_position(db: Session, position: DeliveryPosition) -> None:
             PrivateFile.tenant_id == position.tenant_id,
             Adoption.output_id.is_(None),
         )
-        .with_for_update()
+        .with_for_update(of=CreationOutput)
     )
     selected: CreationOutput | None = None
     for output, file in candidates:
-        if not file_ready(file, output.file_version):
+        if not file_ready(file, output.file_version) or not matches_spec(position, file):
             continue
         job = db.get(Execution, output.execution_id)
         if job:

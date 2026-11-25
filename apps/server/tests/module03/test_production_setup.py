@@ -10,6 +10,32 @@ from .conftest import login
 API = "/api/v1"
 
 
+def test_edit_delivery_plan_preserves_existing_slots_and_versions(client: TestClient) -> None:
+    csrf = login(client)
+    headers = {"X-CSRF-Token": csrf}
+    product = create_product(client, csrf, "PLAN")
+    task = client.post(
+        f"{API}/tasks", headers=headers, json={"product_ids": [product["id"]], "contents": ["main"]}
+    ).json()
+    row = {
+        "product_id": product["id"],
+        "purpose": "main",
+        "module": "商品主图",
+        "count": 2,
+        "ratio": "1:1",
+        "resolution": "2K",
+    }
+    url = f"{API}/tasks/{task['id']}/requirements"
+    result = client.put(url, headers=headers, json={"expected_version": 1, "rows": [row]})
+    assert result.status_code == 200, result.text
+    assert len(result.json()["positions"]) == 2
+    assert task["positions"][0]["id"] in [p["id"] for p in result.json()["positions"]]
+    assert (
+        client.put(url, headers=headers, json={"expected_version": 1, "rows": [row]}).status_code
+        == 409
+    )
+
+
 def create_product(client: TestClient, csrf: str, sku: str, **extra: object) -> dict:
     response = client.post(
         f"{API}/products",
@@ -274,9 +300,7 @@ def test_confirmed_specification_with_photo_is_usable_for_generation(
     }
     draft = create_product(client, csrf, "SIMPLE-DRAFT", facts=facts)
     assert draft["readiness"]["main"] == ["photo_required"]
-    data = create_product(
-        client, csrf, "SIMPLE-SKU", facts=facts, photo_ids=["simplified-photo"]
-    )
+    data = create_product(client, csrf, "SIMPLE-SKU", facts=facts, photo_ids=["simplified-photo"])
     assert data["facts"] == facts
     assert data["readiness"]["main"] == []
     product = get_product(db, "alpha", data["id"])

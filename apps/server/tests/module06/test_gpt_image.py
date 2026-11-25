@@ -15,7 +15,7 @@ from app.modules.execution.models import Execution, ImageStep
 from app.shared.config import get_settings
 
 from ..module03.test_production_setup import API
-from ..module05.test_canvas import create_draft, setup_task
+from ..module05.test_canvas import add_product_photo_reference, create_draft, setup_task
 
 PARAMETERS = {
     "provider": "gpt-image",
@@ -178,6 +178,7 @@ def test_worker_keeps_gpt_result_on_archive_retry(
 
     headers, product, _, task = setup_task(client, db)
     draft = create_draft(client, headers, task, product, parameters=PARAMETERS)
+    draft = add_product_photo_reference(client, headers, draft, product["photos"][0])
     path = f"{API}/creations/{draft['id']}/executions"
     request = {"expected_version": draft["version"], "idempotency_key": "gpt"}
     accepted = client.post(path, headers=headers, json=request)

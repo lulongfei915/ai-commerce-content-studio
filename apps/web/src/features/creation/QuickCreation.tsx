@@ -11,13 +11,13 @@ import {
 } from '@ant-design/icons';
 import { Modal } from '../../shared/ui/Modal';
 import { updateFacts, uploadPhoto, type Category, type Product } from '../products/api';
-import { CaseBrowser } from '../cases/CaseBrowser';
 import { CreationEditor } from './CreationEditor';
 import { ParametersFields } from './ParametersFields';
 import { QuickMaterials, SelectedQuickMaterials } from './QuickMaterials';
 import { VideoFields } from './VideoFields';
 import {
   actionError,
+  addProductPhotoReference,
   defaults,
   draftWrite,
   imageModelLabel,
@@ -50,7 +50,7 @@ type Props = {
   onEdit: (id: string, edits: DraftEdits | undefined) => void;
   onBusy: (busy: boolean) => void;
   execution: ImageExecution;
-  onImageSubmitting: (count: number) => void;
+  onSubmitting: (count: number, media: 'image' | 'video') => void;
 };
 
 export function QuickCreation({
@@ -69,9 +69,9 @@ export function QuickCreation({
   onEdit,
   onBusy,
   execution,
-  onImageSubmitting,
+  onSubmitting,
 }: Props) {
-  const [panel, setPanel] = useState<'settings' | 'case' | 'specs' | 'product' | 'reference'>();
+  const [panel, setPanel] = useState<'settings' | 'specs' | 'product' | 'reference'>();
   const [feedback, setFeedback] = useState<{ id: string; message: string; error?: boolean }>();
   const isVideo = purpose === 'video';
   const working = useRef(false);
@@ -100,9 +100,7 @@ export function QuickCreation({
         '近距离拍摄商品结构，用柔和侧光表现层次。',
       ];
   const references = selected?.references ?? [];
-  const hasPhotos = isVideo
-    ? product.photos.length > 0
-    : references.some((ref) => ref.usage === 'product');
+  const hasPhotos = references.some((ref) => ref.usage === 'product');
   const prompts = phrases.map(
     (phrase) => `以${product.name}${hasPhotos ? '实拍' : ''}为主体，${phrase}`,
   );
@@ -112,11 +110,12 @@ export function QuickCreation({
     onEdit(editorId, next);
     setFeedback(undefined);
   }
-  async function withDraft(operation: (draft: Draft) => Promise<void>, imageCount = 0) {
+  async function withDraft(operation: (draft: Draft) => Promise<void>, outputCount = 0) {
     if (disabled || working.current) return;
     working.current = true;
     onBusy(true);
-    if (imageCount) onImageSubmitting(imageCount);
+    const media = isVideo ? 'video' : 'image';
+    if (outputCount) onSubmitting(outputCount, media);
     setFeedback(undefined);
     let id = editorId;
     try {
@@ -132,7 +131,7 @@ export function QuickCreation({
       setFeedback({ id, message: actionError(cause), error: true });
     } finally {
       working.current = false;
-      if (imageCount) onImageSubmitting(0);
+      if (outputCount) onSubmitting(0, media);
       onBusy(false);
     }
   }
@@ -149,15 +148,6 @@ export function QuickCreation({
     void withDraft(async (draft) => {
       onSaved(await operation(draft));
       setPanel(undefined);
-    });
-  }
-
-  function addPhoto(draft: Draft, photo: Product['photos'][number]) {
-    return draftWrite(draft, token, '/references', {
-      kind: 'upload',
-      usage: 'product',
-      source_id: photo.file_id,
-      file_version: photo.version,
     });
   }
 
@@ -181,7 +171,7 @@ export function QuickCreation({
       const photo = updated.photos.find((item) => item.file_id === id);
       if (!photo) throw new Error('找不到刚上传的商品实拍。');
       try {
-        return await addPhoto(draft, photo);
+        return await addProductPhotoReference(draft, token, photo);
       } catch (cause) {
         throw new Error(
           `实拍已保存到商品资料。加入本次生成失败，可重新选择该实拍。${actionError(cause)}`,
@@ -197,7 +187,7 @@ export function QuickCreation({
             className="studio-reference"
             disabled={disabled}
             aria-label={isVideo ? '参考素材' : '添加素材'}
-            onClick={() => setPanel(isVideo ? 'case' : 'product')}
+            onClick={() => setPanel(isVideo ? 'reference' : 'product')}
           >
             <PlusOutlined aria-hidden="true" />
             <span>
@@ -218,7 +208,7 @@ export function QuickCreation({
             onChange={(e) => change({ ...value, prompt: e.target.value })}
           />
         </div>
-        {!isVideo && selected && (
+        {selected && (
           <SelectedQuickMaterials
             draft={selected}
             disabled={disabled}
@@ -250,23 +240,19 @@ export function QuickCreation({
           </button>
           <button
             className="work-primary studio-save"
-            disabled={disabled || (isVideo ? !edits : execution.inProgress || !value.prompt.trim())}
+            disabled={disabled || execution.inProgress || !value.prompt.trim()}
             onClick={() =>
               void withDraft(
                 async (draft) => {
                   const updated = await saveInputs(draft);
-                  if (isVideo) {
-                    setFeedback({ id: draft.id, message: '草稿已保存' });
-                    return;
-                  }
                   await execution.submit(updated);
                 },
-                isVideo ? 0 : value.parameters.count,
+                spec.count,
               )
             }
           >
             <ArrowRightOutlined aria-hidden="true" />{' '}
-            {isVideo ? '保存草稿' : execution.inProgress ? '制作中' : '生成图片'}
+            {execution.inProgress ? '制作中' : isVideo ? '生成视频' : '生成图片'}
           </button>
         </div>
         {feedback?.id === editorId && (
@@ -291,7 +277,7 @@ export function QuickCreation({
             / &nbsp;{label}
           </button>
         ))}
-        <button disabled={disabled} onClick={() => setPanel(isVideo ? 'case' : 'reference')}>
+        <button disabled={disabled} onClick={() => setPanel('reference')}>
           更多灵感 ›
         </button>
       </div>
@@ -309,30 +295,6 @@ export function QuickCreation({
           </div>
         </Modal>
       )}
-      {panel === 'case' && (
-        <Modal title="添加案例参考" busy={busy} onClose={() => setPanel(undefined)}>
-          <CaseBrowser
-            categories={categories}
-            category={product.category}
-            purpose={purpose}
-            imageOnly={!isVideo}
-            allowVideo={isVideo}
-            disabled={busy}
-            onPick={(item) =>
-              void withDraft(async (draft) => {
-                onSaved(
-                  await draftWrite(draft, token, '/references', {
-                    kind: 'case',
-                    source_id: item.id,
-                  }),
-                );
-                setPanel(undefined);
-              })
-            }
-          />
-          {feedback?.error && <p role="alert">{feedback.message}</p>}
-        </Modal>
-      )}
       {(panel === 'product' || panel === 'reference') && (
         <QuickMaterials
           product={product}
@@ -346,7 +308,7 @@ export function QuickCreation({
             setPanel(undefined);
             setFeedback(undefined);
           }}
-          onPhoto={(photo) => addMaterial((draft) => addPhoto(draft, photo))}
+          onPhoto={(photo) => addMaterial((draft) => addProductPhotoReference(draft, token, photo))}
           onUploadPhoto={(file) => uploadMaterial(file, true)}
           onUpload={(file) => uploadMaterial(file, false)}
           onCase={(id) =>

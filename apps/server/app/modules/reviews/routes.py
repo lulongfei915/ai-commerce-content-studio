@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.modules.assets.models import PrivateFile
 from app.modules.creation.models import Creation, CreationOutput
 from app.modules.creation.results import TaskResult, file_ready, result_view
-from app.modules.delivery.service import fill_open_position, lock_matching_position
+from app.modules.delivery.service import fill_open_position, lock_matching_positions
 from app.modules.execution.models import Execution, ImageStep
 from app.modules.execution.service import ExecutionState, Submission, submit
 from app.modules.execution.sources import verify_sources
@@ -21,8 +21,10 @@ from app.modules.identity.security import (
     WriteIdentity,
     require_permission,
 )
+from app.modules.products.facts import CATEGORIES
 from app.modules.products.models import Product
 from app.modules.products.schemas import WriteSchema
+from app.modules.tasks.models import Task
 from app.shared.studio_errors import check_version
 
 router = APIRouter(tags=["图片审核"])
@@ -48,10 +50,11 @@ def list_versions(
     db: Session, tenant: str, status: str | None, product_id: str | None, task_id: str | None
 ) -> list[TaskResult]:
     query = (
-        select(CreationOutput, Creation, PrivateFile, Product.sku)
+        select(CreationOutput, Creation, PrivateFile, Product.sku, Product.category, Task.name)
         .join(Creation, Creation.id == CreationOutput.creation_id)
         .join(PrivateFile, PrivateFile.id == CreationOutput.file_id)
         .join(Product, Product.id == Creation.product_id)
+        .join(Task, Task.id == Creation.task_id)
         .where(Creation.tenant_id == tenant, PrivateFile.tenant_id == tenant)
     )
     if status:
@@ -61,8 +64,10 @@ def list_versions(
     if task_id:
         query = query.where(Creation.task_id == task_id)
     return [
-        result_view(o, c, f).model_copy(update={"sku": sku})
-        for o, c, f, sku in db.execute(query.order_by(CreationOutput.id))
+        result_view(o, c, f).model_copy(
+            update={"sku": sku, "category_label": CATEGORIES[category].label, "task_name": name}
+        )
+        for o, c, f, sku, category, name in db.execute(query.order_by(CreationOutput.id))
     ]
 
 
@@ -120,10 +125,10 @@ def decide(
     identifier: str, data: Decision, identity: WriteIdentity, db: Database
 ) -> dict[str, str]:
     require_permission(identity, Permission.REVIEW)
-    position = None
+    positions = []
     if data.decision == "approved":
         _, draft = version_for(db, identity.tenant.id, identifier)
-        position = lock_matching_position(db, draft)
+        positions = list(lock_matching_positions(db, draft))
     output, _ = version_for(db, identity.tenant.id, identifier, True)
     check_version(output.version, data.version)
     step = db.get(ImageStep, identifier)
@@ -149,7 +154,7 @@ def decide(
         "decided_at": datetime.utcnow().isoformat() + "Z",
     }
     output.status = data.decision
-    if position is not None:
+    for position in positions:
         db.flush()
         fill_open_position(db, position)
     db.commit()

@@ -4,18 +4,19 @@ import { usageLabel } from '../creation/api';
 import type { Draft, ReferenceUsage } from '../creation/api';
 import type { Canvas, CanvasNode, Positions } from './api';
 import { nodePreview } from './api';
-import type { Task } from '../tasks/api';
+import { purposeLabel, type Task } from '../tasks/api';
 
-export type FlowNode = Node<CanvasNode & { sku?: string; preview?: string }, 'studio'>;
+export type FlowNode = Node<CanvasNode & { sku?: string; purpose?: string; preview?: string }, 'studio'>;
 
 export function projectNodes(
-  nodes: CanvasNode[],
+  canvas: Canvas,
   positions: Map<string, XYPosition>,
   task: Task,
 ): FlowNode[] {
-  const defaults = defaultPositions(nodes);
+  const defaults = defaultPositions(canvas.nodes);
+  const purposes = new Map(canvas.creations.map((draft) => [draft.id, purposeLabel[draft.purpose]]));
   const products = new Map(task.products.map((product) => [product.id, product.sku]));
-  return nodes.map((node) => {
+  return canvas.nodes.map((node) => {
     const sku = products.get(node.product_id ?? '');
     return {
       id: node.id,
@@ -25,6 +26,7 @@ export function projectNodes(
       data: {
         ...node,
         sku,
+        purpose: node.kind === 'creation' ? purposes.get(node.source_id) : undefined,
         preview:
           node.previewable && node.file_version && node.media === 'image'
             ? nodePreview(task.id, node.id, node.file_version, node.source_version ?? undefined)

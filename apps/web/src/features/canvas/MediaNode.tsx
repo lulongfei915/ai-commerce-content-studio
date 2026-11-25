@@ -32,6 +32,7 @@ export const MediaNode = memo(function MediaNode({ data, isConnectable }: NodePr
       <div className="canvas-node-meta">
         <span>
           {sku ?? (kind === 'case' ? '案例' : '素材')}
+          {data.purpose && ` · ${data.purpose}`}
           {file_version ? ` · V${kind === 'result' ? source_version : file_version}` : ''}
         </span>
         <span>{statusLabel[status] ?? status}</span>

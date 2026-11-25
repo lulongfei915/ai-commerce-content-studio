@@ -15,6 +15,11 @@ TaskStatus = Literal["queued", "running", "succeeded", "failed", "cancelled", "e
 Body = TypeVar("Body", bound=BaseModel)
 
 
+class VideoReference(BaseModel):
+    role: Literal["first_frame", "last_frame", "reference_image", "reference_video"]
+    url: str = Field(repr=False)
+
+
 class VideoGenerationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -25,11 +30,16 @@ class VideoGenerationRequest(BaseModel):
     resolution: Literal["480p", "720p", "1080p", "4K"] = "720p"
     watermark: bool = True
     generate_audio: bool = False
+    references: list[VideoReference] = Field(default_factory=list, repr=False)
 
     def to_payload(self) -> dict[str, Any]:
+        content: list[dict[str, Any]] = [{"type": "text", "text": self.prompt}]
+        for ref in self.references:
+            kind = "video_url" if ref.role == "reference_video" else "image_url"
+            content.append({"type": kind, kind: {"url": ref.url}, "role": ref.role})
         return {
-            **self.model_dump(exclude={"prompt"}),
-            "content": [{"type": "text", "text": self.prompt}],
+            **self.model_dump(exclude={"prompt", "references"}),
+            "content": content,
         }
 
 

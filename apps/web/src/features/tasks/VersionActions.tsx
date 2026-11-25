@@ -11,6 +11,7 @@ import type { Task } from './api';
 export function VersionActions({
   id,
   task,
+  positionId,
   session,
   refresh,
   reviewFooter,
@@ -19,6 +20,7 @@ export function VersionActions({
 }: {
   id: string;
   task: Task;
+  positionId?: string;
   session: Session;
   refresh: () => void;
   reviewFooter?: HTMLElement | null;
@@ -39,11 +41,16 @@ export function VersionActions({
   const token = session.csrf_token;
   const reviewLayout = reviewFooter !== undefined;
   const path = `/assets/${id}`;
+  const compatible = task.positions.filter(
+    (p) => p.product_id === asset?.product_id && p.purpose === asset?.purpose,
+  );
   const pos = reviewLayout
     ? undefined
-    : task.positions.find(
-        (p) => p.product_id === asset?.product_id && p.purpose === asset?.purpose,
-      );
+    : positionId
+      ? compatible.find((p) => p.id === positionId)
+      : compatible.length === 1
+        ? compatible[0]
+        : undefined;
   const adoption = `/delivery-positions/${pos?.id}/adoption`;
   useEffect(() => {
     if (!pos) return;
@@ -218,7 +225,9 @@ export function VersionActions({
               type="button"
               disabled={!reason.trim()}
               onClick={() =>
-                void run(() => apiWrite(path + '/revoke', token, { version: asset.version, reason }))
+                void run(() =>
+                  apiWrite(path + '/revoke', token, { version: asset.version, reason }),
+                )
               }
             >
               撤回该版本批准

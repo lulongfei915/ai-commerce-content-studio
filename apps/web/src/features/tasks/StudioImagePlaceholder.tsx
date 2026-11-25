@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ExclamationCircleOutlined, PictureOutlined } from '@ant-design/icons';
-import { statusLabel } from '../canvas/status';
+import { ExclamationCircleOutlined, PictureOutlined, VideoCameraOutlined } from '@ant-design/icons';
 import { actionError } from '../creation/api';
 import {
   activeImageStatuses,
   archivedImageStatuses,
+  canRetryExecution,
+  executionStatus,
   type ImageExecution,
 } from '../creation/useImageExecution';
 
@@ -14,6 +15,7 @@ type Output = Job['outputs'][number];
 export type ImageSlot = {
   id: string;
   index: number;
+  media: 'image' | 'video';
   work?: { owner: string; job: Job; output: Output };
 };
 
@@ -32,16 +34,17 @@ export function StudioImagePlaceholder({
   const output = work?.output;
   const archived = output && archivedImageStatuses.has(output.status);
   const loading = !output || archived || activeImageStatuses.has(output.status);
-  const retryable = output?.status === 'generation_failed' || output?.status === 'save_failed';
+  const isVideo = slot.media === 'video';
+  const MediaIcon = isVideo ? VideoCameraOutlined : PictureOutlined;
+  const mediaLabel = isVideo ? '视频' : '图片';
+  const retryable = output && canRetryExecution(slot.media, output);
   const canCancel =
     work && work.job.outputs.find((item) => item.status === 'queued')?.id === slot.id;
   const label = !output
     ? '提交中'
     : archived
-      ? '载入图片中'
-      : output.error === 'result_size_mismatch'
-        ? `尺寸不符${output.result_size ? `（${output.result_size.replace('x', '×')}）` : ''}`
-        : (statusLabel[output.status] ?? output.status);
+      ? `载入${mediaLabel}中`
+      : executionStatus(slot.media, output);
 
   async function run(path: string) {
     if (!work || !update) return;
@@ -59,13 +62,13 @@ export function StudioImagePlaceholder({
   return (
     <>
       <div className="studio-art studio-art-placeholder" data-loading={loading} aria-hidden="true">
-        <PictureOutlined />
+        <MediaIcon />
       </div>
       <span className="studio-type">
-        <PictureOutlined /> 图片
+        <MediaIcon /> {mediaLabel}
       </span>
       <footer>
-        <b>图片 {slot.index + 1}</b>
+        <b>{mediaLabel} {slot.index + 1}</b>
         <div>
           <span role="status" data-failed={!loading && output?.status !== 'cancelled'}>
             {label}

@@ -1,5 +1,7 @@
+import json
 from importlib import import_module
 from io import BytesIO
+from zipfile import ZipFile
 
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
@@ -19,7 +21,7 @@ from app.modules.identity.models import Membership
 from app.shared.config import get_settings
 
 from ..module03.test_production_setup import API, photo
-from ..module05.test_canvas import create_draft, setup_task
+from ..module05.test_canvas import add_product_photo_reference, create_draft, setup_task
 
 
 def test_worker_archives_once_and_delivery_checks_approval(
@@ -27,12 +29,15 @@ def test_worker_archives_once_and_delivery_checks_approval(
 ) -> None:
     headers, product, _, task = setup_task(client, db)
     draft = create_draft(client, headers, task, product)
+    draft = add_product_photo_reference(client, headers, draft, product["photos"][0])
     settings = get_settings()
     monkeypatch.setattr(settings, "image_budget_cents", 10)
     monkeypatch.setattr(settings, "image_ceiling_cents", 10)
     monkeypatch.setattr(settings, "assistance_ceiling_cents", 5)
     path = f"{API}/creations/{draft['id']}/executions"
-    job = client.post(path, headers=headers, json={"expected_version": 1, "idempotency_key": "run"})
+    job = client.post(
+        path, headers=headers, json={"expected_version": draft["version"], "idempotency_key": "run"}
+    )
     identifier = job.json()["outputs"][0]["id"]
     assert client.get(f"{API}/reviews").status_code == 200
     from app.modules.execution import runner
@@ -93,6 +98,14 @@ def test_worker_archives_once_and_delivery_checks_approval(
     assert receipt is not None
     assert receipt["version_id"] == identifier
     assert client.get(receipt["download"]).content == png.getvalue()
+    package = client.get(f"{API}/tasks/{task['id']}/delivery-package")
+    assert package.status_code == 200
+    with ZipFile(BytesIO(package.content)) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        assert len(manifest) == len(task["positions"])
+        ready = next(row for row in manifest if row["position"] == pos["id"])
+        assert ready["version_id"] == identifier
+        assert archive.read(ready["file"]) == png.getvalue()
     assert client.put(adopt, headers=headers, json={"version_id": identifier}).status_code == 403
     photo(db, "alternative", "alpha", "alice")
     db.add(
@@ -115,6 +128,16 @@ def test_worker_archives_once_and_delivery_checks_approval(
     assert client.get(adopt).json() == receipt
     membership.role = "admin"
     db.commit()
+    preview = f"{API}/tasks/{task['id']}/requirements/preview"
+    row = {"product_id": product["id"], "purpose": "main", "module": "商品主图", "count": 1}
+    for changes, removed in [
+        ({}, 0),
+        ({"module": "侧面"}, 1),
+        ({"ratio": "4:3", "resolution": "2K"}, 1),
+    ]:
+        body = {"expected_version": task["version"], "rows": [{**row, **changes}]}
+        assert client.post(preview, headers=headers, json=body).json() == {"removed": removed}
+    assert client.get(adopt).json() == receipt
     assert client.delete(adopt, headers=headers).status_code == 204
     assert client.get(receipt["download"]).status_code == 409
     second = client.put(adopt, headers=headers, json={"version_id": identifier}).json()
@@ -183,9 +206,7 @@ def test_delivery_backfill_fills_only_unambiguous_empty_positions(client: TestCl
                 )
             )
             db.commit()
-    position_ids = {
-        p["product_id"]: p["id"] for p in task["positions"] if p["purpose"] == "main"
-    }
+    position_ids = {p["product_id"]: p["id"] for p in task["positions"] if p["purpose"] == "main"}
     existing = Adoption(
         position_id=other["positions"][0]["id"], output_id="other-red", token="original"
     )

@@ -1,21 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
-import { AuditOutlined, FileSearchOutlined, UndoOutlined } from '@ant-design/icons';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { Modal } from '../../shared/ui/Modal';
 import { CaseBrowser } from '../cases/CaseBrowser';
-import { casePreview } from '../cases/api';
+import { DraftReferenceList } from './DraftReferenceList';
 import type { Category, Product } from '../products/api';
 import { TemplatePicker } from '../templates/TemplatePicker';
 import { ParametersFields } from './ParametersFields';
 import { ReferenceStrip } from './ReferenceStrip';
 import { InputSnapshotDialog } from './InputSnapshotDialog';
-import { CanvasSpecs } from './CanvasSpecs';
+import { CanvasComposer } from './CanvasComposer';
 import { VideoFields } from './VideoFields';
 import { ImageProduction } from './ImageProduction';
 import type { ImageExecution } from './useImageExecution';
 import { BoundPhotos } from './BoundPhotos';
 import {
   actionError,
+  addProductPhotoReference,
   checkDraft,
   defaults,
   draftWrite,
@@ -24,10 +24,17 @@ import {
   removeReference,
   saveDraftInputs,
   uploadReference,
-  usageLabel,
 } from './api';
-import type { Draft, DraftEdits, Issue, Reference } from './api';
+import type { Draft, DraftEdits, Issue, Reference, VideoParameters } from './api';
 import './creation.css';
+
+const defaultVideo: VideoParameters = {
+  model: 'seedance-2.0',
+  ratio: '16:9',
+  resolution: '720p',
+  duration: 5,
+  count: 1,
+};
 
 export function CreationEditor({
   draft,
@@ -42,6 +49,7 @@ export function CreationEditor({
   previewUrl,
   onLocateReference,
   imageExecution,
+  canvasReference,
 }: {
   draft: Draft;
   product: Product;
@@ -55,13 +63,17 @@ export function CreationEditor({
   previewUrl?: (reference: Reference) => string | undefined;
   onLocateReference?: (reference: Reference) => void;
   imageExecution?: ImageExecution;
+  canvasReference?: ReactNode;
 }) {
+  const isVideo = draft.purpose === 'video';
+  const savedVideo = isVideo ? (draft.video_parameters ?? defaultVideo) : undefined;
   const values = edits ?? {
     prompt: draft.prompt,
     parameters: draft.parameters ?? defaults,
-    video: draft.video_parameters ?? undefined,
+    video: savedVideo,
   };
-  const { prompt, parameters, video } = values;
+  const { prompt, parameters } = values;
+  const video = values.video ?? savedVideo;
   const text = useRef<HTMLTextAreaElement>(null);
   const [picker, setPicker] = useState<'case' | 'template'>();
   const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof loadSnapshot>>>();
@@ -70,7 +82,6 @@ export function CreationEditor({
   const [notice, setNotice] = useState('');
   const [issues, setIssues] = useState<Issue[]>();
   const dirty = Boolean(edits);
-  const isVideo = draft.purpose === 'video';
   const known = new Set(draft.references.map((ref) => ref.id));
   const dangling = [...prompt.matchAll(/\[\[ref:([^\]\r\n]+)\]\]/g)].some(
     ([, id]) => !known.has(id),
@@ -84,7 +95,7 @@ export function CreationEditor({
     onEdit(
       next.prompt === draft.prompt &&
         JSON.stringify(next.parameters) === JSON.stringify(draft.parameters ?? defaults) &&
-        JSON.stringify(next.video) === JSON.stringify(draft.video_parameters ?? undefined)
+        JSON.stringify(next.video ?? savedVideo) === JSON.stringify(savedVideo)
         ? undefined
         : next,
     );
@@ -106,7 +117,13 @@ export function CreationEditor({
         if (mode === 'save' || mode === 'replace') onEdit(undefined);
         if (mode === 'keep') {
           onEdit(
-            prompt === updated.prompt ? undefined : { ...values, parameters: updated.parameters },
+            prompt === updated.prompt
+              ? undefined
+              : {
+                  prompt,
+                  parameters: updated.parameters ?? defaults,
+                  video: isVideo ? (updated.video_parameters ?? defaultVideo) : undefined,
+                },
           );
         }
         onSaved(updated);
@@ -133,7 +150,13 @@ export function CreationEditor({
       {!inCanvas && '提示词'}
       <textarea
         aria-label="提示词"
-        placeholder={inCanvas ? '描述商品画面，或插入参考素材标签…' : undefined}
+        placeholder={
+          inCanvas
+            ? isVideo
+              ? '描述商品视频的场景、动作和镜头运动…'
+              : '描述你想生成的商品画面，例如背景、光线和构图…'
+            : undefined
+        }
         ref={text}
         rows={5}
         maxLength={6000}
@@ -157,284 +180,251 @@ export function CreationEditor({
     </fieldset>
   );
 
+  const strip = !!draft.references.length && inCanvas && (
+    <ReferenceStrip
+      references={draft.references}
+      busy={busy}
+      video={isVideo}
+      preview={previewUrl}
+      insert={insert}
+      locate={onLocateReference}
+      remove={(ref) => run(() => removeReference(draft, token, ref.id), 'references')}
+      updateUsage={(ref, usage) =>
+        run(
+          () => draftWrite(draft, token, `/references/${ref.id}`, { usage }, 'PATCH'),
+          'references',
+        )
+      }
+    />
+  );
+  function upload(file?: File) {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setError('参考图片不能超过 10 MB。');
+      return;
+    }
+    run(() => uploadReference(draft, token, file), 'references');
+  }
+  const feedback = (
+    <>
+      {dangling && (
+        <p role="alert" className="work-error">
+          提示词含已移除的引用标签。
+        </p>
+      )}
+      {!picker && error && (
+        <p role="alert" className="work-error">
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p role="status" className="work-muted">
+          {notice}
+        </p>
+      )}
+      {issues &&
+        (issues.length ? (
+          <ul className="work-error" aria-label="生成前检查结果">
+            {issues.map((issue) => (
+              <li key={`${issue.field}:${issue.code}`}>{issueText(issue)}</li>
+            ))}
+          </ul>
+        ) : (
+          <p role="status">已保存的草稿通过生成前检查。</p>
+        ))}
+    </>
+  );
+  const legacyBody = !inCanvas && (
+    <div className="creative-body work-form">
+      <div className="creative-product-context">
+        <div className="work-row">
+          <h3>快捷创作</h3>
+          <span className="work-muted">
+            {product.sku} · {isVideo ? '视频' : draft.purpose === 'main' ? '主图' : '详情素材'}
+          </span>
+        </div>
+        {(isVideo || draft.entry === 'canvas' || draft.entry === 'batch') && (
+          <BoundPhotos product={product} />
+        )}
+      </div>
+      {promptField}
+      {outputSettings}
+      <div className="work-actions creative-reference-actions">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            setError('');
+            setPicker('template');
+          }}
+        >
+          {draft.template_version ? `切换模板 · V${draft.template_version}` : '应用模板'}
+        </button>
+        {draft.template_id && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => run(() => draftWrite(draft, token, '/template/clear', {}), 'references')}
+          >
+            取消应用模板
+          </button>
+        )}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            setError('');
+            setPicker('case');
+          }}
+        >
+          添加案例
+        </button>
+        <label className="creative-upload">
+          上传参考图
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            disabled={busy}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              upload(file);
+            }}
+          />
+        </label>
+      </div>
+      {!!draft.references.length && (
+        <DraftReferenceList
+          draft={draft}
+          busy={busy}
+          preview={previewUrl}
+          insert={insert}
+          remove={(ref) => run(() => removeReference(draft, token, ref.id), 'references')}
+          updateUsage={(ref, usage) =>
+            run(
+              () => draftWrite(draft, token, `/references/${ref.id}`, { usage }, 'PATCH'),
+              'references',
+            )
+          }
+        />
+      )}
+      {feedback}
+    </div>
+  );
+  function inspectInputs() {
+    start();
+    void loadSnapshot(draft)
+      .then(setSnapshot)
+      .catch((cause: unknown) => setError(actionError(cause)))
+      .finally(() => setBusy(false));
+  }
+
+  function resetParameters() {
+    edit({
+      ...values,
+      parameters: defaults,
+      video: isVideo ? defaultVideo : undefined,
+    });
+  }
+
+  const saveDraft = (
+    <button
+      type="button"
+      className="work-primary"
+      disabled={busy || !dirty}
+      onClick={() => run(() => saveDraftInputs(draft, token, values), 'save')}
+    >
+      保存草稿
+    </button>
+  );
+  const draftActions = !inCanvas && (
+    <>
+      <button
+        type="button"
+        aria-label="检查已保存草稿"
+        title="检查已保存草稿"
+        disabled={busy || dirty}
+        onClick={() => {
+          start();
+          void checkDraft(draft)
+            .then((result) => setIssues(result.issues))
+            .catch((cause: unknown) => setError(actionError(cause)))
+            .finally(() => setBusy(false));
+        }}
+      >
+        检查已保存草稿
+      </button>
+      {saveDraft}
+    </>
+  );
+
   return (
     <article
       className={`work-form creative-editor${inCanvas ? ' creative-in-canvas' : ' work-card'}`}
       aria-label="创作编辑器"
     >
-      <div className="creative-body work-form">
-        <div className="creative-product-context">
-          <div className="work-row">
-            {!inCanvas && <h3>快捷创作</h3>}
-            <span className="work-muted">
-              {product.sku} · {isVideo ? '视频' : draft.purpose === 'main' ? '主图' : '详情素材'}
-            </span>
-          </div>
-          {(isVideo || inCanvas || draft.entry === 'canvas' || draft.entry === 'batch') && (
-            <BoundPhotos product={product} />
-          )}
-        </div>
-        {!inCanvas && (
-          <>
-            {promptField}
-            {outputSettings}
-          </>
-        )}
-        <div className="work-actions creative-reference-actions">
-          {!isVideo && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setError('');
-                setPicker('template');
-              }}
-            >
-              {draft.template_version ? `切换模板 · V${draft.template_version}` : '应用模板'}
-            </button>
-          )}
-          {draft.template_id && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() =>
-                run(() => draftWrite(draft, token, '/template/clear', {}), 'references')
-              }
-            >
-              取消应用模板
-            </button>
-          )}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setError('');
-              setPicker('case');
-            }}
-          >
-            添加案例
-          </button>
-          <label className="creative-upload">
-            上传参考图
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              disabled={busy}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = '';
-                if (!file) return;
-                if (file.size > 10 * 1024 * 1024) {
-                  setError('参考图片不能超过 10 MB。');
-                  return;
-                }
-                run(() => uploadReference(draft, token, file), 'references');
-              }}
-            />
-          </label>
-        </div>
-        {!!draft.references.length && inCanvas && (
-          <ReferenceStrip
-            references={draft.references}
-            busy={busy}
-            video={isVideo}
-            preview={previewUrl}
-            insert={insert}
-            locate={onLocateReference}
-            remove={(ref) => run(() => removeReference(draft, token, ref.id), 'references')}
-            updateUsage={(ref, usage) =>
-              run(
-                () => draftWrite(draft, token, `/references/${ref.id}`, { usage }, 'PATCH'),
-                'references',
-              )
-            }
-          />
-        )}
-        {!!draft.references.length && !inCanvas && (
-          <ul className="creative-references" aria-label="参考素材">
-            {draft.references.map((ref, index) => {
-              const src =
-                previewUrl?.(ref) ??
-                (ref.kind === 'case' && !inCanvas ? casePreview(ref.source_id) : undefined);
-              return (
-                <li key={ref.id}>
-                  {src && ref.media !== 'video' && <img src={src} loading="lazy" alt="" />}
-                  <span>
-                    参考 {index + 1} · {ref.label}{' '}
-                    <small>
-                      {usageLabel[ref.usage ?? 'expression']} · 文件 V{ref.file_version}
-                    </small>
-                  </span>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => insert(ref)}
-                    aria-label={`插入参考 ${index + 1} 标签`}
-                  >
-                    插入标签
-                  </button>
-                  {ref.origin === 'independent' && (
-                    <>
-                      <select
-                        aria-label={`参考 ${index + 1} 用途`}
-                        value={ref.usage ?? 'expression'}
-                        disabled={busy}
-                        onChange={(event) =>
-                          run(
-                            () =>
-                              draftWrite(
-                                draft,
-                                token,
-                                `/references/${ref.id}`,
-                                { usage: event.target.value },
-                                'PATCH',
-                              ),
-                            'references',
-                          )
-                        }
-                      >
-                        {Object.entries(usageLabel)
-                          .filter(
-                            ([usage]) =>
-                              usage === ref.usage ||
-                              (usage !== 'product' &&
-                                (isVideo || !['first_frame', 'last_frame'].includes(usage))),
-                          )
-                          .map(([usage, label]) => (
-                            <option key={usage} value={usage}>
-                              {label}
-                            </option>
-                          ))}
-                      </select>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() =>
-                          run(() => removeReference(draft, token, ref.id), 'references')
-                        }
-                        aria-label={`移除参考 ${index + 1}`}
-                      >
-                        移除
-                      </button>
-                    </>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {inCanvas && (
-          <>
-            {promptField}
-            <CanvasSpecs parameters={parameters} video={video}>
-              {outputSettings}
-            </CanvasSpecs>
-          </>
-        )}
-        {dangling && (
-          <p role="alert" className="work-error">
-            提示词含已移除的引用标签。
-          </p>
-        )}
-        {!picker && error && (
-          <p role="alert" className="work-error">
-            {error}
-          </p>
-        )}
-        {notice && (
-          <p role="status" className="work-muted">
-            {notice}
-          </p>
-        )}
-        {issues &&
-          (issues.length ? (
-            <ul className="work-error" aria-label="生成前检查结果">
-              {issues.map((issue) => (
-                <li key={`${issue.field}:${issue.code}`}>{issueText(issue)}</li>
-              ))}
-            </ul>
-          ) : (
-            <p role="status">已保存的草稿通过生成前检查。</p>
-          ))}
-      </div>
-      {!isVideo && draft.entry !== 'batch' && (
-        <ImageProduction
-          key={draft.id}
+      {inCanvas ? (
+        <CanvasComposer
           draft={draft}
+          product={product}
           token={token}
-          disabled={busy || dirty || dangling}
+          values={{ ...values, video }}
+          busy={busy}
+          dirty={dirty}
+          dangling={dangling}
+          promptField={promptField}
+          references={strip}
+          canvasReference={canvasReference}
+          settings={outputSettings}
+          feedback={feedback}
+          saveDraft={saveDraft}
           onSaved={onSaved}
           onPrompt={(value) => edit({ ...values, prompt: value })}
-          execution={imageExecution}
-        />
-      )}
-      <footer className="work-actions creative-footer">
-        {inCanvas && (
-          <button
-            type="button"
-            aria-label="核对生成输入"
-            title="核对生成输入"
-            disabled={busy || dirty || dangling}
-            onClick={() => {
-              start();
-              void loadSnapshot(draft)
-                .then(setSnapshot)
-                .catch((cause: unknown) => setError(actionError(cause)))
-                .finally(() => setBusy(false));
-            }}
-          >
-            <FileSearchOutlined />
-          </button>
-        )}
-        {inCanvas && (
-          <button
-            type="button"
-            aria-label="恢复默认参数"
-            title="恢复默认参数"
-            disabled={busy}
-            onClick={() =>
-              edit({
-                ...values,
-                parameters: defaults,
-                video: isVideo
-                  ? {
-                      model: 'seedance-2.0',
-                      ratio: '16:9',
-                      resolution: '720p',
-                      duration: 5,
-                      count: 1,
-                    }
-                  : undefined,
-              })
-            }
-          >
-            <UndoOutlined />
-          </button>
-        )}
-        <button
-          type="button"
-          aria-label="检查已保存草稿"
-          title="检查已保存草稿"
-          disabled={busy || dirty}
-          onClick={() => {
+          onTemplate={() => setPicker('template')}
+          onCase={() => setPicker('case')}
+          onClearTemplate={() =>
+            run(() => draftWrite(draft, token, '/template/clear', {}), 'references')
+          }
+          onUpload={upload}
+          onPickPhoto={(photo) =>
+            run(() => addProductPhotoReference(draft, token, photo), 'references')
+          }
+          onResetParameters={resetParameters}
+          onInspectInputs={inspectInputs}
+          onGenerate={async (submit) => {
             start();
-            void checkDraft(draft)
-              .then((result) => setIssues(result.issues))
-              .catch((cause: unknown) => setError(actionError(cause)))
-              .finally(() => setBusy(false));
+            try {
+              const saved = dirty ? await saveDraftInputs(draft, token, values) : draft;
+              try {
+                await submit(saved);
+              } finally {
+                onSaved(saved);
+                if (dirty) onEdit(undefined);
+              }
+            } catch (cause) {
+              setError(actionError(cause));
+            } finally {
+              setBusy(false);
+            }
           }}
-        >
-          {inCanvas ? <AuditOutlined /> : '检查已保存草稿'}
-        </button>
-        <button
-          type="button"
-          className="work-primary"
-          disabled={busy || !dirty}
-          onClick={() => run(() => saveDraftInputs(draft, token, values), 'save')}
-        >
-          保存草稿
-        </button>
-      </footer>
+        />
+      ) : (
+        <>
+          {legacyBody}
+          {!isVideo && draft.entry !== 'batch' && (
+            <ImageProduction
+              key={draft.id}
+              draft={draft}
+              token={token}
+              disabled={busy || dirty || dangling}
+              onSaved={onSaved}
+              onPrompt={(value) => edit({ ...values, prompt: value })}
+              execution={imageExecution}
+            />
+          )}
+          <footer className="work-actions creative-footer">{draftActions}</footer>
+        </>
+      )}
       {picker === 'case' && (
         <Modal title="添加案例参考" onClose={() => setPicker(undefined)} busy={busy}>
           <CaseBrowser

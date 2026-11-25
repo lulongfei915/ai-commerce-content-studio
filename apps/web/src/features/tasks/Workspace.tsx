@@ -36,7 +36,7 @@ import studioMark from './studio-mark.svg';
 import './workspace.css';
 import { StudioResults } from './StudioResults';
 import { CompanyResults } from './CompanyResults';
-import { navigation } from './navigation';
+import { navigation, isCreationEntry } from './navigation';
 import './home.css';
 import './resources.css';
 
@@ -91,7 +91,7 @@ export function Workspace({
   }, [categoryRetry]);
   useEffect(() => () => taskRequest.current?.abort(), []);
   useEffect(() => {
-    if (!workbench || current) return;
+    if (current || (!isCreationEntry(view) && !['cases', 'reviews', 'assets'].includes(view))) return;
     const request = new AbortController();
     taskRequest.current = request;
     setLoadingTask(true);
@@ -121,7 +121,7 @@ export function Workspace({
         if (!request.signal.aborted) setLoadingTask(false);
       });
     return () => request.abort();
-  }, [workbench, current, homeRetry, session]);
+  }, [view, current, homeRetry, session]);
   useEffect(() => {
     if (!navigationOpen) return;
     if (!mobile) {
@@ -152,7 +152,8 @@ export function Workspace({
     return !creativeDirty || window.confirm('当前创作草稿有未保存的编辑或正在处理。确定离开？');
   }
 
-  function navigate(next: View, position?: string) {
+  const [referenceDraft, setReferenceDraft] = useState<string>();
+  function navigate(next: View, position?: string, draftId?: string) {
     if (view === next) {
       setNavigationOpen(false);
       return;
@@ -169,10 +170,10 @@ export function Workspace({
       rememberEntry(session, next);
     }
     setQuickPosition(next === 'quick' ? position : undefined);
+    setReferenceDraft(draftId);
     setView(next);
     setNavigationOpen(false);
   }
-
   function openTask(id: string, destination: View = entry) {
     if (!canLeave()) return;
     taskRequest.current?.abort();
@@ -398,6 +399,8 @@ export function Workspace({
             onTasks={() => navigate('tasks')}
             onSelectTask={(id) => openTask(id, 'assets')}
             onCreatePosition={(position) => navigate('quick', position)}
+            onTaskChange={setCurrent}
+            onReferenced={draft => navigate(draft.entry ?? 'quick', undefined, draft.id)}
           />
         )}
         {view === 'cases' && (
@@ -421,6 +424,7 @@ export function Workspace({
             categories={categories}
             session={session}
             initialPosition={quickPosition}
+            initialDraft={referenceDraft}
             onDirty={setCreativeDirty}
             onProductSaved={(product) => {
               setCurrent((task) =>
@@ -493,8 +497,4 @@ export function Workspace({
       </div>
     </section>
   );
-}
-
-function isCreationEntry(view: View): view is CreationEntry {
-  return view === 'quick' || view === 'canvas' || view === 'batch';
 }

@@ -11,6 +11,7 @@ import { photoPreviewUrl } from '../products/preview';
 import { purposeLabel } from '../tasks/api';
 import type { PanelState } from './CanvasBoard';
 import { CanvasPanel } from './CanvasPanel';
+import { CanvasReferencePicker } from './CanvasReferencePicker';
 import type { CanvasProps } from './CanvasPage';
 import { nodePreview } from './api';
 import type { Canvas } from './api';
@@ -326,6 +327,15 @@ export function CanvasPanelContent({
         <CreationEditor
           key={draft.id}
           inCanvas
+          canvasReference={
+            <CanvasReferencePicker
+              canvas={canvas}
+              draft={draft}
+              token={token}
+              busy={busy}
+              onSaved={onRefresh}
+            />
+          }
           draft={draft}
           product={product}
           categories={categories}

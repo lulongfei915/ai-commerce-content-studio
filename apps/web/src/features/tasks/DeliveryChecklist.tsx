@@ -4,7 +4,7 @@ import { apiWrite } from '../../shared/api/client';
 import { Modal } from '../../shared/ui/Modal';
 import { actionError } from '../creation/api';
 import { resultPreview, type TaskResult } from '../creation/results';
-import { purposeLabel, type Task } from './api';
+import { purposeLabel, purposes, type Task } from './api';
 import './delivery-checklist.css';
 
 type Position = Task['positions'][number];
@@ -27,7 +27,7 @@ export function DeliveryChecklist({
   canAdopt: boolean;
   canDownload: boolean;
   token: string;
-  onOpen: (item: TaskResult) => void;
+  onOpen: (item: TaskResult, positionId: string) => void;
   onCreate?: (position: string) => void;
   onRefresh: () => void;
 }) {
@@ -78,7 +78,9 @@ export function DeliveryChecklist({
         </div>
       )}
       {task?.products.map((product) => {
-        const own = positions.filter((p) => p.product_id === product.id);
+        const own = positions
+          .filter((p) => p.product_id === product.id)
+          .sort((a, b) => purposes.indexOf(a.purpose) - purposes.indexOf(b.purpose));
         const visible = own.filter((p) => !missing || !adopted(p));
         if (!visible.length) return null;
         return (
@@ -96,7 +98,10 @@ export function DeliveryChecklist({
               {visible.map((p) => {
                 const selected = adopted(p);
                 const matching = items.filter(
-                  (i) => i.product_id === p.product_id && i.purpose === p.purpose,
+                  (i) =>
+                    i.product_id === p.product_id &&
+                    i.purpose === p.purpose &&
+                    (!i.matching_positions || i.matching_positions.includes(p.id)),
                 );
                 const available = matching.filter(
                   (i) =>
@@ -137,22 +142,33 @@ export function DeliveryChecklist({
                 return (
                   <article className="delivery-position" key={p.id}>
                     <div className="delivery-position-title">
-                      <h4>{p.purpose === 'main' ? '商品主图' : purposeLabel[p.purpose]}</h4>
+                      <h4>
+                        {p.module || (p.purpose === 'main' ? '商品主图' : purposeLabel[p.purpose])}
+                      </h4>
                       <span
                         className="delivery-badge"
                         data-state={
                           selected
                             ? 'ready'
-                            : issue && !available.length
-                              ? 'issue'
-                              : available.length
-                                ? 'waiting'
-                                : 'empty'
+                            : pending || available.length
+                              ? 'waiting'
+                              : issue
+                                ? 'issue'
+                                : available.length
+                                  ? 'waiting'
+                                  : 'empty'
                         }
                       >
                         {badge}
                       </span>
                     </div>
+                    <small className="delivery-spec">
+                      {p.ratio
+                        ? [p.ratio, p.resolution, p.duration && `${p.duration}s`]
+                            .filter(Boolean)
+                            .join(' · ')
+                        : '规格未指定'}
+                    </small>
                     {selected ? (
                       <>
                         <div className="delivery-picked">
@@ -173,7 +189,7 @@ export function DeliveryChecklist({
                           </div>
                         </div>
                         <div className="delivery-position-actions">
-                          <button onClick={() => onOpen(selected)}>查看版本</button>
+                          <button onClick={() => onOpen(selected, p.id)}>查看版本</button>
                           {canAdopt && available.length > 1 && (
                             <button onClick={() => choose(p, available, selected)}>更换版本</button>
                           )}
@@ -193,7 +209,7 @@ export function DeliveryChecklist({
                               选择交付版本 <ArrowRightOutlined aria-hidden="true" />
                             </button>
                           ) : issue ? (
-                            <button onClick={() => onOpen(issue)}>
+                            <button onClick={() => onOpen(issue, p.id)}>
                               {pending ? '前往审核' : '查看问题'}{' '}
                               <ArrowRightOutlined aria-hidden="true" />
                             </button>

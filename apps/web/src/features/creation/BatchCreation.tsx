@@ -17,18 +17,20 @@ export function BatchCreation({
   session,
   categories,
   onDirty,
+  initialDraft,
 }: {
   task: Task;
   session: Session;
   categories: Category[];
   onDirty: (dirty: boolean) => void;
+  initialDraft?: string;
 }) {
   const [items, setItems] = useState<Draft[]>();
   const [positionId, setPositionId] = useState('');
-  const [selection, setSelection] = useState('');
+  const [selection, setSelection] = useState(initialDraft ?? '');
   const [edits, setEdits] = useState<DraftEdits>();
   const [busy, setBusy] = useState(false);
-  const [panel, setPanel] = useState<'edit' | 'reuse' | 'results' | 'reference'>();
+  const [panel, setPanel] = useState<'edit' | 'reuse' | 'results' | 'reference' | undefined>(initialDraft ? 'edit' : undefined);
   const [error, setError] = useState('');
   const [referenceError, setReferenceError] = useState('');
   const [retry, setRetry] = useState(0);

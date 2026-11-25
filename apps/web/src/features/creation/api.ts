@@ -1,6 +1,7 @@
 import { ApiError, apiFetch, apiPrefix, apiWrite } from '../../shared/api/client';
 import { uploadMedia } from '../../shared/api/upload';
 import type { components } from '../../shared/api/generated';
+import type { Product } from '../products/api';
 
 type Schema = components['schemas'];
 export type Draft = Schema['CreationView'];
@@ -93,6 +94,18 @@ export function removeReference(draft: Draft, token: string, id: string) {
     'DELETE',
   );
 }
+export function addProductPhotoReference(
+  draft: Draft,
+  token: string,
+  photo: Product['photos'][number],
+) {
+  return draftWrite(draft, token, '/references', {
+    kind: 'upload',
+    usage: 'product',
+    source_id: photo.file_id,
+    file_version: photo.version,
+  });
+}
 export function referencePreview(draft: Draft, ref: Reference) {
   return `${apiPrefix}/creations/${encodeURIComponent(draft.id)}/references/${encodeURIComponent(ref.id)}/preview`;
 }
@@ -108,8 +121,19 @@ export function loadSnapshot(draft: Draft) {
 }
 
 const messages: Record<string, string> = {
+  last_admin: '公司须保留一名有效管理员。',
+  invalid_successor: '请选择本公司有效的管理员或设计师接手。',
+  invalid_delivery_requirement: '请核对商品、模块名称和规格。',
   budget_not_configured: 'Studio 尚未配置调用额度，请联系管理员。',
   budget_unavailable: 'Studio 可用调用额度不足，请联系管理员。',
+  video_provider_not_configured: '尚未配置 Seedance API Key，请联系管理员。',
+  video_budget_not_configured: '尚未配置视频生成额度，请联系管理员。',
+  video_budget_unavailable: '可用视频生成额度不足，请联系管理员。',
+  video_execution_in_progress: '此草稿已有视频正在生成。',
+  video_frame_combination_unsupported:
+    '可单独指定首帧，或同时指定首尾帧。指定首尾帧时请移除其他参考素材。',
+  video_reference_limit: '参考素材最多支持 9 张图片及 3 条视频。',
+  video_reference_storage_not_configured: '参考视频需要方舟可访问的 HTTPS 素材地址，请联系管理员。',
   review_unavailable: '该版本已处理或未就绪，无法审核。',
   source_review_required: '商品来源已变化，请重新核对。',
   reason_required: '请填写驳回原因。',

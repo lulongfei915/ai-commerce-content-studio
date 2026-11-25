@@ -20,7 +20,7 @@ from app.modules.reviews.routes import list_versions, version_for
 from app.modules.tasks.models import DeliveryPosition
 
 from .models import Adoption
-from .service import lock_adoption
+from .service import lock_adoption, matches_spec
 
 router = APIRouter(tags=["公司资产与交付"])
 
@@ -38,7 +38,23 @@ def assets(
     task_id: str | None = None,
 ) -> list[TaskResult]:
     require_permission(identity, Permission.VIEW)
-    return list_versions(db, identity.tenant.id, status, product_id, task_id)
+    items = list_versions(db, identity.tenant.id, status, product_id, task_id)
+    if task_id:
+        positions = db.scalars(
+            select(DeliveryPosition).where(
+                DeliveryPosition.task_id == task_id,
+                DeliveryPosition.tenant_id == identity.tenant.id,
+            )
+        ).all()
+        for item in items:
+            item.matching_positions = [
+                p.id
+                for p in positions
+                if p.purpose == item.purpose
+                and p.product_id == item.product_id
+                and matches_spec(p, item)
+            ]
+    return items
 
 
 @router.get("/assets/{identifier}")
@@ -67,6 +83,7 @@ def deliverable(db: Database, pos: DeliveryPosition, identifier: str) -> Private
         or file.tenant_id != pos.tenant_id
         or out.status != "approved"
         or not file_ready(file, out.file_version)
+        or not matches_spec(pos, file)
         or draft.product_id != pos.product_id
         or draft.purpose != pos.purpose
     ):

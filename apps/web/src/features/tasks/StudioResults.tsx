@@ -91,6 +91,7 @@ export function StudioResults({
   refresh,
   imageExecution,
   submittingCount = 0,
+  submittingMedia = 'image',
   imageControlsDisabled = false,
 }: {
   results: TaskResult[];
@@ -103,6 +104,7 @@ export function StudioResults({
   refresh?: () => void;
   imageExecution?: ImageExecution;
   submittingCount?: number;
+  submittingMedia?: 'image' | 'video';
   imageControlsDisabled?: boolean;
 }) {
   const [media, setMedia] = useState('all');
@@ -110,8 +112,9 @@ export function StudioResults({
   const [preview, setPreview] = useState<Artwork[]>([]);
   const [filter, setFilter] = useState(false);
   useEffect(() => {
-    if (submittingCount) setMedia((current) => (current === 'video' ? 'image' : current));
-  }, [submittingCount]);
+    if (submittingCount)
+      setMedia((current) => (current === 'all' ? current : submittingMedia));
+  }, [submittingCount, submittingMedia]);
   const gallery: Artwork[] = taskId
     ? results.map((result) => ({
         id: result.version_id,
@@ -134,23 +137,25 @@ export function StudioResults({
     ...Array.from({ length: submittingCount }, (_, index) => ({
       id: `submitting:${index}`,
       index,
+      media: submittingMedia,
     })),
     ...Object.entries(imageExecution?.jobs ?? {}).flatMap(([owner, job]) =>
-      job.outputs.map((output, index) => ({ id: output.id, index, work: { owner, job, output } })),
+      job.outputs.map((output, index) => ({
+        id: output.id, index, media: job.media ?? 'image', work: { owner, job, output },
+      })),
     ),
   ];
   const galleryIds = new Set(gallery.map((item) => item.id));
   const remaining = new Map(visible.map((item) => [item.id, item]));
   const cards: { id: string; item?: Artwork; slot?: ImageSlot }[] = [];
-  if (media !== 'video') {
-    for (const slot of slots) {
-      const item = remaining.get(slot.id);
-      if (item) {
-        cards.push({ id: slot.id, item });
-        remaining.delete(slot.id);
-      } else if (!galleryIds.has(slot.id)) {
-        cards.push({ id: slot.id, slot });
-      }
+  for (const slot of slots) {
+    if (media !== 'all' && media !== slot.media) continue;
+    const item = remaining.get(slot.id);
+    if (item) {
+      cards.push({ id: slot.id, item });
+      remaining.delete(slot.id);
+    } else if (!galleryIds.has(slot.id)) {
+      cards.push({ id: slot.id, slot });
     }
   }
   for (const item of remaining.values()) cards.push({ id: item.id, item });
@@ -223,7 +228,8 @@ export function StudioResults({
                   <Preview item={item} />
                 </button>
                 <span className="studio-type">
-                  <PictureOutlined /> {item.type}
+                  {item.media === 'video' ? <VideoCameraOutlined /> : <PictureOutlined />}{' '}
+                  {item.type}
                 </span>
                 <button
                   className="studio-check"

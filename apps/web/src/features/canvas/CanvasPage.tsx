@@ -56,13 +56,22 @@ export function CanvasPage(props: CanvasProps) {
 
   useEffect(() => {
     const controller = new AbortController();
-    void load(controller.signal).catch((cause: unknown) => {
-      if (!controller.signal.aborted) setError(actionError(cause));
-    });
-    return () => controller.abort();
-  }, [retry, load]);
+    const refresh = () =>
+      void load(controller.signal).catch((cause: unknown) => {
+        if (!controller.signal.aborted) setError(actionError(cause));
+      });
+    const resultsChanged = (event: Event) => {
+      if ((event as CustomEvent).detail === task.id) refresh();
+    };
+    refresh();
+    window.addEventListener('studio-results', resultsChanged);
+    return () => {
+      window.removeEventListener('studio-results', resultsChanged);
+      controller.abort();
+    };
+  }, [retry, load, task.id]);
   const running = canvas?.nodes.some((node) =>
-    ['queued', 'running', 'saving'].includes(node.status),
+    ['queued', 'running', 'generating', 'saving'].includes(node.status),
   );
   useEffect(() => {
     if (!running) return;

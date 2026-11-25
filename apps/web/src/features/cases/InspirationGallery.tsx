@@ -1,5 +1,11 @@
-import { useCallback, useState } from 'react';
-import { LockOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  CheckOutlined,
+  LockOutlined,
+  PlusOutlined,
+  SearchOutlined,
+  VideoCameraOutlined,
+} from '@ant-design/icons';
 import { Modal } from '../../shared/ui/Modal';
 import { useSearchPage } from '../../shared/ui/useSearchPage';
 import { ReferenceTarget } from '../creation/ReferenceTarget';
@@ -7,6 +13,7 @@ import type { Task } from '../tasks/api';
 import type { Category } from '../products/api';
 import { casePreview, listCases, type CreativeCase } from './api';
 import { examples } from './examples';
+import { listDrafts, type Draft } from '../creation/api';
 
 type Card = {
   name: string;
@@ -40,6 +47,30 @@ export function InspirationGallery({
   const [preview, setPreview] = useState<Card>();
   const [reference, setReference] = useState<CreativeCase>();
   const [message, setMessage] = useState('');
+  const [drafts, setDrafts] = useState<Draft[]>();
+  const [draftError, setDraftError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const taskId = current?.id;
+  useEffect(() => {
+    const ctl = new AbortController();
+    setDrafts(undefined);
+    setMessage('');
+    setReference(undefined);
+    setDraftError(false);
+    if (taskId && canCreate)
+      void Promise.all(
+        (['quick', 'canvas', 'batch'] as const).map((entry) =>
+          listDrafts(taskId, ctl.signal, entry),
+        ),
+      )
+        .then((groups) => {
+          if (!ctl.signal.aborted) setDrafts(groups.flat());
+        })
+        .catch(() => {
+          if (!ctl.signal.aborted) setDraftError(true);
+        });
+    return () => ctl.abort();
+  }, [taskId, canCreate, retry]);
   const load = useCallback(
     (q: string, cursor: string | null, signal: AbortSignal) =>
       listCases(q, cursor, signal, category, media),
@@ -73,6 +104,39 @@ export function InspirationGallery({
     ) : (
       <img src={c.url} alt={c.name} loading="lazy" />
     );
+  function referenceButton(c: Card) {
+    const allowed = !!c.item?.usage_scope;
+    const added =
+      !!c.item &&
+      drafts?.some((d) =>
+        d.references.some((r) => r.kind === 'case' && r.source_id === c.item?.id),
+      );
+    return (
+      <button
+        disabled={!allowed || !canCreate || !current || !drafts}
+        aria-pressed={allowed ? !!added : undefined}
+        title={!allowed ? '仅供浏览，使用授权待确认' : !current ? '请先选择制作任务' : undefined}
+        onClick={() => {
+          setPreview(undefined);
+          setReference(c.item);
+        }}
+      >
+        {!allowed ? (
+          <>
+            <LockOutlined aria-hidden="true" /> 暂不可引用
+          </>
+        ) : added ? (
+          <>
+            <CheckOutlined aria-hidden="true" /> 已添加
+          </>
+        ) : (
+          <>
+            <PlusOutlined aria-hidden="true" /> 添加参考
+          </>
+        )}
+      </button>
+    );
+  }
   return (
     <section aria-label="案例列表" className="resource-section">
       <div className="resource-toolbar">
@@ -124,6 +188,11 @@ export function InspirationGallery({
         </small>
       </div>
       {message && <p role="status">{message}</p>}
+      {draftError && (
+        <p role="alert">
+          目标草稿未加载。<button onClick={() => setRetry((n) => n + 1)}>重新读取草稿</button>
+        </p>
+      )}
       {page.error && (
         <p role="alert">
           公司案例未加载。 <button onClick={page.reload}>重试</button>
@@ -142,6 +211,11 @@ export function InspirationGallery({
               onClick={() => setPreview(c)}
             >
               {mediaView(c)}
+              {!c.item && c.media === 'video' && (
+                <span className="case-storyboard">
+                  <VideoCameraOutlined /> 视频分镜
+                </span>
+              )}
             </button>
             <div className="resource-copy">
               <h3>{c.name}</h3>
@@ -150,25 +224,11 @@ export function InspirationGallery({
                 <small>
                   {categories.find((x) => x.id === c.category)?.label ?? c.category} ·{' '}
                   {c.item ? '公司案例' : c.media === 'video' ? '示例分镜' : '示例'}
+                  {!c.item?.usage_scope && (
+                    <span className="case-license-note">仅供浏览 · 授权待确认</span>
+                  )}
                 </small>
-                {c.item ? (
-                  <button
-                    disabled={!c.item.usage_scope || !canCreate || !current}
-                    onClick={() => setReference(c.item)}
-                  >
-                    {c.item.usage_scope ? (
-                      <>
-                        <PlusOutlined aria-hidden="true" /> 添加参考
-                      </>
-                    ) : (
-                      <>
-                        <LockOutlined aria-hidden="true" /> 暂不可引用
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  <button onClick={() => setPreview(c)}>查看构图</button>
-                )}
+                {referenceButton(c)}
               </footer>
             </div>
           </article>
@@ -183,10 +243,18 @@ export function InspirationGallery({
           <div className="resource-preview">
             {mediaView(preview, true)}
             <p>{preview.features}</p>
+            {!preview.item && preview.media === 'video' && (
+              <ol>
+                <li>0–4 秒 · 全貌定场</li>
+                <li>4–8 秒 · 过渡细节</li>
+                <li>8–12 秒 · 回到全貌</li>
+              </ol>
+            )}
             <p>
               {preview.item?.usage_scope ??
                 (preview.item ? '仅浏览 · 授权待确认' : '构图示例 · 仅供浏览')}
             </p>
+            {referenceButton(preview)}
             {preview.item && onEdit && (
               <button
                 onClick={() => {
@@ -205,10 +273,12 @@ export function InspirationGallery({
           source={reference}
           task={current}
           token={token}
+          existingDrafts={drafts}
           onClose={() => setReference(undefined)}
-          onSaved={() => {
+          onSaved={(updated, removed) => {
+            setDrafts((previous) => previous?.map((d) => (d.id === updated.id ? updated : d)));
             setReference(undefined);
-            setMessage('已添加至目标草稿');
+            setMessage(removed ? '已从目标草稿移除' : '已添加至目标草稿');
           }}
         />
       )}

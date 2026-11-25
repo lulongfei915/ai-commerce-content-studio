@@ -16,6 +16,7 @@ from app.modules.identity.security import (
     WriteIdentity,
     require_permission,
 )
+from app.modules.identity.team import record
 from app.modules.products.service import get_fact
 from app.modules.tasks.service import get_task
 from app.modules.templates.schemas import VersionInput
@@ -29,7 +30,7 @@ from .capabilities import (
     image_models,
     validate_parameters,
 )
-from .models import Creation
+from .models import Creation, CreationOutput
 from .references import resolve_reference
 from .schemas import (
     ApplyTemplate,
@@ -49,11 +50,11 @@ from .service import (
     apply_template,
     build_input_snapshot,
     get_creation,
-    is_quick_image,
     member_product,
     readiness,
     reuse_configuration,
     save,
+    uses_explicit_image_references,
     view,
 )
 
@@ -124,7 +125,8 @@ def create_creation(
         if data.video_parameters is not None:
             reject("video_parameters", "parameters_media_mismatch")
         photo_count = (
-            0 if is_quick_image(data.entry, data.purpose)
+            0
+            if uses_explicit_image_references(data.entry, data.purpose)
             else len(get_fact(db, product, product.fact_version).photos)
         )
         validate_parameters(data.parameters, photo_count)
@@ -242,7 +244,20 @@ def add_creation_reference(
         reject(field, "reference_version_invalid")
     if any(ref.file_id == reference.file_id for ref in draft.references):
         reject(field, "reference_duplicate")
-    return save(db, item, product, [*draft.references, reference], draft.parameters)
+    refs = draft.references
+    if data.company_library and item.entry == "batch" and data.kind == "result":
+        if db.scalar(
+            select(CreationOutput.id).where(CreationOutput.creation_id == item.id).limit(1)
+        ):
+            raise HTTPException(409, "batch_item_submitted")
+        replaced = [r for r in refs if r.origin == "independent" and r.usage == "expression"]
+        for old in replaced:
+            item.prompt = item.prompt.replace(f"[[ref:{old.id}]]", f"[[ref:{reference.id}]]")
+        refs = [r for r in refs if r not in replaced]
+    if data.kind == "result":
+        detail = f"{product.sku} · {reference.label} · V{reference.source_version}"
+        record(db, identity, "引用公司素材", detail)
+    return save(db, item, product, [*refs, reference], draft.parameters)
 
 
 @router.get(
@@ -264,7 +279,9 @@ def preview_creation_reference(
     product = member_product(db, item.tenant_id, item.task_id, item.product_id)
     resolved = resolve_reference(db, product, ref, "references", item.purpose, draft=item)
     if (resolved.file_id, resolved.file_version, resolved.source_version) != (
-        ref.file_id, ref.file_version, ref.source_version,
+        ref.file_id,
+        ref.file_version,
+        ref.source_version,
     ):
         reject("references", "reference_version_invalid")
     key = ready_file(db, item.tenant_id, resolved.file_id, "references").object_key

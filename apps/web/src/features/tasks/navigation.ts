@@ -13,3 +13,7 @@ export const navigation = [
   { view: 'assets', label: '资产与交付', Icon: CodeSandboxOutlined },
   { view: 'templates', label: '公司管理', Icon: SlidersOutlined },
 ] as const;
+
+export function isCreationEntry(view: string): view is 'quick' | 'canvas' | 'batch' {
+  return view === 'quick' || view === 'canvas' || view === 'batch';
+}

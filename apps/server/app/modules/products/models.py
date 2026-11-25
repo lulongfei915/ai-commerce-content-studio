@@ -31,6 +31,7 @@ class Product(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     tenant_id: Mapped[str] = mapped_column(String(36))
     created_by: Mapped[str] = mapped_column(String(36))
+    owner_id: Mapped[str | None] = mapped_column(String(36))
     sku: Mapped[str] = mapped_column(String(80))
     name: Mapped[str] = mapped_column(String(160))
     category: Mapped[Category] = mapped_column(String(40))

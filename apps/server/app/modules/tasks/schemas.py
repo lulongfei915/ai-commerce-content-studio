@@ -28,6 +28,10 @@ class PositionResponse(BaseModel):
     product_id: str
     purpose: Purpose
     status: str
+    module: str | None = None
+    ratio: str | None = None
+    resolution: str | None = None
+    duration: int | None = None
 
 
 class TaskSummary(BaseModel):

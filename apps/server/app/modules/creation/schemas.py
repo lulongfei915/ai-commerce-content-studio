@@ -5,19 +5,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.modules.cases.schemas import UsagePurpose
 from app.modules.products.schemas import ProductPhoto, ResourceId, WriteSchema
 from app.modules.templates.schemas import VersionInput
+from app.modules.templates.schemas import VideoParameters as VideoParameters
 from app.shared.studio_errors import FieldIssue
 
 from .capabilities import ImageModelOption, ImageParameters, SizeOption
 
 CreationEntry = Literal["quick", "canvas", "batch"]
-
-
-class VideoParameters(WriteSchema):
-    model: Literal["seedance-2.0"] = "seedance-2.0"
-    ratio: Literal["16:9", "9:16", "1:1"] = "16:9"
-    resolution: Literal["720p"] = "720p"
-    duration: Literal[5, 10] = 5
-    count: Literal[1] = 1
 
 
 class CreationCreate(WriteSchema):
@@ -63,6 +56,7 @@ class ReferenceInput(WriteSchema):
 
 
 class ReferenceCreate(ReferenceInput, VersionInput):
+    company_library: bool = False
     file_version: int | None = Field(default=None, ge=1)
     source_version: int | None = Field(default=None, ge=1)
 

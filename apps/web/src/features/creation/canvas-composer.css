@@ -1,0 +1,284 @@
+.canvas-stage[data-editing-media] .canvas-focused .canvas-node-creation {
+  position: relative;
+  display: block;
+  outline: 0;
+  background: #212123;
+  border: 1px solid #78787b;
+  border-radius: 5px;
+  box-shadow: none;
+}
+.canvas-stage[data-editing-media] .canvas-focused .canvas-node-heading {
+  position: absolute;
+  bottom: calc(100% + 3px);
+  padding: 0;
+  font-size: 10px;
+  color: #bcbcc1;
+}
+.canvas-stage[data-editing-media] .canvas-focused .canvas-node-heading b {
+  font-weight: 500;
+}
+.canvas-stage[data-editing-media] .canvas-focused .canvas-node-media {
+  height: auto;
+  aspect-ratio: 16/9;
+  border-radius: 4px;
+  background: #212123;
+}
+.canvas-stage[data-editing-media='video'] .canvas-focused .canvas-node-media {
+  aspect-ratio: 4/3;
+}
+.canvas-stage[data-editing-media] .canvas-focused .canvas-media-symbol {
+  color: #606064;
+  font-size: 21px;
+}
+.canvas-stage[data-editing-media] .canvas-focused .canvas-node-meta {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 3px 6px;
+  color: #a1a1a8;
+  background: transparent;
+  font-size: 7px;
+}
+.canvas-stage[data-editing-media] .canvas-focused .react-flow__handle {
+  width: 7px;
+  height: 7px;
+  border: 1px solid #66666a;
+  background: #313134;
+}
+.canvas-stage[data-editing-media] .canvas-focused .react-flow__handle:not(.connectable) {
+  opacity: 0.55;
+}
+.workspace .canvas-composer-panel {
+  --editor-paper: #232325;
+  --editor-line: #39393c;
+  --editor-ink: #eaeaec;
+  max-height: calc(100% - var(--panel-top) - 58px);
+  border: 0;
+  border-radius: 8px;
+  background: var(--editor-paper);
+  color: var(--editor-ink);
+  box-shadow: 0 8px 26px #0003;
+  display: flex;
+  flex-direction: column;
+}
+.canvas-composer-panel .canvas-panel-header {
+  position: absolute;
+  right: 1px;
+  bottom: calc(100% + 3px);
+  padding: 0;
+}
+.canvas-composer-panel .canvas-panel-header h3 {
+  position: absolute;
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.workspace .canvas-composer-panel .canvas-panel-header button {
+  width: 25px;
+  min-height: 25px;
+  color: #aaa9af;
+  background: #252527;
+  border-radius: 50%;
+}
+.canvas-composer-panel .canvas-panel-content,
+.canvas-composer-panel .creative-in-canvas {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.canvas-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.canvas-composer button,
+.canvas-composer .anticon {
+  flex-shrink: 0;
+}
+.composer-writing-surface {
+  display: flex;
+  flex-flow: column;
+  gap: 7px;
+  padding: 10px 12px 8px;
+  background: var(--editor-paper);
+  border: 1px solid var(--editor-line);
+  border-radius: 8px;
+  min-width: 0;
+}
+.composer-writing-surface:focus-within {
+  border-color: #59595d;
+}
+.composer-prompt-actions,
+.composer-bar,
+.composer-submit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+.workspace .composer-prompt-actions button,
+.workspace .composer-spec-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 29px;
+  padding: 3px 7px;
+  background: #303033;
+  color: #c5c5cb;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.composer-source-tools {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-inline-start: 3px;
+  padding-inline-start: 7px;
+  border-inline-start: 1px solid var(--editor-line);
+}
+.workspace .composer-source-tools button {
+  width: 30px;
+  min-height: 30px;
+  padding: 0;
+  background: transparent;
+  font-size: 16px;
+}
+.composer-source-tools button img {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+.workspace .composer-writing-surface button:not(:disabled):hover {
+  background: #39393d;
+  color: white;
+}
+.workspace .canvas-panel.canvas-composer-panel .creative-prompt textarea {
+  display: block;
+  min-height: 0;
+  height: 82px;
+  resize: none;
+  padding: 5px 2px;
+  color: var(--editor-ink);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.55;
+  outline: none;
+  overscroll-behavior: contain;
+}
+.workspace .canvas-composer-panel .creative-prompt textarea::placeholder {
+  color: #909096;
+}
+.workspace .composer-spec-trigger {
+  gap: 9px;
+  padding-left: 0;
+  color: #dfdfe2;
+  background: transparent;
+  flex-shrink: 1;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+.composer-spec-trigger span {
+  white-space: nowrap;
+}
+.composer-spec-size {
+  padding-left: 9px;
+  border-left: 1px solid #4b4b50;
+  color: #b9b9bf;
+}
+.composer-submit-actions {
+  margin-inline-start: auto;
+  flex-wrap: nowrap;
+}
+.workspace .composer-submit-actions .work-primary {
+  min-height: 33px;
+  padding: 5px 9px;
+  background: transparent;
+  color: #c5c5cb;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.workspace .composer-bar .image-generate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 86px;
+  min-height: 33px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--canvas-accent);
+  color: #21291b;
+  font-size: 13px;
+  font-weight: 650;
+}
+.workspace .composer-bar .image-generate:enabled:hover {
+  background: #d5f6a9;
+  color: #182111;
+}
+.workspace .composer-bar .image-generate:disabled {
+  opacity: 1;
+  background: #555559;
+  color: #dadade;
+}
+.composer-feedback:empty {
+  display: none;
+}
+.composer-feedback {
+  max-height: 80px;
+  overflow: auto;
+  font-size: 12px;
+}
+.composer-feedback :is(p, ul) {
+  margin: 0;
+}
+.composer-bound-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+}
+.composer-bound-photos figure {
+  margin: 0;
+}
+.studio-dialog .canvas-photo-picker button[aria-pressed='true'] {
+  border-color: var(--work-focus);
+}
+.composer-bound-photos img {
+  width: 100%;
+  height: 140px;
+  object-fit: contain;
+  background: #1e1e20;
+}
+.workspace .canvas-composer .canvas-reference-strip {
+  max-width: 100%;
+  overflow-x: auto;
+}
+@media (max-width: 700px) {
+  .workspace .canvas-composer-panel {
+    top: auto;
+    bottom: 58px;
+    left: 6px;
+    width: calc(100% - 12px);
+    max-height: calc(100% - 156px);
+  }
+  .composer-source-tools {
+    margin-inline-start: 0;
+    padding-inline-start: 0;
+    border-inline-start: 0;
+  }
+  .composer-writing-surface {
+    padding-inline: 8px;
+  }
+  .workspace .composer-spec-trigger {
+    width: 100%;
+  }
+}

@@ -1,0 +1,78 @@
+.studio-dialog.requirements-dialog > header {
+  flex: none;
+}
+.requirements-dialog > header h2 {
+  font-size: 19px;
+}
+.studio-dialog.requirements-confirm {
+  width: min(550px, calc(100% - 32px));
+}
+.studio-dialog .requirement-row {
+  display: block;
+  margin: 0 0 16px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #dfe5d7;
+  border-radius: 12px;
+  background: #fcfdf9;
+}
+.requirement-heading,
+.requirement-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.requirement-heading {
+  justify-content: space-between;
+  margin-bottom: 22px;
+  font-size: 12px;
+}
+.studio-dialog .requirement-heading button {
+  border: 0;
+  padding: 0;
+  min-height: 28px;
+  background: transparent;
+  color: #527341;
+  font-size: 12px;
+}
+.requirement-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.studio-dialog .requirement-fields label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  color: #626f58;
+  font-size: 11px;
+}
+.studio-dialog .requirement-fields :is(select, input) {
+  min-width: 0;
+  width: 100%;
+  height: 40px;
+  padding: 0 11px;
+  font-size: 12px;
+  background: white;
+}
+.requirements-body {
+  overscroll-behavior: contain;
+}
+.requirement-add {
+  flex-wrap: wrap;
+}
+.requirements-error {
+  margin: 0;
+  padding: 6px 25px;
+  color: #943f34;
+  font-size: 12px;
+}
+@media (max-width: 600px) {
+  .studio-dialog .requirement-row {
+    padding: 14px;
+  }
+  .requirement-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+}

@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -11,7 +12,8 @@ from ..module03.test_production_setup import API, create_product
 from ..module05.test_canvas import create_draft, setup_task
 
 
-def test_quick_image_without_product_inputs_reaches_provider_as_text(client, db, monkeypatch):
+@pytest.mark.parametrize("entry", ["quick", "canvas"])
+def test_image_without_product_inputs_reaches_provider_as_text(client, db, monkeypatch, entry):
     headers, _, _, _ = setup_task(client, db)
     product = create_product(client, headers["X-CSRF-Token"], "TEXT-ONLY")
     response = client.post(
@@ -22,7 +24,7 @@ def test_quick_image_without_product_inputs_reaches_provider_as_text(client, db,
     assert response.status_code == 201, response.text
     task = response.json()
     prompt = "生成一只猫"
-    draft = create_draft(client, headers, task, product, entry="quick", prompt=prompt)
+    draft = create_draft(client, headers, task, product, entry=entry, prompt=prompt)
     path = f"{API}/creations/{draft['id']}"
     assert client.get(path + "/readiness").json() == {"issues": []}
     assert client.get(path + "/input-snapshot").json()["product_photos"] == []
@@ -52,19 +54,10 @@ def test_quick_image_without_product_inputs_reaches_provider_as_text(client, db,
     assert requests[0]["prompt"] == prompt
     assert "image" not in requests[0]
 
-    canvas = create_draft(client, headers, task, product, prompt=prompt)
-    rejected = client.post(
-        f"{API}/creations/{canvas['id']}/executions",
-        headers=headers,
-        json={"expected_version": 1, "idempotency_key": "canvas"},
-    )
-    assert rejected.status_code == 422
-    assert rejected.json()["detail"]["code"] == "product_inputs_incomplete"
-
-
-def test_quick_image_sends_only_explicitly_selected_product_photos(client, db, monkeypatch):
+@pytest.mark.parametrize("entry", ["quick", "canvas"])
+def test_image_sends_only_explicitly_selected_product_photos(client, db, monkeypatch, entry):
     headers, other_product, product, task = setup_task(client, db)
-    draft = create_draft(client, headers, task, product, entry="quick")
+    draft = create_draft(client, headers, task, product, entry=entry)
     monkeypatch.setattr(get_settings(), "image_budget_cents", 3)
     monkeypatch.setattr(get_settings(), "image_ceiling_cents", 1)
     path = f"{API}/creations/{draft['id']}"

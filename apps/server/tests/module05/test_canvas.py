@@ -45,6 +45,24 @@ def create_draft(
     return response.json()
 
 
+def add_product_photo_reference(
+    client: TestClient, headers: dict, draft: dict, photo: dict
+) -> dict:
+    response = client.post(
+        f"{API}/creations/{draft['id']}/references",
+        headers=headers,
+        json={
+            "expected_version": draft["version"],
+            "kind": "upload",
+            "usage": "product",
+            "source_id": photo["file_id"],
+            "file_version": photo["version"],
+        },
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
 def test_quick_and_canvas_keep_separate_drafts_and_read_same_results(
     client: TestClient, db: Session
 ) -> None:

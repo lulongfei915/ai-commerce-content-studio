@@ -33,6 +33,7 @@ export function TaskStudio({
   task,
   categories,
   initialPosition,
+  initialDraft,
   onDirty,
   onBack,
   onNew,
@@ -44,6 +45,7 @@ export function TaskStudio({
   task: Task;
   categories: Category[];
   initialPosition?: string;
+  initialDraft?: string;
   onDirty: (dirty: boolean) => void;
   onBack: () => void;
   onNew: () => void;
@@ -53,7 +55,7 @@ export function TaskStudio({
   const quick = entry === 'quick';
   const canvas = entry === 'canvas';
   const [drafts, setDrafts] = useState<Draft[]>([]);
-  const [active, setActive] = useState(initialPosition ? `new:${initialPosition}` : '');
+  const [active, setActive] = useState(initialDraft ?? (initialPosition ? `new:${initialPosition}` : ''));
   const [edits, setEdits] = useState<Record<string, DraftEdits>>({});
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -68,7 +70,7 @@ export function TaskStudio({
   const [resultsError, setResultsError] = useState(false);
   const [resultsRetry, setResultsRetry] = useState(0);
   const [status, setStatus] = useState('');
-  const [submittingCount, setSubmittingCount] = useState(0);
+  const [submitting, setSubmitting] = useState<{ count: number; media: 'image' | 'video' }>();
   const position = task.positions.find((item) => `new:${item.id}` === active) ?? task.positions[0];
   const selected =
     drafts.find((item) => item.id === active) ??
@@ -84,7 +86,7 @@ export function TaskStudio({
   const purpose = selected?.purpose ?? position?.purpose;
   const editorId = selected?.id ?? `new:${position?.id}`;
   const imageExecution = useImageExecution(
-    canCreate && quick && purpose !== 'video' ? selected : undefined,
+    canCreate && quick ? selected : undefined,
     token,
     task.id,
   );
@@ -274,8 +276,8 @@ export function TaskStudio({
               onEdit={edit}
               onBusy={setEditing}
               execution={imageExecution}
-              onImageSubmitting={(count) => {
-                setSubmittingCount(count);
+              onSubmitting={(count, media) => {
+                setSubmitting(count ? { count, media } : undefined);
                 if (count) setStatus('');
               }}
             />
@@ -285,7 +287,7 @@ export function TaskStudio({
               创作结果未加载。 <button onClick={() => setResultsRetry((n) => n + 1)}>重试</button>
             </p>
           )}
-          {(results || submittingCount > 0 || Object.keys(imageExecution.jobs).length > 0) ? (
+          {(results || submitting || Object.keys(imageExecution.jobs).length > 0) ? (
             <StudioResults
               results={results ?? []}
               session={session}
@@ -296,7 +298,8 @@ export function TaskStudio({
               onStatus={setStatus}
               canPlayVideo={session.permissions.includes('download')}
               imageExecution={imageExecution}
-              submittingCount={submittingCount}
+              submittingCount={submitting?.count}
+              submittingMedia={submitting?.media}
               imageControlsDisabled={busy}
             />
           ) : !resultsError && (
@@ -311,7 +314,7 @@ export function TaskStudio({
         </Modal>
       )}
       {entry === 'batch' && (
-        <BatchCreation task={task} session={session} categories={categories} onDirty={onDirty} />
+        <BatchCreation task={task} session={session} categories={categories} onDirty={onDirty} initialDraft={initialDraft} />
       )}
       {canvas && (
         <Suspense fallback={<p role="status">正在加载画布…</p>}>

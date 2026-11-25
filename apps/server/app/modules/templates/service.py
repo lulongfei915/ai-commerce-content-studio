@@ -41,7 +41,11 @@ def publish(db: Session, item: Template) -> TemplateView:
         reject("prompt", "prompt_required")
     if len(set(draft.case_ids)) != len(draft.case_ids):
         reject("case_ids", "reference_duplicate")
-    validate_parameters(draft.parameters, len(draft.case_ids))
+    if draft.purpose == "video":
+        if not draft.video_parameters:
+            reject("video_parameters", "draft_incompatible")
+    else:
+        validate_parameters(draft.parameters, len(draft.case_ids))
     for index, case_id in enumerate(draft.case_ids):
         licensed_case_file(
             db, item.tenant_id, case_id, draft.category, draft.purpose, f"case_ids.{index}"

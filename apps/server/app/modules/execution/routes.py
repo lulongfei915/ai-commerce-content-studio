@@ -24,11 +24,13 @@ from .service import (
     image_ceiling,
     lock_budget,
     position_for,
+    require_budget,
+    require_video_provider,
     state,
     submit,
 )
 
-router = APIRouter(tags=["图片执行"])
+router = APIRouter(tags=["生成执行"])
 
 
 class Reconciliation(WriteSchema):
@@ -83,8 +85,6 @@ def lookup(
 def retry(
     identifier: str, identity: WriteIdentity, db: Database, settings: AppSettings
 ) -> ExecutionState:
-    from .service import require_budget
-
     require_permission(identity, Permission.CREATE)
     lock_budget(db, identity.tenant.id)
     step, output, job = lookup(db, identity.tenant.id, identifier)
@@ -99,9 +99,18 @@ def retry(
                 "Retry-After": str(max(1, int((step.lease - datetime.utcnow()).total_seconds())))
             },
         )
+    is_video = job.snapshot.get("media") == "video"
+    if is_video and output.status == "generation_failed":
+        if step.actual_cents != 0 or step.provider_id:
+            raise HTTPException(409, "retry_unavailable")
+        require_video_provider(settings)
     if output.status == "generation_failed" and step.actual_cents == 0:
-        ceiling = image_ceiling(settings, job.snapshot.get("provider", "ark"))
-        require_budget(db, identity.tenant.id, settings, ceiling, for_image=True)
+        ceiling = settings.video_ceiling_cents if is_video else image_ceiling(
+            settings, job.snapshot.get("provider", "ark")
+        )
+        require_budget(
+            db, identity.tenant.id, settings, ceiling, for_image=not is_video, for_video=is_video,
+        )
         step.reserved_cents, step.actual_cents, step.fee_state = (
             ceiling,
             None,
@@ -154,7 +163,7 @@ def cancel(execution_id: str, identity: WriteIdentity, db: Database) -> Executio
     lock_budget(db, identity.tenant.id)
     job = job_for(db, identity.tenant.id, execution_id)
     draft = get_creation(db, identity.tenant.id, job.creation_id)
-    position = position_for(db, draft)
+    position = None if job.snapshot.get("media") == "video" else position_for(db, draft)
     for output, step in db.execute(
         select(CreationOutput, ImageStep)
         .join(ImageStep)

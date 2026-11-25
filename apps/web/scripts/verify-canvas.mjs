@@ -426,9 +426,9 @@ try {
   await panel().getByLabel('提示词').press('Backspace');
   await panel().getByLabel('提示词').fill(prompt);
   await shoot('02-image-editor');
-  const specs = panel().locator('.canvas-specs summary');
-  await specs.click();
-  await expect(panel().getByLabel('比例 / 清晰度')).toBeVisible();
+  await panel().getByRole('button', { name: '图片参数', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: '图片参数' }).getByLabel('比例 / 清晰度')).toBeVisible();
+  await page.keyboard.press('Escape');
   const editorBox = await panel().boundingBox();
   const selectedBox = await page.locator('.react-flow__node.canvas-focused').boundingBox();
   assert(
@@ -438,7 +438,6 @@ try {
       editorBox.x + editorBox.width <= selectedBox.x,
     'Expanded editor must leave the selected node visible.',
   );
-  await specs.click();
   await panel().getByRole('button', { name: '保存草稿', exact: true }).click();
   await expect(panel().getByText('草稿已保存')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -477,7 +476,9 @@ try {
   await panel().getByRole('button', { name: '插入参考 1 标签' }).click();
   await panel().getByRole('button', { name: '保存草稿', exact: true }).click();
   await expect(panel().getByText('草稿已保存')).toBeVisible();
-  await panel().getByRole('button', { name: '核对生成输入', exact: true }).click();
+  await panel().getByRole('button', { name: '图片参数', exact: true }).click();
+  await page.getByRole('dialog', { name: '图片参数' })
+    .getByRole('button', { name: '核对生成输入', exact: true }).click();
   await expect(
     page.getByRole('dialog', { name: '生成输入核对' }).getByText(/商品实拍 1 张/),
   ).toBeVisible();
@@ -492,7 +493,7 @@ try {
   await page.getByRole('button', { name: '添加节点', exact: true }).click();
   await page.getByRole('button', { name: '视频生成', exact: true }).click();
   await panel().getByRole('button', { name: '新建视频节点' }).click();
-  await expect(panel().getByText('视频参数', { exact: true })).toBeVisible();
+  await expect(panel().getByRole('button', { name: '视频参数', exact: true })).toBeVisible();
   await shoot('04-video-editor');
   await page.keyboard.press('Escape');
   await expect(panel()).toHaveCount(0);
@@ -639,10 +640,10 @@ try {
   const mobilePanel = mobilePage.getByRole('dialog');
   await expect(mobilePanel.getByLabel('提示词')).toBeInViewport();
   await mobilePanel
-    .getByRole('button', { name: '核对生成输入', exact: true })
+    .getByRole('button', { name: '图片参数', exact: true })
     .scrollIntoViewIfNeeded();
   await expect(
-    mobilePanel.getByRole('button', { name: '核对生成输入', exact: true }),
+    mobilePanel.getByRole('button', { name: '图片参数', exact: true }),
   ).toBeInViewport();
   const bounds = await mobilePanel.boundingBox();
   assert(bounds.x >= 0 && bounds.x + bounds.width <= 390 && bounds.y + bounds.height <= 845);

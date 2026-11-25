@@ -27,7 +27,7 @@ from app.shared.db import Base, get_db
 
 from ..module02.conftest import PASSWORD
 from ..module03.test_production_setup import API
-from ..module05.test_canvas import create_draft, setup_task
+from ..module05.test_canvas import add_product_photo_reference, create_draft, setup_task
 
 
 @pytest.mark.skipif(
@@ -114,10 +114,17 @@ def test_redis_loss_worker_and_private_download(tmp_path, monkeypatch):
                         prompt=f"检查图片 {variant}",
                         parameters={"ratio": "1:1", "count": 1},
                     )
+                    if variant == "custom":
+                        draft = add_product_photo_reference(
+                            client, headers, draft, product["photos"][0]
+                        )
                     result = client.post(
                         f"{API}/creations/{draft['id']}/executions",
                         headers=headers,
-                        json={"expected_version": 1, "idempotency_key": f"{entry}-{variant}"},
+                        json={
+                            "expected_version": draft["version"],
+                            "idempotency_key": f"{entry}-{variant}",
+                        },
                     )
                     assert result.status_code == 202, result.text
                     jobs.append(result.json())
@@ -163,6 +170,7 @@ def test_redis_loss_worker_and_private_download(tmp_path, monkeypatch):
                 ).json()
                 assert client.get(receipt["download"]).content == generated
             assert len(sent) == 4
+            assert sum(bool(request.image) for request in sent) == 2
     finally:
         for key in [source_key, *archived]:
             storage.delete(key)

@@ -38,7 +38,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
         : undefined;
     throw new ApiError(response.status, code, field);
   }
-  return response.json() as Promise<T>;
+  return response.status === 204 ? (undefined as T) : (response.json() as Promise<T>);
 }
 
 export async function apiDelete(path: string, csrfToken: string): Promise<void> {

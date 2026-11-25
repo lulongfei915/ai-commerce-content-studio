@@ -134,6 +134,13 @@ def rename_task(db: Session, task: Task, data: TaskUpdate) -> TaskResponse:
 
 
 def add_products(db: Session, task: Task, expected_version: int, ids: list[str]) -> TaskResponse:
+    stage_products(db, task, expected_version, ids)
+    result = task_view(db, task)
+    db.commit()
+    return result
+
+
+def stage_products(db: Session, task: Task, expected_version: int, ids: list[str]) -> None:
     _check_version(task, expected_version)
     existing = set(
         db.scalars(
@@ -163,6 +170,3 @@ def add_products(db: Session, task: Task, expected_version: int, ids: list[str])
     )
     _add_members(db, task, _products(db, task.tenant_id, ids), purposes, len(existing))
     task.version += 1
-    result = task_view(db, task)
-    db.commit()
-    return result
