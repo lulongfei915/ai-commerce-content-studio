@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Literal
 
@@ -33,7 +34,7 @@ from .batch_domain import (
 )
 from .capabilities import ImageParameters, validate_parameters
 from .models import Creation
-from .schemas import CreationView, VideoParameters
+from .schemas import CreationView, InputSnapshot, VideoParameters
 from .service import REFERENCE_TAG, get_creation, member_product, reuse_configuration, view
 
 router = APIRouter(prefix="/tasks/{task_id}/batches", tags=["批量制作"])
@@ -68,6 +69,12 @@ class BatchSubmission(WriteSchema):
 class ItemExecution(BaseModel):
     item_id: str
     execution: ExecutionState
+
+
+class BatchExecutionRecord(BaseModel):
+    execution: ExecutionState
+    submitted_at: datetime
+    inputs: InputSnapshot
 
 
 class ItemScope(VersionInput):
@@ -189,7 +196,7 @@ def copy_item(
         tenant_id=source.tenant_id, task_id=task_id, product_id=source.product_id,
         purpose=source.purpose, slot=new_id(), entry="batch",
         prompt="", parameters=source.parameters, video_parameters=source.video_parameters,
-        batch_overrides=[],
+        batch_overrides=[], version=1,
     )
     db.add(target)
     return reuse_configuration(db, target, source)
@@ -252,6 +259,30 @@ def history(
         ).order_by(Execution.created_at, Execution.id)
     ).all()
     return [ItemExecution(item_id=job.creation_id, execution=state(db, job)) for job in jobs]
+
+
+@router.get("/{media}/executions/{execution_id}/record")
+def execution_record(
+    task_id: str, media: Media, execution_id: str, identity: ActiveIdentity, db: Database,
+) -> BatchExecutionRecord:
+    require_permission(identity, Permission.VIEW)
+    tenant = identity.tenant.id
+    get_task(db, tenant, task_id)
+    job = db.scalar(select(Execution).join(Creation).where(
+        Execution.id == execution_id,
+        Execution.tenant_id == tenant,
+        Creation.task_id == task_id,
+        Creation.entry == "batch",
+        (Creation.purpose == "video") == (media == "video"),
+        Execution.parent_output.is_(None),
+    ))
+    if job is None:
+        raise HTTPException(404, "execution_not_found")
+    return BatchExecutionRecord(
+        execution=state(db, job),
+        submitted_at=job.created_at.replace(tzinfo=timezone.utc),
+        inputs=InputSnapshot.model_validate(job.snapshot),
+    )
 
 
 @router.post("/{media}/executions", status_code=202)

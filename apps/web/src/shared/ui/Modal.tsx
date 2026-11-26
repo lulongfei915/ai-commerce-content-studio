@@ -10,9 +10,10 @@ type Props = {
   onClose: () => void;
   busy?: boolean;
   className?: string;
+  dismissOnBackdrop?: boolean;
 };
 
-export function Modal({ title, children, onClose, busy = false, className = '' }: Props) {
+export function Modal({ title, children, onClose, busy = false, className = '', dismissOnBackdrop }: Props) {
   const container = useContext(ModalContainer);
   const ref = useRef<HTMLDialogElement>(null);
   const label = useId();
@@ -46,7 +47,14 @@ export function Modal({ title, children, onClose, busy = false, className = '' }
           : undefined
       }
       aria-labelledby={label}
+      onClick={dismissOnBackdrop ? (event) => {
+        if (busy || event.target !== event.currentTarget) return;
+        const box = event.currentTarget.getBoundingClientRect();
+        if (event.clientX < box.left || event.clientX > box.right
+          || event.clientY < box.top || event.clientY > box.bottom) onClose();
+      } : undefined}
       onCancel={(event) => {
+        event.stopPropagation();
         event.preventDefault();
         if (!busy) onClose();
       }}

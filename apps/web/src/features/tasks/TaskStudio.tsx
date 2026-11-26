@@ -4,6 +4,7 @@ import {
   ArrowLeftOutlined,
   ControlOutlined,
   SafetyOutlined,
+  RightOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
 
@@ -36,6 +37,7 @@ export function TaskStudio({
   initialDraft,
   onDirty,
   onBack,
+  onReview,
   onNew,
   onProductSaved,
   children,
@@ -48,6 +50,7 @@ export function TaskStudio({
   initialDraft?: string;
   onDirty: (dirty: boolean) => void;
   onBack: () => void;
+  onReview?: () => void;
   onNew: () => void;
   onProductSaved: (product: Product) => void;
   children: ReactNode;
@@ -70,6 +73,7 @@ export function TaskStudio({
   const [results, setResults] = useState<TaskResult[]>();
   const [resultsError, setResultsError] = useState(false);
   const [resultsRetry, setResultsRetry] = useState(0);
+  const refreshResults = useCallback(() => setResultsRetry((n) => n + 1), []);
   const [status, setStatus] = useState('');
   const [submitting, setSubmitting] = useState<{ count: number; media: 'image' | 'video' }>();
   const position = task.positions.find((item) => `new:${item.id}` === active) ?? task.positions[0];
@@ -102,7 +106,7 @@ export function TaskStudio({
   }, [task.id]);
 
   useEffect(() => {
-    if (!quick) return;
+    if (canvas) return;
     const request = new AbortController();
     setResultsError(false);
     void getTaskResults(task.id, request.signal)
@@ -113,7 +117,7 @@ export function TaskStudio({
         if (!request.signal.aborted) setResultsError(true);
       });
     return () => request.abort();
-  }, [quick, task.id, resultsRetry]);
+  }, [canvas, task.id, resultsRetry]);
 
   useEffect(() => {
     if (!canCreate || !quick) return;
@@ -232,16 +236,14 @@ export function TaskStudio({
               <PlusOutlined aria-hidden="true" /> 新建制作
             </button>
           )}
-          {quick && results && (
+          {!canvas && results && onReview && (
             <button
+              type="button"
               className="studio-review"
-              onClick={() => {
-                setStatus('pending_review');
-                document.getElementById('studio-results')?.scrollIntoView({ block: 'nearest' });
-              }}
+              onClick={onReview}
             >
-              <SafetyOutlined /> 待审核{' '}
-              {results.filter((n) => n.status === 'pending_review').length} 份
+              <SafetyOutlined aria-hidden="true" /> 待审核{' '}
+              {results.filter((n) => n.status === 'pending_review').length} 份 <RightOutlined aria-hidden="true" />
             </button>
           )}
         </div>
@@ -300,7 +302,7 @@ export function TaskStudio({
               results={results ?? []}
               session={session}
               task={task}
-              refresh={() => setResultsRetry((n) => n + 1)}
+              refresh={refreshResults}
               taskId={task.id}
               status={status}
               onStatus={setStatus}
@@ -322,7 +324,8 @@ export function TaskStudio({
         </Modal>
       )}
       {entry === 'batch' && (
-        <BatchCreation task={task} session={session} categories={categories} onDirty={onDirty} initialDraft={initialDraft} />
+        <BatchCreation task={task} session={session} categories={categories} onDirty={onDirty}
+          initialDraft={initialDraft} results={results} resultsError={resultsError} refreshResults={refreshResults} />
       )}
       {canvas && (
         <Suspense fallback={<p role="status">正在加载画布…</p>}>

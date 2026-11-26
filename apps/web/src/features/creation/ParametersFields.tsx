@@ -20,9 +20,11 @@ function sizeKey(size: Pick<Parameters, 'ratio' | 'resolution'>) {
 export function ParametersFields({
   value,
   onChange,
+  group,
 }: {
   value: Parameters;
   onChange: (value: Parameters) => void;
+  group?: 'model' | 'specs';
 }) {
   const [capabilities, setCapabilities] = useState<Capabilities>();
   const [error, setError] = useState(false);
@@ -61,7 +63,7 @@ export function ParametersFields({
 
   return (
     <div className="creative-parameters image-parameters">
-      {providers.length > 0 && (
+      {group !== 'specs' && providers.length > 0 && (
         <label>
           供应商
           <select
@@ -80,7 +82,7 @@ export function ParametersFields({
           </select>
         </label>
       )}
-      <label>
+      {group !== 'specs' && <label>
         模型
         {options.length > 0 ? (
           <select
@@ -101,8 +103,8 @@ export function ParametersFields({
             value={imageModelLabel(value.model) ?? ''}
           />
         )}
-      </label>
-      {!!sizes?.length && (
+      </label>}
+      {group !== 'model' && !!sizes?.length && (
         <label>
           比例 / 清晰度
           <select
@@ -122,7 +124,7 @@ export function ParametersFields({
           </select>
         </label>
       )}
-      {!!model?.qualities.length && (
+      {group !== 'model' && !!model?.qualities.length && (
         <label>
           质量
           <select
@@ -138,7 +140,7 @@ export function ParametersFields({
           </select>
         </label>
       )}
-      <label>
+      {!group && <label>
         张数
         <input
           type="number"
@@ -147,7 +149,7 @@ export function ParametersFields({
           value={value.count ?? 1}
           onChange={(event) => onChange({ ...value, count: Number(event.target.value) })}
         />
-      </label>
+      </label>}
       {error && (
         <button
           type="button"

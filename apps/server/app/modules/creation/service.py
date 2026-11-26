@@ -22,7 +22,7 @@ REFERENCE_TAG = re.compile(r"\[\[ref:([^\]\r\n]+)\]\]")
 
 
 def uses_explicit_image_references(entry: str | None, purpose: str) -> bool:
-    return entry in (None, "quick", "canvas") and purpose in ("main", "detail")
+    return entry in (None, "quick", "canvas", "batch") and purpose in ("main", "detail")
 
 
 def uses_explicit_references(entry: str | None, purpose: str) -> bool:

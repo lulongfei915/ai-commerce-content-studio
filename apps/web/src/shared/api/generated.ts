@@ -815,6 +815,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks/{task_id}/batches/{media}/executions/{execution_id}/record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Execution Record */
+        get: operations["execution_record_api_v1_tasks__task_id__batches__media__executions__execution_id__record_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/outputs/{identifier}/reconcile": {
         parameters: {
             query?: never;
@@ -1412,6 +1429,16 @@ export interface components {
             suggestion: string | null;
             /** Status */
             status: string;
+        };
+        /** BatchExecutionRecord */
+        BatchExecutionRecord: {
+            execution: components["schemas"]["ExecutionState"];
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+            inputs: components["schemas"]["InputSnapshot"];
         };
         /** BatchSubmission */
         BatchSubmission: {
@@ -4577,6 +4604,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemExecution"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    execution_record_api_v1_tasks__task_id__batches__media__executions__execution_id__record_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                media: "image" | "video";
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchExecutionRecord"];
                 };
             };
             /** @description Validation Error */

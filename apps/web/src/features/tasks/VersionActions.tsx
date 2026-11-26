@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckOutlined, DownloadOutlined } from '@ant-design/icons';
 import { apiDelete, apiFetch, apiWrite } from '../../shared/api/client';
@@ -20,6 +20,7 @@ export function VersionActions({
   reviewFooter,
   onAssetChange,
   onApproved,
+  focusRejectionReason = false,
 }: {
   id: string;
   task: Task;
@@ -29,9 +30,11 @@ export function VersionActions({
   reviewFooter?: HTMLElement | null;
   onAssetChange?: (asset: TaskResult) => void;
   onApproved?: () => void;
+  focusRejectionReason?: boolean;
 }) {
   const [asset, setAsset] = useState<TaskResult>();
   const [reason, setReason] = useState('');
+  const reasonInput = useRef<HTMLTextAreaElement>(null);
   const [receipt, setReceipt] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -118,8 +121,13 @@ export function VersionActions({
           type="button"
           key={decision}
           className={reviewLayout && decision === 'approved' ? 'work-primary' : undefined}
-          disabled={busy || !validTime || ((decision === 'rejected' || !!region) && !reason.trim())}
-          onClick={() =>
+          disabled={busy || !validTime || ((!!region ||
+            (decision === 'rejected' && !focusRejectionReason)) && !reason.trim())}
+          onClick={() => {
+            if (decision === 'rejected' && !reason.trim()) {
+              reasonInput.current?.focus();
+              return;
+            }
             void run(async () => {
               await apiWrite(path + '/review', token, {
                 version: asset.version,
@@ -145,8 +153,8 @@ export function VersionActions({
                 setAsset(reviewed);
                 onAssetChange?.(reviewed);
               }
-            })
-          }
+            });
+          }}
         >
           {reviewLayout && decision === 'approved' && <CheckOutlined aria-hidden="true" />}
           {decision === 'approved'
@@ -207,7 +215,7 @@ export function VersionActions({
         <>
           <label>
             {reviewLayout ? '审核意见（驳回必填）' : '审核意见'}
-            <textarea value={reason} onChange={(e) => setReason(e.target.value)} />
+            <textarea ref={reasonInput} maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
           {isVideo && (
             <details>

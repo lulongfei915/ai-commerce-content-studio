@@ -439,7 +439,7 @@ export function Workspace({
               );
               setRevision((value) => value + 1);
             }}
-            onBack={() => navigate(view === 'canvas' ? 'quick' : 'tasks')}
+            onBack={() => navigate(view === 'canvas' ? 'quick' : 'tasks')} onReview={() => navigate('reviews')}
             onNew={() => {
               if (canLeave()) setSetup({});
             }}

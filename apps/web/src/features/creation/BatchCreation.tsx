@@ -1,18 +1,21 @@
-import { useEffect, useState } from 'react';
-import { CopyOutlined, PictureOutlined, PlusOutlined, SendOutlined, SettingOutlined } from '@ant-design/icons';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { ApiError, apiFetch, apiWrite } from '../../shared/api/client';
 import type { Session } from '../auth/session';
 import type { Category } from '../products/api';
 import { purposeLabel, type Task } from '../tasks/api';
-import { actionError, createDraft, draftWrite, listDrafts } from './api';
+import { actionError, createDraft, draftWrite, listDrafts, saveDraftInputs } from './api';
 import type { Draft, DraftEdits } from './api';
-import { CreationEditor } from './CreationEditor';
-import { BatchOutputs, BatchReadiness } from './BatchProgress';
+import { BatchEditor } from './BatchEditor';
+import { BatchReadiness, BatchSubmit } from './BatchProgress';
+import { BatchOutputs } from './BatchOutputs';
 import { useBatchProgress, type BatchConfig, type BatchExecution } from './useBatchProgress';
 import { BatchPanel } from './BatchPanel';
 import { BatchPublicFields } from './BatchPublicFields';
 import { BatchItemScope } from './BatchItemScope';
+import { BatchList, BatchListHeader } from './BatchList';
+import { BatchTabs, type BatchMedia } from './BatchTabs';
+import { batchItemTitle } from './batch-labels';
 import { ReuseConfiguration } from './ReuseBatchConfiguration';
 import { TaskResultPicker } from './TaskResultPicker';
 import type { TaskResult } from './results';
@@ -24,29 +27,34 @@ export function BatchCreation({
   categories,
   onDirty,
   initialDraft,
+  results,
+  resultsError,
+  refreshResults,
 }: {
   task: Task;
   session: Session;
   categories: Category[];
   onDirty: (dirty: boolean) => void;
   initialDraft?: string;
+  results?: TaskResult[];
+  resultsError: boolean;
+  refreshResults: () => void;
 }) {
   const [items, setItems] = useState<Draft[]>();
-  const [media, setMedia] = useState<'image' | 'video'>(
+  const [media, setMedia] = useState<BatchMedia>(
     task.positions.every((item) => item.purpose === 'video') ? 'video' : 'image',
   );
-  const [positionId, setPositionId] = useState('');
-  const [extra, setExtra] = useState(false);
   const [selection, setSelection] = useState(initialDraft ?? '');
   const [edits, setEdits] = useState<DraftEdits>();
   const [busy, setBusy] = useState(false);
-  const [panel, setPanel] = useState<'edit' | 'reuse' | 'results' | 'reference' | 'public'>();
-  const [resultId, setResultId] = useState<string>();
+  const [panel, setPanel] = useState<'edit' | 'scope' | 'reuse' | 'outputs' | 'reference' | 'public'>();
   const [config, setConfig] = useState<BatchConfig>();
+  const [publicEdits, setPublicEdits] = useState<BatchConfig>();
   const [invalid, setInvalid] = useState<string>();
   const [error, setError] = useState('');
-  const [referenceError, setReferenceError] = useState('');
   const [retry, setRetry] = useState(0);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const autoOpened = useRef(false);
   const draft = items?.find((item) => item.id === selection);
   const product = task.products.find((item) => item.id === draft?.product_id);
   const token = session.csrf_token;
@@ -54,21 +62,34 @@ export function BatchCreation({
   const batchPath = `/tasks/${task.id}/batches/${media}`;
   const progress = useBatchProgress(batchPath, task.id, token);
   const current = items?.filter((item) => (item.purpose === 'video') === (media === 'video')) ?? [];
-  const pending = current.filter((item) => !progress.rows?.some((row) => row.item_id === item.id));
+  const pending = progress.rows ? current.filter((item) => !progress.rows?.some((row) => row.item_id === item.id)) : [];
+  const outputRow = progress.rows?.find((row) => row.item_id === selection);
+  const total = pending.reduce((sum, item) => {
+    const inputs = item.id === selection && edits ? edits.video ?? edits.parameters : item.video_parameters ?? item.parameters;
+    return sum + (inputs?.count ?? 1);
+  }, 0);
   const positions = task.positions.filter((item) =>
     (item.purpose === 'video') === (media === 'video'),
   );
-  const remaining = positions.filter((item) =>
-    extra || (item.status !== 'adopted' && !current.some((row) => row.batch_position_id === item.id)),
+  const position = positions.find((item) =>
+    item.status !== 'adopted' && !current.some((row) => row.batch_position_id === item.id),
   );
-  const position = remaining.find((item) => item.id === positionId) ?? remaining[0];
+  const fallback = positions.find((item) => item.product_id === draft?.product_id && item.purpose === draft.purpose) ?? positions[0];
 
   useEffect(() => {
     const request = new AbortController();
     void listDrafts(task.id, request.signal, 'batch')
       .then((data) => {
         if (!request.signal.aborted) {
-          setItems(data);
+          setItems((previous) => {
+            const refreshed = new Map(data.map((item) => [item.id, item]));
+            const retained = (previous ?? []).flatMap((item) => {
+              const next = refreshed.get(item.id);
+              refreshed.delete(item.id);
+              return next ? [next] : [];
+            });
+            return [...retained, ...refreshed.values()];
+          });
           const target = data.find((item) => item.id === initialDraft);
           if (target && retry === 0) {
             setMedia(target.purpose === 'video' ? 'video' : 'image');
@@ -83,11 +104,39 @@ export function BatchCreation({
   }, [initialDraft, task.id, retry]);
 
   useEffect(() => {
-    onDirty(Boolean(edits) || busy);
+    setConfig(undefined);
+    const request = new AbortController();
+    void apiFetch<BatchConfig>(batchPath, { signal: request.signal })
+      .then((data) => { if (!request.signal.aborted) setConfig(data); })
+      .catch(() => {});
+    return () => request.abort();
+  }, [batchPath]);
+
+  const firstId = current[0]?.id;
+  const firstSubmitted = progress.rows?.some((row) => row.item_id === firstId);
+  const loaded = Boolean(items && progress.rows);
+  useEffect(() => {
+    if (!loaded || autoOpened.current) return;
+    autoOpened.current = true;
+    if (!panel && window.matchMedia('(min-width: 1100px)').matches && firstId && (canCreate || firstSubmitted)) {
+      setSelection(firstId);
+      setPanel(firstSubmitted ? 'outputs' : 'edit');
+    }
+  }, [loaded, firstId, firstSubmitted, panel, canCreate]);
+
+  useEffect(() => {
+    onDirty(Boolean(edits || publicEdits) || busy);
     return () => onDirty(false);
-  }, [busy, edits, onDirty]);
+  }, [busy, edits, publicEdits, onDirty]);
+
+  useLayoutEffect(() => {
+    if (panel === 'edit' && invalid === selection && !busy) {
+      document.querySelector<HTMLTextAreaElement>('.batch-composer textarea')?.focus({ preventScroll: true });
+    }
+  }, [busy, invalid, panel, selection]);
 
   function save(updated: Draft) {
+    setInvalid((previous) => previous === updated.id ? undefined : previous);
     setItems((current) => {
       const previous = current ?? [];
       return previous.some((item) => item.id === updated.id)
@@ -96,15 +145,57 @@ export function BatchCreation({
     });
   }
 
-  async function add() {
-    if (!position || busy) return;
+  async function preserveEdits() {
+    if (!draft || !edits) return draft;
+    const saved = await saveDraftInputs(draft, token, edits);
+    save(saved);
+    setEdits(undefined);
+    return saved;
+  }
+
+  function navigate(action: () => void) {
+    if (busy) return;
+    if (!edits) {
+      action();
+      return;
+    }
+    setBusy(true);
+    setError('');
+    void preserveEdits().then(action).catch((cause) => setError(actionError(cause)))
+      .finally(() => setBusy(false));
+  }
+
+  function openItem(item: Draft, next: 'edit' | 'outputs', trigger?: HTMLElement) {
+    returnFocus.current = trigger ?? document.getElementById(`batch-open-${item.id}`);
+    setSelection(item.id);
+    setPanel(next);
+    focusPanel();
+  }
+
+  function revealItem(id: string) {
+    requestAnimationFrame(() => {
+      const row = document.getElementById(`batch-${id}`);
+      const list = row?.parentElement;
+      if (row && list && list.scrollHeight > list.clientHeight) {
+        const offset = row.offsetTop - list.scrollTop;
+        if (offset < 0) list.scrollTop = row.offsetTop;
+        else if (offset + row.offsetHeight > list.clientHeight)
+          list.scrollTop = row.offsetTop + row.offsetHeight - list.clientHeight;
+      }
+    });
+  }
+
+  async function add(trigger: HTMLButtonElement) {
+    const target = position ?? fallback;
+    if (!target || busy) return;
     setBusy(true);
     setError('');
     try {
-      save(await createDraft(
-        task.id, position.product_id, position.purpose, token, false, 'batch',
-        extra ? undefined : position.id,
-      ));
+      await preserveEdits();
+      const next = await createDraft(task.id, target.product_id, target.purpose, token, false, 'batch', position?.id);
+      save(next);
+      openItem(next, 'edit', trigger);
+      revealItem(next.id);
     } catch (cause) {
       setError(actionError(cause));
     } finally {
@@ -113,19 +204,22 @@ export function BatchCreation({
   }
 
   function close() {
-    if (!confirmClose()) return;
-    setEdits(undefined);
-    setPanel(undefined);
+    navigate(dismiss);
   }
-
-  function confirmClose() {
-    return !edits || window.confirm('放弃当前项未保存的编辑？');
+  function dismiss() {
+    const trigger = returnFocus.current ?? document.getElementById(`batch-open-${selection}`);
+    setPanel(undefined);
+    setPublicEdits(undefined);
+    requestAnimationFrame(() => {
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+      else document.querySelector<HTMLButtonElement>('.batch-list-heading button')?.focus();
+    });
   }
 
   async function reference(result: TaskResult) {
     if (!draft || busy) return;
     setBusy(true);
-    setReferenceError('');
+    setError('');
     try {
       save(
         await draftWrite(draft, token, '/references', {
@@ -135,9 +229,9 @@ export function BatchCreation({
           source_version: result.version,
         }),
       );
-      setPanel(undefined);
+      setPanel('edit');
     } catch (cause) {
-      setReferenceError(actionError(cause));
+      setError(actionError(cause));
     } finally {
       setBusy(false);
     }
@@ -148,21 +242,31 @@ export function BatchCreation({
     setBusy(true);
     setError('');
     setInvalid(undefined);
-    const entries = pending.map(({ id, version }) => ({ id, expected_version: version }));
     try {
+      const saved = await preserveEdits();
+      const entries = pending.map(({ id, version }) => ({
+        id, expected_version: id === saved?.id ? saved.version : version,
+      }));
       const rows = await apiWrite<BatchExecution[]>(`${batchPath}/executions`, token, {
         // Stable across refreshes and retries, even if a response is lost.
         idempotency_key: await submissionKey(entries),
         items: entries,
       });
       progress.update(rows);
+      if (window.matchMedia('(min-width: 1100px)').matches) {
+        openItem(pending.find((item) => item.id === selection) ?? pending[0], 'outputs');
+      } else dismiss();
     } catch (cause) {
       setError(actionError(cause));
       if (cause instanceof ApiError && cause.itemId) {
         setInvalid(cause.itemId);
-        document.getElementById(`batch-${cause.itemId}`)?.focus();
-        setSelection(cause.itemId);
-        setPanel('edit');
+        const invalidItem = pending.find((item) => item.id === cause.itemId);
+        if (invalidItem) {
+          returnFocus.current = document.getElementById(`batch-open-${invalidItem.id}`);
+          setSelection(invalidItem.id);
+          setPanel('edit');
+          revealItem(invalidItem.id);
+        }
       }
       progress.reload();
     } finally {
@@ -170,12 +274,16 @@ export function BatchCreation({
     }
   }
 
-  async function publicConfig() {
+  async function publicConfig(trigger: HTMLButtonElement) {
     setBusy(true);
     setError('');
     try {
-      setConfig(await apiFetch<BatchConfig>(batchPath));
+      await preserveEdits();
+      const next = await apiFetch<BatchConfig>(batchPath);
+      setConfig(next);
+      returnFocus.current = trigger;
       setPanel('public');
+      focusPanel();
     } catch (cause) {
       setError(actionError(cause));
     } finally {
@@ -184,15 +292,16 @@ export function BatchCreation({
   }
 
   async function savePublic() {
-    if (!config) return;
+    if (!publicEdits) return;
     setBusy(true);
     setError('');
     try {
-      await apiWrite(batchPath, token, {
-        count: config.count, prompt: config.prompt, expected_version: config.version,
-        ratio: config.ratio, resolution: config.resolution,
+      const updated = await apiWrite<BatchConfig>(batchPath, token, {
+        count: publicEdits.count, prompt: publicEdits.prompt, expected_version: publicEdits.version,
+        ratio: publicEdits.ratio, resolution: publicEdits.resolution,
       }, 'PUT');
-      setPanel(undefined);
+      setConfig(updated);
+      dismiss();
       setRetry((n) => n + 1);
     } catch (cause) {
       setError(actionError(cause));
@@ -201,16 +310,18 @@ export function BatchCreation({
     }
   }
 
-  async function copy(item: Draft) {
+  async function copy(item: Draft, trigger: HTMLButtonElement) {
+    if (busy) return;
     setBusy(true);
     setError('');
     try {
+      const saved = await preserveEdits();
       const next = await apiWrite<Draft>(`${batchPath}/items/${item.id}/copy`, token, {
-        expected_version: item.version,
+        expected_version: item.id === saved?.id ? saved.version : item.version,
       });
       save(next);
-      setSelection(next.id);
-      setPanel('edit');
+      openItem(next, 'edit', trigger);
+      revealItem(next.id);
     } catch (cause) {
       setError(actionError(cause));
     } finally {
@@ -218,220 +329,93 @@ export function BatchCreation({
     }
   }
 
+  async function remove(item: Draft) {
+    if (busy || !progress.rows || progress.rows.some((row) => row.item_id === item.id)) return;
+    setBusy(true);
+    setError('');
+    try {
+      await apiWrite(`${batchPath}/items/${item.id}?expected_version=${item.version}`, token, undefined, 'DELETE');
+      const index = current.indexOf(item);
+      const next = current[index + 1] ?? current[index - 1];
+      setItems((previous) => previous?.filter((entry) => entry.id !== item.id));
+      setInvalid((previous) => previous === item.id ? undefined : previous);
+      if (selection === item.id) {
+        setSelection('');
+        setEdits(undefined);
+        if (panel !== 'public') setPanel(undefined);
+      }
+      requestAnimationFrame(() => {
+        const target = next && document.getElementById(`batch-open-${next.id}`);
+        (target || document.querySelector<HTMLButtonElement>('.batch-list-heading button'))?.focus();
+      });
+    } catch (cause) {
+      setError(actionError(cause));
+      if (cause instanceof ApiError && cause.code === 'batch_item_submitted') progress.reload();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const itemTitle = draft ? batchItemTitle(draft, current.indexOf(draft)) : '';
+  const subview = panel === 'scope' ? '商品与用途' : panel === 'reference' ? '选择参考'
+    : panel === 'reuse' ? '复用草稿' : panel === 'outputs' ? '生成结果' : undefined;
+  const panelTitle = panel === 'public' ? '公共设置' : itemTitle;
+  const canGoBack = panel === 'scope' || panel === 'reference' || panel === 'reuse';
+  const alert = error && (
+    <p role="alert" className="work-error batch-error">
+      {error}
+      {!items && <button type="button" onClick={() => {
+        setError('');
+        setRetry((value) => value + 1);
+      }}>重试</button>}
+    </p>
+  );
+
   return (
-    <section className="batch-creation" aria-labelledby="batch-heading">
+    <section className="batch-creation" aria-label="批量制作">
+      <BatchTabs media={media} busy={busy} onChange={(next) => {
+        if (next === media) return;
+        navigate(() => {
+          autoOpened.current = false;
+          returnFocus.current = null;
+          setSelection('');
+          setPanel(undefined);
+          setPublicEdits(undefined);
+          setInvalid(undefined);
+          setMedia(next);
+          setError('');
+        });
+      }} />
+      <div className="batch-layout" role="tabpanel" id="batch-workspace" aria-labelledby={`batch-tab-${media}`}>
       <div className="batch-main">
-      <header className="work-row batch-heading">
-        <h2 id="batch-heading">批量制作</h2>
-        <div className="batch-modes" aria-label="批量类型">
-          {(['image', 'video'] as const).map((type) => (
-            <button key={type} type="button" aria-pressed={media === type} disabled={busy}
-              onClick={() => {
-                if (type === media || !confirmClose()) return;
-                setEdits(undefined);
-                setPanel(undefined);
-                setMedia(type);
-                setError('');
-              }}>
-              {type === 'image' ? '图片' : '视频'}
-            </button>
-          ))}
-        </div>
-        <button type="button" disabled={busy || Boolean(edits)}
-          onClick={() => { setResultId(undefined); setPanel('results'); }}>
-          <PictureOutlined /> 任务作品
-        </button>
-      </header>
-      {error && (
-        <p role="alert" className="work-error">
-          {error}
-          {!items && (
-            <button
-              type="button"
-              onClick={() => {
-                setError('');
-                setRetry((value) => value + 1);
-              }}
-            >
-              重试
-            </button>
-          )}
-        </p>
-      )}
-      {items ? (
-        <>
-          <div className="work-row batch-controls">
-            <strong aria-label="批量汇总">
-              {pending.length} 项 · {new Set(pending.map((item) => item.product_id)).size} 个 SKU · 预计{' '}
-              {pending.reduce(
-                (sum, item) => sum + (item.video_parameters ?? item.parameters).count,
-                0,
-              )}{' '}
-              份产出
-            </strong>
-            {canCreate && position && (
-              <div className="batch-add">
-                <select
-                  aria-label="批量商品与用途"
-                  value={position.id}
-                  disabled={busy || Boolean(edits)}
-                  onChange={(event) => setPositionId(event.target.value)}
-                >
-                  {remaining.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {task.products.find((p) => p.id === item.product_id)?.sku} ·{' '}
-                      {item.module || purposeLabel[item.purpose]}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="work-primary"
-                  disabled={busy || Boolean(edits)}
-                  onClick={() => void add()}
-                >
-                  <PlusOutlined /> 加入批量清单
-                </button>
-              </div>
-            )}
-            {canCreate && <button disabled={busy || Boolean(edits)} onClick={() => void publicConfig()}>
-              <SettingOutlined /> 公共设置
-            </button>}
-            {canCreate && positions.length > 0 && (
-              <label className="work-check">
-                <input type="checkbox" checked={extra} disabled={busy || Boolean(edits)}
-                  onChange={(event) => setExtra(event.target.checked)} />
-                独立候选
-              </label>
-            )}
-          </div>
-          {progress.failed && <p role="alert">
-            批量进度未加载 <button onClick={progress.reload}>重试</button>
-          </p>}
-          {current.length ? (
-            <ul className="batch-items" aria-label="批量清单">
-              {current.map((item) => {
-                const row = progress.rows?.find((entry) => entry.item_id === item.id);
-                const slot = task.positions.find((p) => p.id === item.batch_position_id);
-                return (
-                <li key={item.id} id={`batch-${item.id}`} tabIndex={-1}
-                  className={invalid === item.id ? 'batch-invalid' : undefined}>
-                  <div className="batch-item-summary">
-                    <strong>
-                      {task.products.find((p) => p.id === item.product_id)?.sku} ·{' '}
-                      {slot?.module || purposeLabel[item.purpose]}
-                    </strong>
-                    <p className="work-muted">{item.prompt || '未填写提示词'}</p>
-                    {!row && <BatchReadiness key={item.version} draft={item} />}
-                  </div>
-                  {row ? <BatchOutputs row={row} busy={busy} canCreate={canCreate}
-                    onOpen={(id) => { setResultId(id); setPanel('results'); }}
-                    onAction={(path) => {
-                      setBusy(true);
-                      setError('');
-                      void progress.outputAction(item.id, path)
-                        .catch((cause) => setError(actionError(cause)))
-                        .finally(() => setBusy(false));
-                    }}
-                  /> : canCreate && progress.rows && <div className="batch-item-actions">
-                    <button
-                      type="button"
-                      disabled={busy || Boolean(edits)}
-                      onClick={() => {
-                        setSelection(item.id);
-                        setPanel('edit');
-                      }}
-                    >
-                      编辑
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy || Boolean(edits)}
-                      onClick={() => {
-                        setSelection(item.id);
-                        setPanel('reuse');
-                      }}
-                    >
-                      <CopyOutlined /> 复用草稿
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy || Boolean(edits)}
-                      onClick={() => {
-                        setSelection(item.id);
-                        setReferenceError('');
-                        setPanel('reference');
-                      }}
-                    >
-                      引用作品
-                    </button>
-                  </div>}
-                  {canCreate && progress.rows && (
-                    <button type="button" title="复制生成项" aria-label="复制生成项"
-                      disabled={busy || Boolean(edits)} onClick={() => void copy(item)}>
-                      <CopyOutlined />
-                    </button>
-                  )}
-                </li>
-              );})}
-            </ul>
-          ) : (
-            <p className="work-muted">批量清单为空</p>
-          )}
-          {canCreate && <footer className="batch-submit work-actions">
-            <button className="work-primary"
-              disabled={busy || Boolean(edits) || !pending.length || !progress.rows}
-              onClick={() => void submit()}>
-              <SendOutlined /> 提交批量{media === 'image' ? '图片' : '视频'}（{pending.length} 项）
-            </button>
-          </footer>}
-        </>
-      ) : (
-        !error && <p role="status">正在读取批量清单…</p>
-      )}
+        <BatchListHeader media={media} count={current.length} config={config} canCreate={canCreate}
+          busy={busy || !loaded} canAdd={Boolean(fallback)}
+          onSettings={(trigger) => void publicConfig(trigger)} onAdd={(trigger) => void add(trigger)} />
+        {!panel && alert}
+        {progress.failed && <p role="alert" className="work-error batch-error">
+          批量进度未加载 <button onClick={progress.reload}>重试</button>
+        </p>}
+        {items ? (
+          <BatchList task={task} items={current} rows={progress.rows} results={results}
+            selection={panel && panel !== 'public' ? selection : undefined}
+            invalid={invalid} busy={busy} canCreate={canCreate}
+            onOpen={(item, trigger, row) => navigate(() => openItem(item, row ? 'outputs' : 'edit', trigger))}
+            onCopy={(item, trigger) => void copy(item, trigger)} onRemove={(item) => void remove(item)} />
+        ) : !error && <p role="status">正在读取批量清单…</p>}
       </div>
-      {(panel === 'results' || panel === 'reference') && (
-        <BatchPanel title="任务作品" onClose={close} busy={busy} key={panel}>
-          {referenceError && panel === 'reference' && (
-            <p className="work-error" role="alert">
-              {referenceError}
-            </p>
-          )}
-          <TaskResultPicker
-            task={task}
-            sku={panel === 'reference' ? (draft?.product_id ?? '') : ''}
-            shownVersions={
-              new Set(
-                draft?.references
-                  .filter((ref) => ref.kind === 'result')
-                  .map((ref) => ref.source_id),
-              )
-            }
-            canPlayVideo={session.permissions.includes('download')}
-            initialVersion={resultId}
-            referenceLabel="引用到此项"
-            busy={busy}
-            onReference={panel === 'reference' ? (result) => void reference(result) : undefined}
-          />
-        </BatchPanel>
-      )}
-      {panel === 'edit' && draft && product && progress.rows &&
-        !progress.rows.some((row) => row.item_id === draft.id) && (
-        <BatchPanel
-          title={`编辑 ${product.sku} · ${purposeLabel[draft.purpose]}`}
-          onClose={close}
-          busy={busy}
-          key={draft.id}
-        >
-          <BatchItemScope
+      {panel && panelTitle && (
+        <BatchPanel title={panelTitle} subtitle={subview} busy={busy} onClose={close}
+          onBack={canGoBack ? () => setPanel('edit') : undefined}>
+          {alert}
+      {(panel === 'edit' || panel === 'scope' || panel === 'reference') && draft && product && progress.rows && !outputRow && canCreate && (
+        <div className="batch-editor" key={draft.id}>
+          {panel !== 'reference' && <BatchItemScope
             draft={draft} task={task} path={batchPath} token={token}
             busy={busy || Boolean(edits)} onBusy={setBusy} onSaved={save}
-            onRemoved={() => {
-              setItems((previous) => previous?.filter((item) => item.id !== draft.id));
-              close();
-            }}
-          />
-          <CreationEditor
+            showScope={panel === 'scope'}
+            onReuse={() => setPanel('reuse')}
+          />}
+          {panel !== 'scope' && <BatchEditor
             draft={draft}
             product={product}
             categories={categories}
@@ -440,22 +424,31 @@ export function BatchCreation({
             onEdit={setEdits}
             onSaved={save}
             onBusy={setBusy}
-          />
-        </BatchPanel>
+            busy={busy}
+            purpose={task.positions.find((item) => item.id === draft.batch_position_id)?.module || purposeLabel[draft.purpose]}
+            onScope={() => navigate(() => setPanel('scope'))}
+            onReferences={() => navigate(() => setPanel('reference'))}
+            references={panel === 'reference' && <>
+              <h3>任务作品</h3>
+              <TaskResultPicker task={task} sku={draft.product_id} busy={busy}
+                shownVersions={new Set(draft.references.filter((ref) => ref.kind === 'result').map((ref) => ref.source_id))}
+                canPlayVideo={session.permissions.includes('download')}
+                referenceLabel="引用到此项" onReference={(result) => void reference(result)} />
+            </>}
+          />}
+          {panel === 'edit' && <BatchReadiness key={draft.version} draft={draft} />}
+        </div>
       )}
       {panel === 'public' && config && (
-        <BatchPanel title="公共设置" onClose={close} busy={busy}>
-          <form className="work-form" onSubmit={(event) => { event.preventDefault(); void savePublic(); }}>
-            <BatchPublicFields config={config} image={media === 'image'} busy={busy} onChange={setConfig} />
-            {error && <p role="alert">{error}</p>}
+          <form className="work-form batch-public-form" onSubmit={(event) => { event.preventDefault(); void savePublic(); }}>
+            <p className="work-muted">公共设置只更新未提交项中沿用默认的字段。</p>
+            <BatchPublicFields config={publicEdits ?? config} image={media === 'image'} busy={busy} onChange={setPublicEdits} />
             <div className="work-actions">
-              <button type="submit" className="work-primary" disabled={busy}>应用到继承项</button>
+              <button type="submit" className="work-primary" disabled={busy || !publicEdits}>应用到继承项</button>
             </div>
           </form>
-        </BatchPanel>
       )}
       {panel === 'reuse' && draft && (
-        <BatchPanel title={`复用草稿到 ${product?.sku ?? ''}`} onClose={close} busy={busy}>
           <ReuseConfiguration
             task={task}
             draft={draft}
@@ -464,13 +457,34 @@ export function BatchCreation({
             onBusy={setBusy}
             onSaved={(updated) => {
               save(updated);
-              setPanel(undefined);
+              setPanel('edit');
             }}
           />
+      )}
+      {panel === 'outputs' && outputRow && draft && <BatchOutputs key={outputRow.execution.id}
+        row={outputRow} draft={draft} task={task} session={session} busy={busy}
+        results={results} resultsError={resultsError} refreshResults={refreshResults}
+        onAction={(path) => {
+          setBusy(true);
+          setError('');
+          void progress.outputAction(outputRow.item_id, path)
+            .then(refreshResults)
+            .catch((cause) => setError(actionError(cause)))
+            .finally(() => setBusy(false));
+        }}
+      />}
         </BatchPanel>
       )}
+      </div>
+      {canCreate && <BatchSubmit pending={pending} total={total} image={media === 'image'}
+        disabled={busy || panel === 'public'} onSubmit={() => void submit()} />}
     </section>
   );
+}
+function focusPanel() {
+  requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(
+    '.batch-panel > header button[aria-label="关闭"]',
+  )?.focus({ preventScroll: true }));
 }
 async function submissionKey(items: { id: string; expected_version: number }[]) {
   const bytes = new TextEncoder().encode(JSON.stringify([...items].sort(

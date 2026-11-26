@@ -2961,6 +2961,70 @@
         }
       }
     },
+    "/api/v1/tasks/{task_id}/batches/{media}/executions/{execution_id}/record": {
+      "get": {
+        "tags": [
+          "批量制作"
+        ],
+        "summary": "Execution Record",
+        "operationId": "execution_record_api_v1_tasks__task_id__batches__media__executions__execution_id__record_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "media",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "image",
+                "video"
+              ],
+              "type": "string",
+              "title": "Media"
+            }
+          },
+          {
+            "name": "execution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Execution Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchExecutionRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/outputs/{identifier}/reconcile": {
       "post": {
         "tags": [
@@ -4972,6 +5036,28 @@
           "status"
         ],
         "title": "AssistanceView"
+      },
+      "BatchExecutionRecord": {
+        "properties": {
+          "execution": {
+            "$ref": "#/components/schemas/ExecutionState"
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Submitted At"
+          },
+          "inputs": {
+            "$ref": "#/components/schemas/InputSnapshot"
+          }
+        },
+        "type": "object",
+        "required": [
+          "execution",
+          "submitted_at",
+          "inputs"
+        ],
+        "title": "BatchExecutionRecord"
       },
       "BatchSubmission": {
         "properties": {
