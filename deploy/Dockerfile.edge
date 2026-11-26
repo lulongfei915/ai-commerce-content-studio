@@ -1,0 +1,20 @@
+ARG NODE_IMAGE=node:22-slim
+ARG NGINX_IMAGE=nginx:1.28-alpine
+FROM ${NODE_IMAGE} AS web
+WORKDIR /web
+COPY apps/web/package.json apps/web/pnpm-lock.yaml apps/web/pnpm-workspace.yaml ./
+RUN npm install --global pnpm@11.25.0
+RUN --mount=type=cache,target=/pnpm/store \
+    pnpm install --frozen-lockfile --store-dir /pnpm/store --network-concurrency=8
+COPY apps/web/index.html apps/web/tsconfig*.json apps/web/vite.config.ts ./
+COPY apps/web/src ./src
+RUN pnpm build
+
+FROM ${NGINX_IMAGE} AS edge
+COPY deploy/nginx.release.conf /etc/nginx/nginx.conf
+
+FROM edge AS prebuilt
+COPY --from=studio_dist / /usr/share/nginx/html/
+
+FROM edge AS release
+COPY --from=web /web/dist/ /usr/share/nginx/html/

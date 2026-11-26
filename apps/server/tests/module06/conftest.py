@@ -7,9 +7,21 @@ from sqlalchemy.orm import Session
 
 from app.modules.identity.models import Membership, Tenant, User
 from app.modules.identity.service import hash_password
+from app.shared.config import get_settings
 
 from ..module02.conftest import PASSWORD, client  # noqa: F401
 from ..module02.conftest import db as sqlite_db  # noqa: F401
+
+
+@pytest.fixture(autouse=True)
+def isolate_provider_credentials(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch):
+    settings = get_settings()
+    if (
+        request.node.name != "test_concurrent_delivery_and_batch_workers"
+        or os.environ.get("STUDIO_M2_LIVE_PROVIDER") != "1"
+    ):
+        monkeypatch.setattr(settings, "ark_api_key", None)
+    monkeypatch.setattr(settings, "itaiapi_api_key", None)
 
 
 @pytest.fixture

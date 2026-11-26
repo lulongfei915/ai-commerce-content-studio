@@ -20,6 +20,7 @@ from app.adapters.vision import data_url
 from app.modules.assets.models import PrivateFile
 from app.modules.creation.models import CreationOutput
 from app.shared.config import Settings
+from app.shared.entitlements import PaidCallBlocked, check_provider_send
 
 from .models import Execution, ImageStep
 from .runner import download, read_object
@@ -154,6 +155,7 @@ def process_video(
                 references=reference_payload(storage, files),
             )
             with ArkVideoClient(settings) as provider:
+                check_provider_send(settings)
                 sent = True
                 step.provider_id = provider.create_task(request).id
             step.fee_state = "unverified"
@@ -171,6 +173,8 @@ def process_video(
                 step.error = f"video_provider_{task.status}"
         else:
             save_result(db, job, output, step, storage, settings, now)
+    except PaidCallBlocked:
+        output.status = "queued"
     except ArkVideoError as exc:
         step.error = exc.category
         if phase == "queued" and exc.category in REJECTED:

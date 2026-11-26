@@ -24,6 +24,7 @@ from app.modules.identity.security import (
 )
 from app.modules.products.service import get_fact, get_product
 from app.modules.templates.schemas import VersionInput
+from app.shared.entitlements import PaidCallBlocked, check_provider_send
 from app.shared.studio_errors import check_version
 
 router = APIRouter(tags=["提示词辅助"])
@@ -131,11 +132,16 @@ def assist(
             if sources
             else "优化原文，不新增商品属性。"
         )
+        check_provider_send(settings)
         text, request, usage = suggest(settings, instruction, context, media)
         if len(text) > 6000:
             raise ValueError("suggestion_too_long")
         item.suggestion, item.provider_id, item.status = text, request, "ready"
         item.evidence = {**item.evidence, "usage": usage}
+    except PaidCallBlocked as exc:
+        item.status, item.reserved_cents = "blocked", 0
+        db.commit()
+        raise exc.as_http_error() from exc
     except Exception:
         item.status = "unverified"
     db.commit()

@@ -31,7 +31,7 @@ from app.shared.db import get_db
 
 from ..module02.conftest import ORIGIN, PASSWORD
 from ..module03.test_production_setup import API, create_product
-from ..module05.test_canvas import create_draft
+from ..module05.test_canvas import add_product_photo_reference, create_draft
 
 
 @pytest.mark.skipif(
@@ -149,14 +149,14 @@ def test_concurrent_delivery_and_batch_workers(monkeypatch):
             assert cancelled.status_code == 200, cancelled.text
             refreshed = client.get(task_url).json()["positions"]
             assert next(p["status"] for p in refreshed if p["id"] == pos["id"]) == "unfilled"
-            drafts = [
-                create_draft(
+            drafts = []
+            for sku, purpose, count in ((red, "main", 1), (blue, "main", 2), (red, "detail", 1)):
+                draft = create_draft(
                     client, headers, task, sku, entry="batch", primary=False,
                     purpose=purpose, parameters={"count": count},
                     prompt=f"合成测试商品 {sku['sku']}，展示鞋面的轮廓，使用纯白背景",
                 )
-                for sku, purpose, count in ((red, "main", 1), (blue, "main", 2), (red, "detail", 1))
-            ]
+                drafts.append(add_product_photo_reference(client, headers, draft, sku["photos"][0]))
             batch_url = f"{task_url}/batches/image/executions"
             submitted = client.post(batch_url, headers=headers, json={
                 "idempotency_key": f"batch-{marker}",

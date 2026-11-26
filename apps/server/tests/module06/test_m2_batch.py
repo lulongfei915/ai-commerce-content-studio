@@ -1,20 +1,91 @@
+from io import BytesIO
+
+from PIL import Image
 from sqlalchemy import func, select
 
+from app.adapters.ark_image import ArkImageClient, ImageGenerationResponse
+from app.modules.execution import runner
 from app.modules.execution.models import Execution
 from app.shared.config import get_settings
 
-from ..module03.test_production_setup import API
+from ..module02.test_files import MemoryStorage
+from ..module03.test_production_setup import API, create_product
 from ..module05.test_canvas import create_draft, setup_task
+
+
+def test_five_batch_images_use_the_same_text_only_generation_as_quick(client, db, monkeypatch):
+    headers, _, _, _ = setup_task(client, db)
+    product = create_product(client, headers["X-CSRF-Token"], "BATCH-TEXT-ONLY")
+    task_response = client.post(
+        f"{API}/tasks", headers=headers,
+        json={"product_ids": [product["id"]], "contents": ["main", "detail"]},
+    )
+    assert task_response.status_code == 201, task_response.text
+    task = task_response.json()
+    prompt = "柔和的棚拍光线，白色背景"
+    quick = create_draft(client, headers, task, product, entry="quick", prompt=prompt)
+    settings = get_settings()
+    monkeypatch.setattr(settings, "image_budget_cents", 6)
+    monkeypatch.setattr(settings, "image_ceiling_cents", 1)
+    quick_job = client.post(
+        f"{API}/creations/{quick['id']}/executions", headers=headers,
+        json={"expected_version": quick["version"], "idempotency_key": "quick-text"},
+    )
+    assert quick_job.status_code == 202, quick_job.text
+    drafts = [
+        create_draft(
+            client, headers, task, product, entry="batch", purpose=purpose,
+            primary=False, prompt=prompt,
+        )
+        for purpose in ("main", "detail", "main", "detail", "detail")
+    ]
+    response = client.post(
+        f"{API}/tasks/{task['id']}/batches/image/executions", headers=headers,
+        json={
+            "idempotency_key": "five-text-images",
+            "items": [{"id": row["id"], "expected_version": row["version"]} for row in drafts],
+        },
+    )
+    assert response.status_code == 202, response.text
+    batch = response.json()
+    assert [row["item_id"] for row in batch] == [draft["id"] for draft in drafts]
+    jobs = [quick_job.json(), *(row["execution"] for row in batch)]
+    assert len({job["id"] for job in jobs}) == 6
+    assert all(len(job["outputs"]) == 1 for job in jobs)
+    assert all(job["outputs"][0]["status"] == "queued" for job in jobs)
+
+    requests = []
+
+    def generate(_, request):
+        requests.append(request.to_payload())
+        return ImageGenerationResponse.model_validate(
+            {"data": [{"url": "https://example.test/result.png"}]}
+        )
+
+    size = db.get_one(Execution, jobs[0]["id"]).snapshot["size"]
+    png = BytesIO()
+    Image.new("RGB", tuple(map(int, size.split("x")))).save(png, "PNG")
+    monkeypatch.setattr(ArkImageClient, "generate", generate)
+    monkeypatch.setattr(runner, "download", lambda *_: png.getvalue())
+    storage = MemoryStorage({})
+    for job in jobs:
+        output = job["outputs"][0]["id"]
+        runner.process(db, output, storage, settings)
+        runner.process(db, output, storage, settings)
+
+    assert len(requests) == 6
+    assert requests[0]["prompt"] == prompt
+    assert "image" not in requests[0]
+    assert requests == [requests[0]] * 6
+    results = client.get(f"{API}/tasks/{task['id']}/results").json()
+    assert {row["version_id"] for row in results} == {job["outputs"][0]["id"] for job in jobs}
+    assert all(row["status"] == "pending_review" for row in results)
+    assert len(storage.objects) == 6
 
 
 def test_batch_is_atomic_idempotent_and_freezes_each_output(client, db, monkeypatch):
     headers, red, blue, task = setup_task(client, db)
     base = f"{API}/tasks/{task['id']}/batches/image"
-    confirmed = client.post(
-        f"{API}/products/{blue['id']}/facts", headers=headers,
-        json={"expected_version": blue["version"], "facts": red["facts"]},
-    )
-    assert confirmed.status_code == 201, confirmed.text
     drafts = [
         create_draft(client, headers, task, product, entry="batch", primary=False, **extra)
         for product, extra in (
@@ -34,7 +105,9 @@ def test_batch_is_atomic_idempotent_and_freezes_each_output(client, db, monkeypa
 
     failed = client.post(f"{base}/executions", headers=headers, json=payload())
     assert failed.status_code == 422, failed.text
-    assert failed.json()["detail"]["item_id"] == drafts[2]["id"]
+    assert failed.json()["detail"] == {
+        "item_id": drafts[2]["id"], "code": "prompt_required", "field": "prompt",
+    }
     db.rollback()
     assert db.scalar(select(func.count()).select_from(Execution)) == 0
     path = f"{API}/creations/{drafts[2]['id']}"
@@ -52,10 +125,20 @@ def test_batch_is_atomic_idempotent_and_freezes_each_output(client, db, monkeypa
         row["id"] for row in drafts
     }
     assert len(client.get(f"{API}/tasks/{task['id']}/canvas").json()["nodes"]) == 0
+    assert db.get_one(Execution, jobs[0]["execution"]["id"]).snapshot["product_photos"] == []
     assert db.get(Execution, jobs[-1]["execution"]["id"]).snapshot["draft"]["prompt"] == "独立配置"
+    record_url = f"{base}/executions/{jobs[-1]['execution']['id']}/record"
+    record = client.get(record_url)
+    assert record.status_code == 200, record.text
+    assert record.json()["inputs"]["draft"]["id"] == drafts[2]["id"]
+    assert record.json()["inputs"]["draft"]["prompt"] == "独立配置"
+    assert record.json()["execution"] == jobs[-1]["execution"]
+    assert client.get(f"{base}/executions/missing/record").status_code == 404
+    assert client.get(record_url.replace("/image/", "/video/")).status_code == 404
     assert client.patch(
         path, headers=headers, json={"expected_version": drafts[2]["version"], "prompt": "覆盖"},
     ).status_code == 409
+    monkeypatch.setattr(db, "autoflush", False)
     copy = client.post(
         f"{base}/items/{drafts[2]['id']}/copy", headers=headers,
         json={"expected_version": drafts[2]["version"]},
@@ -102,7 +185,19 @@ def test_batch_scope_change_clears_old_sku_references_and_can_restore_defaults(c
 
     headers, red, blue, task = setup_task(client, db)
     draft = create_draft(client, headers, task, red, entry="batch", prompt="手写正文")
+    path = f"{API}/creations/{draft['id']}"
+    other_photo = blue["photos"][0]
+    rejected = client.post(
+        f"{path}/references", headers=headers,
+        json={
+            "expected_version": draft["version"], "kind": "upload", "usage": "product",
+            "source_id": other_photo["file_id"], "file_version": other_photo["version"],
+        },
+    )
+    assert rejected.status_code == 422, rejected.text
+    assert rejected.json()["detail"]["code"] == "reference_other_sku"
     draft = add_product_photo_reference(client, headers, draft, red["photos"][0])
+    assert client.get(f"{path}/input-snapshot").json()["product_photos"] == red["photos"]
     url = f"{API}/tasks/{task['id']}/batches/image"
     new_position = next(
         p for p in task["positions"] if p["product_id"] == blue["id"] and p["purpose"] == "main"
@@ -116,7 +211,8 @@ def test_batch_scope_change_clears_old_sku_references_and_can_restore_defaults(c
     current = changed.json()
     assert current["references"] == []
     assert (current["product_id"], current["prompt"]) == (blue["id"], "手写正文")
-    assert client.get(f"{API}/creations/{draft['id']}/readiness").json()["issues"]
+    assert client.get(f"{path}/readiness").json() == {"issues": []}
+    assert client.get(f"{path}/input-snapshot").json()["product_photos"] == []
     assert client.put(
         url, headers=headers, json={"expected_version": 0, "prompt": "默认正文", "count": 2},
     ).status_code == 200

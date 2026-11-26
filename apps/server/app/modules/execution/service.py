@@ -21,6 +21,7 @@ from app.modules.tasks.models import DeliveryPosition
 from app.modules.tasks.service import get_task
 from app.modules.templates.schemas import VersionInput
 from app.shared.config import Settings
+from app.shared.entitlements import require_paid_calls
 from app.shared.studio_errors import check_version
 
 from .models import Execution, ImageStep
@@ -83,6 +84,7 @@ def require_budget(
     db: Session, tenant: str, settings: Settings, amount: int, *,
     for_image: bool = False, for_video: bool = False,
 ) -> None:
+    require_paid_calls(settings)
     if for_video and settings.video_budget_unlimited:
         return
     budget = settings.video_budget_cents if for_video else settings.image_budget_cents

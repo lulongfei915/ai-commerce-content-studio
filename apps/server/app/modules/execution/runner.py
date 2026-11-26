@@ -18,6 +18,7 @@ from app.modules.creation.capabilities import ImageParameters, validate_paramete
 from app.modules.creation.models import CreationOutput
 from app.modules.identity.models import Tenant
 from app.shared.config import Settings
+from app.shared.entitlements import PaidCallBlocked, check_provider_send, paid_call_block
 
 from .models import Execution, ImageStep
 from .sources import verify_sources
@@ -129,6 +130,9 @@ def process(db: Session, identifier: str, storage: ObjectStorage, settings: Sett
     if step.lease and step.lease > now:
         db.rollback()
         return
+    if output.status == "queued" and paid_call_block(settings):
+        db.rollback()
+        return
     snap = job.snapshot
     if snap.get("media") == "video":
         from .video_runner import process_video
@@ -210,6 +214,7 @@ def process(db: Session, identifier: str, storage: ObjectStorage, settings: Sett
             if gpt:
                 references = gpt_media(storage, sources, settings.max_image_bytes)
                 with GptImageClient(settings) as gpt_client:
+                    check_provider_send(settings)
                     sent = True
                     inline = gpt_client.generate(
                         snap["model"], prompt, size, snap["quality"], references
@@ -224,6 +229,7 @@ def process(db: Session, identifier: str, storage: ObjectStorage, settings: Sett
                     model=snap["model"], prompt=prompt, image=images or None, size=size,
                 )
                 with ArkImageClient(settings) as ark_client:
+                    check_provider_send(settings)
                     sent = True
                     result = ark_client.generate(request)
                 step.provider_id = result.request_id
@@ -261,6 +267,8 @@ def process(db: Session, identifier: str, storage: ObjectStorage, settings: Sett
             db.add(file)
             output.file_id, output.file_version, output.status = file.id, 1, "pending_review"
         step.error = None
+    except PaidCallBlocked:
+        output.status = "queued"
     except InvalidImageResult:
         output.status = "result_unavailable"
         step.error = "result_size_mismatch" if step.result_size else "invalid_result"

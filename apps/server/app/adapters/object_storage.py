@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import BinaryIO, Protocol, cast
+from typing import Any, BinaryIO, Protocol, cast
 
 import boto3
 from botocore.config import Config
@@ -18,28 +18,28 @@ class ObjectStorage(Protocol):
     def read(self, key: str, byte_range: tuple[int, int] | None) -> BinaryIO: ...
 
 
+def s3_client(settings: Settings, endpoint: str) -> Any:
+    if settings.storage_access_key is None or settings.storage_secret_key is None:
+        raise StorageUnavailable
+    return boto3.client(
+        "s3",
+        endpoint_url=endpoint,
+        region_name="us-east-1",
+        aws_access_key_id=settings.storage_access_key.get_secret_value(),
+        aws_secret_access_key=settings.storage_secret_key.get_secret_value(),
+        config=Config(
+            signature_version="s3v4", connect_timeout=5, read_timeout=20,
+            s3={"addressing_style": "path"},
+        ),
+    )
+
+
 class S3Storage:
     def __init__(self, settings: Settings) -> None:
-        if settings.storage_access_key is None or settings.storage_secret_key is None:
-            raise StorageUnavailable
         self._bucket = settings.storage_bucket
-        self._client = boto3.client(
-            "s3",
-            endpoint_url=settings.storage_endpoint,
-            region_name="us-east-1",
-            aws_access_key_id=settings.storage_access_key.get_secret_value(),
-            aws_secret_access_key=settings.storage_secret_key.get_secret_value(),
-            config=Config(connect_timeout=5, read_timeout=20, s3={"addressing_style": "path"}),
-        )
+        self._client = s3_client(settings, settings.storage_endpoint)
         self._signer = (
-            boto3.client(
-                "s3",
-                endpoint_url=settings.storage_signed_endpoint,
-                region_name="us-east-1",
-                aws_access_key_id=settings.storage_access_key.get_secret_value(),
-                aws_secret_access_key=settings.storage_secret_key.get_secret_value(),
-                config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
-            )
+            s3_client(settings, settings.storage_signed_endpoint)
             if settings.storage_signed_endpoint
             else None
         )

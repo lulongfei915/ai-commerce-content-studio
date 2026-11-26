@@ -88,6 +88,15 @@ async function openTask(name, client = page) {
   await expect(client.getByRole('region', { name: '制作画布' })).toBeVisible();
 }
 
+async function openBenchmark(task, client) {
+  const start = performance.now();
+  await openTask(task.name, client);
+  await expect(client.locator('.react-flow__node:visible')).toHaveCount(50);
+  await expect(client.locator('.react-flow__edge')).toHaveCount(100);
+  await expectCanvasMedia(client);
+  return Math.round(performance.now() - start);
+}
+
 const node = (id, client = page) => client.locator(`.react-flow__node[data-id="${id}"]:visible`);
 const panel = () => page.getByRole('dialog');
 const shoot = (name, client = page) =>
@@ -120,10 +129,10 @@ async function verifySharedResults(task, sku, canvasDraft, quickDraft) {
     results.find((item) => item.version_id === fixture.version),
   );
   const locator = (client, result) => client.locator(`[data-version-id="${result.version_id}"]`);
-  const preview = async (client, result) => {
-    await expect(locator(client, result)).toHaveAttribute('data-asset-id', result.asset_id);
-    await locator(client, result).getByRole('button').first().click();
-    const image = client.getByRole('dialog').getByRole('img', { name: result.label, exact: true });
+  const preview = async (scope, result, previewScope = scope) => {
+    await expect(locator(scope, result)).toHaveAttribute('data-asset-id', result.asset_id);
+    await locator(scope, result).getByRole('button').first().click();
+    const image = previewScope.getByRole('img', { name: result.label, exact: true });
     await expect.poll(() => image.evaluate((el) => el.naturalWidth)).toBeGreaterThan(0);
     return image.getAttribute('src');
   };
@@ -132,17 +141,18 @@ async function verifySharedResults(task, sku, canvasDraft, quickDraft) {
   await navigateEntry('快捷生成');
   await page.getByRole('button', { name: '收起侧栏' }).click();
   await expect(page.locator('.workspace')).toHaveAttribute('data-sidebar-collapsed', 'true');
-  const sharedUrl = await preview(page, canvas);
+  const quickResults = page.getByRole('region', { name: '创作结果' });
+  const sharedUrl = await preview(quickResults, canvas, panel());
   await page.keyboard.press('Escape');
   const count = (await api(`${base}/canvas`)).nodes.length;
   await navigateEntry('画布');
   await expect(page.getByRole('region', { name: '制作画布' })).toBeVisible();
   await page.getByRole('button', { name: '任务作品' }).click();
-  assert.equal(await preview(page, canvas), sharedUrl);
+  assert.equal(await preview(panel(), canvas), sharedUrl);
   assert.equal((await api(`${base}/canvas`)).nodes.length, count);
-  await preview(page, pending);
+  await preview(panel(), pending);
   await expect(panel().getByRole('button', { name: '引用到画布' })).toBeDisabled();
-  await preview(page, quick);
+  await preview(panel(), quick);
   await shoot('08-canvas-shared-results');
   await panel().getByRole('button', { name: '引用到画布' }).click();
   await expect.poll(async () => (await api(`${base}/canvas`)).nodes.length).toBe(count + 1);
@@ -153,40 +163,34 @@ async function verifySharedResults(task, sku, canvasDraft, quickDraft) {
   await expect.poll(async () => (await api(`${base}/canvas`)).nodes.length).toBe(count);
   assert.deepEqual(await api(`${base}/results`), results);
   await navigateEntry('快捷生成');
-  await preview(page, quick);
+  await preview(quickResults, quick, panel());
   await page.keyboard.press('Escape');
   await navigateEntry('批量制作');
-  for (const position of task.positions.filter((item) => item.purpose === 'main')) {
-    await page.getByLabel('批量商品与用途').selectOption(position.id);
-    await page.getByRole('button', { name: '加入批量清单' }).click();
-    await expect(page.locator('.batch-items li button').first()).toBeEnabled();
-  }
-  await expect(page.getByLabel('批量汇总')).toHaveText('2 个 SKU · 预计 2 份产出');
-  const target = page.locator('.batch-items li').filter({ hasText: sku });
-  await target.getByRole('button', { name: '复用草稿' }).click();
-  await panel().getByLabel('来源草稿').selectOption(quickDraft.id);
-  await panel().getByRole('button', { name: '覆盖此项配置' }).click();
-  await expect(target).toContainText(quickDraft.prompt);
-  await target.getByRole('button', { name: '编辑', exact: true }).click();
-  await panel().getByLabel('提示词').fill('批量单项覆盖');
-  await panel().getByRole('button', { name: '保存草稿', exact: true }).click();
-  await expect(panel().getByText('草稿已保存')).toBeVisible();
-  await page.keyboard.press('Escape');
-  assert.equal((await api(`/creations/${quickDraft.id}`)).prompt, quickDraft.prompt);
-  await page.getByRole('button', { name: '任务作品' }).click();
-  assert.equal(await preview(page, canvas), sharedUrl);
-  await shoot('09-batch-shared-results');
-  await page.keyboard.press('Escape');
+  const position = task.positions.find((item) => (
+    item.purpose === 'main' && item.product_id === quickDraft.product_id
+  ));
+  assert(position);
+  const item = await api(`${base}/creations`, 'POST', {
+    product_id: position.product_id, purpose: position.purpose, position_id: position.id,
+    entry: 'batch', primary: false, prompt: quickDraft.prompt,
+  }, 201);
   await page.reload();
-  await expect(page.getByRole('heading', { name: '批量制作', exact: true })).toBeVisible();
+  const target = page.locator(`#batch-${item.id}`);
+  await expect(target).toContainText(sku);
+  const batchPanel = page.locator('.batch-panel');
+  await target.getByRole('button', { name: '编辑', exact: true }).click();
+  await batchPanel.getByLabel('提示词', { exact: true }).fill('批量单项覆盖');
+  await batchPanel.getByRole('button', { name: '添加参考' }).click();
   await expect(target).toContainText('批量单项覆盖');
-  await target.getByRole('button', { name: '引用作品' }).click();
-  await preview(page, quick);
-  await panel().getByRole('button', { name: '引用到此项' }).click();
-  await expect(panel()).toHaveCount(0);
-  const batchDraft = (await api(`${base}/creations?entry=batch`)).find(
-    (item) => item.product_id === quickDraft.product_id,
-  );
+  assert.equal((await api(`/creations/${quickDraft.id}`)).prompt, quickDraft.prompt);
+  assert.equal(await preview(batchPanel, canvas), sharedUrl);
+  await shoot('09-batch-shared-results');
+  await preview(batchPanel, quick);
+  await batchPanel.getByRole('button', { name: '引用到此项' }).click();
+  await expect.poll(async () => (await api(`/creations/${item.id}`)).references.some(
+    (ref) => ref.source_id === quick.version_id,
+  )).toBe(true);
+  const batchDraft = await api(`/creations/${item.id}`);
   assert.equal(batchDraft.references[0].source_id, quick.version_id);
   assert.equal(batchDraft.references[0].file_id, quick.file_id);
   assert.deepEqual(await api(`${base}/results`), results);
@@ -195,9 +199,10 @@ async function verifySharedResults(task, sku, canvasDraft, quickDraft) {
   const mobile = await context.newPage();
   await mobile.setViewportSize({ width: 390, height: 844 });
   await mobile.goto(origin);
-  await expect(mobile.getByRole('heading', { name: '批量制作', exact: true })).toBeVisible();
-  await mobile.getByRole('button', { name: '任务作品' }).click();
-  assert.equal(await preview(mobile, canvas), sharedUrl);
+  await expect(mobile.getByRole('tab', { name: '批量图片' })).toBeVisible();
+  await mobile.locator(`#batch-${item.id}`).getByRole('button', { name: '编辑', exact: true }).click();
+  await mobile.getByRole('dialog').getByRole('button', { name: /^参考 · 1$/ }).click();
+  assert.equal(await preview(mobile.getByRole('dialog'), canvas), sharedUrl);
   await shoot('10-mobile-shared-results', mobile);
   await mobile.keyboard.press('Escape');
   await navigateEntry('画布', mobile);
@@ -209,12 +214,12 @@ async function verifySharedResults(task, sku, canvasDraft, quickDraft) {
   const finalResults = await api(`${base}/results`);
   const batch = finalResults.find((item) => item.version_id === batchVersion);
   await navigateEntry('快捷生成');
-  const batchUrl = await preview(page, batch);
+  const batchUrl = await preview(quickResults, batch, panel());
   await page.keyboard.press('Escape');
   await navigateEntry('画布');
   await expect(page.getByRole('region', { name: '制作画布' })).toBeVisible();
   await page.getByRole('button', { name: '任务作品' }).click();
-  assert.equal(await preview(page, batch), batchUrl);
+  assert.equal(await preview(panel(), batch), batchUrl);
   await page.keyboard.press('Escape');
   assert.equal((await api(`${base}/canvas`)).nodes.length, count);
   assert.deepEqual(await api(`${base}/results`), finalResults);
@@ -304,24 +309,27 @@ async function measure(client) {
   await client.mouse.move(x + 110, y + 15, { steps: 20 });
   await client.mouse.move(x, y, { steps: 20 });
   await client.mouse.up({ button: 'middle' });
-  const drag = await client.locator('.canvas-node-creation').evaluateAll((cards, canvasBox) => {
+  const dragTarget = () => client.locator('.canvas-node-creation').evaluateAll((cards, canvasBox) => {
     for (const card of cards) {
       const bounds = card.getBoundingClientRect();
-      const x = bounds.x + bounds.width / 2;
-      const y = bounds.y + bounds.height / 2;
-      if (
-        x >= canvasBox.x &&
-        x < canvasBox.x + canvasBox.width - 35 &&
-        y >= canvasBox.y &&
-        y < canvasBox.y + canvasBox.height - 30 &&
-        card.contains(document.elementFromPoint(x, y))
-      ) {
+      const left = Math.max(bounds.left, canvasBox.x);
+      const right = Math.min(bounds.right, canvasBox.x + canvasBox.width - 35);
+      const top = Math.max(bounds.top, canvasBox.y + 70);
+      const bottom = Math.min(bounds.bottom, canvasBox.y + canvasBox.height - 30);
+      const x = (left + right) / 2;
+      const y = (top + bottom) / 2;
+      if (right > left && bottom > top && card.contains(document.elementFromPoint(x, y))) {
         const wrapper = card.closest('.react-flow__node');
         return { x, y, id: wrapper.dataset.id, transform: wrapper.style.transform };
       }
     }
     return null;
   }, canvas);
+  let drag = await dragTarget();
+  if (!drag) {
+    await client.getByRole('button', { name: '适应全部', exact: true }).click();
+    await expect.poll(async () => Boolean((drag = await dragTarget()))).toBe(true);
+  }
   assert(drag, 'Expected a generation node inside the test viewport.');
   await client.mouse.move(drag.x, drag.y);
   await client.mouse.down();
@@ -440,7 +448,7 @@ try {
   );
   await panel().getByRole('button', { name: '保存草稿', exact: true }).click();
   await expect(panel().getByText('草稿已保存')).toBeVisible();
-  await page.keyboard.press('Escape');
+  await panel().getByRole('button', { name: '关闭画布浮层', exact: true }).click();
   await expect(panel()).toHaveCount(0);
   const canvasPath = `/tasks/${scenario.id}/canvas`;
   const firstDraft = (await api(canvasPath)).creations[0];
@@ -449,11 +457,11 @@ try {
   const quickPrompt = '快捷草稿使用独立提示词';
   await expect(page.getByRole('textbox', { name: '提示词', exact: true })).toHaveValue('');
   await page.getByRole('textbox', { name: '提示词', exact: true }).fill(quickPrompt);
-  await page.getByRole('button', { name: /创作设置/ }).click();
-  const quickSettings = page.getByRole('dialog', { name: '创作设置' });
-  await quickSettings.getByRole('button', { name: '保存草稿', exact: true }).click();
-  await expect(quickSettings.getByText('草稿已保存', { exact: true })).toBeVisible();
-  await quickSettings.getByRole('button', { name: '关闭', exact: true }).click();
+  await page.getByRole('button', { name: /^(草稿工具|创作设置)$/ }).click();
+  const quickTools = page.getByRole('dialog', { name: /^(草稿工具|创作设置)$/ });
+  await quickTools.getByRole('button', { name: '保存草稿', exact: true }).click();
+  await expect(quickTools.getByText('草稿已保存', { exact: true })).toBeVisible();
+  await quickTools.getByRole('button', { name: '关闭', exact: true }).click();
   const [quickDraft] = await api(`/tasks/${scenario.id}/creations?entry=quick`);
   assert.notEqual(quickDraft.id, firstDraft.id);
   assert.equal(firstDraft.prompt, prompt);
@@ -523,10 +531,11 @@ try {
     .getByRole('button', { name: '重试', exact: true })
     .click();
   await expect(page.getByText('布局已保存', { exact: true })).toBeVisible();
+  const beforeZoom = (await api(canvasPath)).viewport;
   await page.getByRole('button', { name: '缩小', exact: true }).click();
   await expect
-    .poll(async () => (await api(canvasPath)).viewport?.version)
-    .toBeGreaterThan(beforeConflict.viewport.version);
+    .poll(async () => (await api(canvasPath)).viewport?.zoom)
+    .toBeLessThan(beforeZoom.zoom);
   await expect(page.getByText('视口已保存', { exact: true })).toBeVisible();
   const restored = await api(canvasPath);
   await page.reload();
@@ -589,10 +598,7 @@ try {
     })),
   ];
   await api(`${benchPath}/layout`, 'PUT', { expected_version: 0, positions });
-  await openTask(benchmark.name);
-  await expect(page.locator('.react-flow__node:visible')).toHaveCount(50);
-  await expect(page.locator('.react-flow__edge')).toHaveCount(100);
-  await expectCanvasMedia(page);
+  const desktopOpenMs = await openBenchmark(benchmark, page);
   await node(`creation:${baseDrafts[0].id}`).dblclick();
   await expect(panel().getByRole('button', { name: /插入参考 .* 标签/ })).toHaveCount(5);
   await panel()
@@ -630,7 +636,7 @@ try {
   await mobilePage.setViewportSize({ width: 390, height: 844 });
   await mobilePage.goto(origin);
   await expect(mobilePage.getByRole('region', { name: '制作画布' })).toBeVisible();
-  await openTask(benchmark.name, mobilePage);
+  const mobileOpenMs = await openBenchmark(benchmark, mobilePage);
   await mobilePage.getByRole('button', { name: '适应全部', exact: true }).click();
   await expectCanvasMedia(mobilePage);
   const mobile = await measure(mobilePage);
@@ -654,8 +660,8 @@ try {
     edges: 100,
     thumbnails: 20,
     inputBytes: media.reduce((total, item) => total + item.bytes, 0),
-    desktop,
-    mobile,
+    desktop: { openMs: desktopOpenMs, ...desktop },
+    mobile: { openMs: mobileOpenMs, ...mobile },
     modelRequests,
     errors,
     shared,

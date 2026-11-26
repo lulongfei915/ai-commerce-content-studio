@@ -1,4 +1,6 @@
 from functools import lru_cache
+from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,6 +11,11 @@ DEFAULT_ARK_VIDEO_MODEL = "doubao-seedance-2-0-260128"
 class Settings(BaseSettings):
     app_name: str = "studio-api"
     environment: str = "development"
+    deployment_mode: Literal["saas", "private"] = "saas"
+    installation_id: str = ""
+    license_file: Path = Path("/run/studio-license/license.json")
+    license_public_key_file: Path = Path("/run/studio-license/studio.pub")
+    paid_calls_paused: bool = False
     api_prefix: str = "/api/v1"
     database_url: str = "mysql+pymysql://studio:studio@localhost:3306/studio"
     redis_url: str = "redis://localhost:6379/0"

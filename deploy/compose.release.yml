@@ -1,0 +1,51 @@
+x-server: &server
+  image: "${STUDIO_SERVER_IMAGE:?Set STUDIO_SERVER_IMAGE}"
+  env_file:
+    - "${STUDIO_ENV_FILE:-.env.release}"
+  volumes:
+    - "${STUDIO_LICENSE_DIR:?Set STUDIO_LICENSE_DIR}:/run/studio-license:ro"
+  init: true
+
+services:
+  migrate:
+    <<: *server
+    environment:
+      DATABASE_URL: "${STUDIO_MIGRATION_DATABASE_URL:?Set STUDIO_MIGRATION_DATABASE_URL}"
+    command: ["alembic", "upgrade", "head"]
+
+  api:
+    <<: *server
+    restart: unless-stopped
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--no-access-log"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/v1/ready', timeout=3).close()"]
+      interval: 10s
+      timeout: 4s
+      retries: 6
+
+  worker:
+    <<: *server
+    restart: unless-stopped
+    command: ["celery", "-A", "app.entrypoints.worker:celery_app", "worker", "-l", "INFO", "--concurrency=2", "--prefetch-multiplier=1", "--hostname=studio@%h"]
+    stop_grace_period: 5m
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+
+  scheduler:
+    <<: *server
+    restart: unless-stopped
+    command: ["python", "-m", "app.entrypoints.scheduler"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+
+  edge:
+    image: "${STUDIO_EDGE_IMAGE:?Set STUDIO_EDGE_IMAGE}"
+    restart: unless-stopped
+    ports:
+      - "${STUDIO_BIND_ADDRESS:-127.0.0.1}:${STUDIO_HTTPS_PORT:-443}:443"
+    volumes:
+      - "${STUDIO_TLS_DIR:?Set STUDIO_TLS_DIR}:/run/studio-tls:ro"
+    depends_on:
+      api: {condition: service_healthy}

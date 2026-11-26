@@ -130,9 +130,13 @@ def test_redis_loss_worker_and_private_download(tmp_path, monkeypatch):
                     assert result.status_code == 202, result.text
                     jobs.append(result.json())
             batch_items = [
-                create_draft(
-                    client, headers, task, product, entry="batch", primary=False,
-                    parameters={"count": count},
+                add_product_photo_reference(
+                    client, headers,
+                    create_draft(
+                        client, headers, task, product, entry="batch", primary=False,
+                        parameters={"count": count},
+                    ),
+                    product["photos"][0],
                 )
                 for count in (1, 2, 1)
             ]
