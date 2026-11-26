@@ -184,6 +184,7 @@ def stream_private_file(
     storage: Storage,
     *,
     inline: bool = False,
+    audit: tuple[str, str] | None = None,
 ) -> StreamingResponse:
     try:
         media = metadata(item)
@@ -195,11 +196,21 @@ def stream_private_file(
     except FileError as exc:
         headers = {"Content-Range": f"bytes */{item.size_bytes}"} if exc.status == 416 else None
         raise HTTPException(exc.status, exc.code, headers=headers) from exc
-    db.rollback()
+    if not audit:
+        db.rollback()
     try:
         body = storage.read(key, byte_range)
     except StorageUnavailable as exc:
         raise HTTPException(503, "storage_unavailable") from exc
+    if audit:
+        from app.modules.identity.team import record
+
+        record(db, identity, *audit)
+        try:
+            db.commit()
+        except Exception:
+            body.close()
+            raise
     disposition = "inline" if inline else "attachment"
     headers = {
         "Accept-Ranges": "bytes",

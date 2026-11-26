@@ -47,10 +47,11 @@ export function useImageExecution(
   draft: Draft | undefined,
   token: string,
   taskId = draft?.task_id,
+  positionId?: string,
 ) {
   const [jobs, setJobs] = useState<Record<string, Job>>({});
   const latestJobs = useRef(jobs);
-  const request = useRef<{ id: string; version: number; key: string }>();
+  const request = useRef<{ id: string; version: number; key: string; position?: string }>();
   const draftId = draft?.id;
   const job = draftId ? jobs[draftId] : undefined;
   const inProgress = Boolean(job?.outputs.some((output) => activeImageStatuses.has(output.status)));
@@ -116,13 +117,16 @@ export function useImageExecution(
   }, [taskId, hasActiveJobs]);
 
   async function submit(input: Draft) {
-    if (request.current?.id !== input.id || request.current.version !== input.version) {
-      request.current = { id: input.id, version: input.version, key: crypto.randomUUID() };
+    const position = input.purpose !== 'video' ? positionId : undefined;
+    if (request.current?.id !== input.id || request.current.version !== input.version ||
+      request.current.position !== position) {
+      request.current = { id: input.id, version: input.version, key: crypto.randomUUID(), position };
     }
     const pending = request.current;
     const next = await apiWrite<Job>(`/creations/${input.id}/executions`, token, {
       expected_version: input.version,
       idempotency_key: pending.key,
+      position_id: position,
     });
     setJobs((current) => ({
       [input.id]: next,

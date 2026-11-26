@@ -20,6 +20,9 @@ class Execution(Base):
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     snapshot: Mapped[dict[str, Any]] = mapped_column(JSON)
     parent_output: Mapped[str | None] = mapped_column(ForeignKey("creation_outputs.id"))
+    position_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("delivery_positions.id", ondelete="SET NULL"), index=True
+    )
 
 
 class ImageStep(Base):

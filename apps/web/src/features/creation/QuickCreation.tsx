@@ -37,6 +37,7 @@ type Props = {
   categories: Category[];
   token: string;
   selected?: Draft;
+  targetSpec?: { ratio: string; resolution: string };
   edits?: DraftEdits;
   busy: boolean;
   loading: boolean;
@@ -60,6 +61,7 @@ export function QuickCreation({
   categories,
   token,
   selected,
+  targetSpec,
   edits,
   busy,
   loading,
@@ -75,9 +77,10 @@ export function QuickCreation({
   const [feedback, setFeedback] = useState<{ id: string; message: string; error?: boolean }>();
   const isVideo = purpose === 'video';
   const working = useRef(false);
+  const preferred = selected?.parameters ?? defaults;
   const value: DraftEdits = edits ?? {
     prompt: selected?.prompt ?? '',
-    parameters: selected?.parameters ?? defaults,
+    parameters: !isVideo && targetSpec ? { ...preferred, ...targetSpec } : preferred,
     video:
       selected?.video_parameters ??
       (isVideo
@@ -137,8 +140,12 @@ export function QuickCreation({
   }
 
   async function saveInputs(draft: Draft) {
-    if (!edits) return draft;
-    const updated = await saveDraftInputs(draft, token, edits);
+    const hasTargetSpec = !isVideo && targetSpec && (
+      draft.parameters.ratio !== targetSpec.ratio ||
+      draft.parameters.resolution !== targetSpec.resolution
+    );
+    if (!edits && !hasTargetSpec) return draft;
+    const updated = await saveDraftInputs(draft, token, edits ?? value);
     onSaved(updated);
     onEdit(draft.id, undefined);
     return updated;

@@ -21,10 +21,12 @@ from app.modules.identity.security import (
     WriteIdentity,
     require_permission,
 )
+from app.modules.identity.team import record
 from app.modules.products.facts import CATEGORIES
 from app.modules.products.models import Product
 from app.modules.products.schemas import WriteSchema
 from app.modules.tasks.models import Task
+from app.modules.tasks.service import get_task
 from app.shared.studio_errors import check_version
 
 router = APIRouter(tags=["图片审核"])
@@ -128,6 +130,7 @@ def decide(
     positions = []
     if data.decision == "approved":
         _, draft = version_for(db, identity.tenant.id, identifier)
+        get_task(db, identity.tenant.id, draft.task_id, lock=True)
         positions = list(lock_matching_positions(db, draft))
     output, _ = version_for(db, identity.tenant.id, identifier, True)
     check_version(output.version, data.version)
@@ -157,6 +160,7 @@ def decide(
     for position in positions:
         db.flush()
         fill_open_position(db, position)
+    record(db, identity, "批准素材" if data.decision == "approved" else "驳回素材", identifier)
     db.commit()
     return {"status": output.status}
 
@@ -185,6 +189,7 @@ def revoke(
         },
     }
     output.status = "revoked"
+    record(db, identity, "撤回素材批准", identifier)
     db.commit()
     return {"status": output.status}
 

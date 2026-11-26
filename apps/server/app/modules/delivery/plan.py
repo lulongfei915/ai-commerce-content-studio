@@ -8,10 +8,11 @@ from zipfile import ZipFile
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import Field
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.modules.assets.routes import Storage
 from app.modules.creation.capabilities import GPT_SIZES, SIZES
+from app.modules.execution.models import Execution
 from app.modules.identity.domain import Permission
 from app.modules.identity.security import (
     ActiveIdentity,
@@ -28,10 +29,9 @@ from app.shared.studio_errors import check_version
 
 from .models import Adoption
 from .routes import deliverable
-from .service import fill_open_position
+from .service import LABELS, fill_open_position, module_for
 
 router = APIRouter(prefix="/tasks/{task_id}", tags=["交付清单"])
-LABELS = {"main": "商品主图", "detail": "详情素材", "video": "带货视频"}
 
 
 class Requirement(WriteSchema):
@@ -95,7 +95,9 @@ def preview(task_id: str, data: PlanEdit, identity: WriteIdentity, db: Database)
     task = get_task(db, identity.tenant.id, task_id, lock=True)
     check_version(task.version, data.expected_version)
     validate_plan(data, {p.id for p in task_view(db, task).products})
-    rows = {(r.product_id, r.purpose, r.module): r for r in data.rows}
+    rows: dict[tuple[str, str, str], Requirement] = {
+        (r.product_id, r.purpose, r.module): r for r in data.rows
+    }
     removed = 0
     for pos in slots(db, task.tenant_id, task_id):
         adoption = db.get(Adoption, pos.id)
@@ -109,6 +111,7 @@ def preview(task_id: str, data: PlanEdit, identity: WriteIdentity, db: Database)
             tenant_id=pos.tenant_id,
             product_id=row.product_id,
             purpose=row.purpose,
+            module=row.module,
             ratio=row.ratio,
             resolution=row.resolution,
             duration=row.duration,
@@ -160,6 +163,13 @@ def configure(task_id: str, data: PlanEdit, identity: WriteIdentity, db: Databas
                 row.duration,
             ):
                 changed.append(pos)
+                db.execute(
+                    update(Execution)
+                    .where(Execution.position_id == pos.id)
+                    .values(position_id=None)
+                )
+                if pos.status == "reserved":
+                    pos.status = "unfilled"
             pos.ratio, pos.resolution, pos.duration = row.ratio, row.resolution, row.duration
             if pos.id and (adoption := db.get(Adoption, pos.id)):
                 if not still_deliverable(db, pos, adoption):
@@ -169,6 +179,9 @@ def configure(task_id: str, data: PlanEdit, identity: WriteIdentity, db: Databas
         if adoption := db.get(Adoption, pos.id):
             db.delete(adoption)
             db.flush()
+        db.execute(
+            update(Execution).where(Execution.position_id == pos.id).values(position_id=None)
+        )
         db.delete(pos)
     task.version += 1
     record(db, identity, "配置交付要求", task.name)
@@ -197,11 +210,18 @@ def export(
                 row = {
                     "position": pos.id,
                     "sku": products[pos.product_id],
-                    "module": pos.module or LABELS[pos.purpose],
+                    "module": module_for(pos),
+                    "purpose": pos.purpose,
+                    "sequence": pos.sequence + 1,
                     "ratio": pos.ratio,
                     "resolution": pos.resolution,
                     "duration": pos.duration,
                     "status": "待补齐",
+                    "reason": (
+                        "待确认成片" if pos.purpose == "video"
+                        else "已有制作预留" if pos.status == "reserved"
+                        else "未采用有效版本"
+                    ),
                 }
                 manifest.append(row)
                 if not (adoption := db.get(Adoption, pos.id)):
@@ -211,6 +231,7 @@ def export(
                 except HTTPException as exc:
                     if exc.status_code not in (404, 409, 422):
                         raise
+                    row["reason"] = "原采用版本已失效"
                     continue
                 assert file.object_key
                 suffix = PurePath(file.filename).suffix.lower()
@@ -221,6 +242,7 @@ def export(
                 if package.getinfo(name).file_size != file.size_bytes:
                     raise HTTPException(409, "delivery_file_changed")
                 row.update(status="可交付", version_id=adoption.output_id, file=name)
+                row.pop("reason")
                 count += 1
             if not count:
                 raise HTTPException(409, "delivery_empty")

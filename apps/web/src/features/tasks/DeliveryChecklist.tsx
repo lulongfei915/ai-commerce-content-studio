@@ -129,7 +129,9 @@ export function DeliveryChecklist({
                         ? '已驳回'
                         : revoked
                           ? '已撤回'
-                          : '未制作';
+                          : p.purpose === 'video'
+                            ? '待确认成片'
+                            : p.status === 'reserved' ? '已有制作预留' : '未制作';
                 const note = available.length
                   ? `${available.length} 个匹配的已批准版本`
                   : pending
@@ -214,7 +216,7 @@ export function DeliveryChecklist({
                               <ArrowRightOutlined aria-hidden="true" />
                             </button>
                           ) : (
-                            onCreate && (
+                            onCreate && p.purpose !== 'video' && p.status !== 'reserved' && (
                               <button onClick={() => onCreate(p.id)}>
                                 制作此位置 <ArrowRightOutlined aria-hidden="true" />
                               </button>

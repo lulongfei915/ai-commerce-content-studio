@@ -46,10 +46,12 @@ class RecordView(BaseModel):
 
 
 def record(db: Database, identity: Identity, action: str, detail: str) -> None:
+    add_record(db, identity.tenant.id, identity.user.email, action, detail)
+
+
+def add_record(db: Database, tenant: str, email: str, action: str, detail: str) -> None:
     db.add(
-        CompanyRecord(
-            tenant_id=identity.tenant.id, actor=identity.user.email, action=action, detail=detail
-        )
+        CompanyRecord(tenant_id=tenant, actor=email, action=action, detail=detail)
     )
 
 

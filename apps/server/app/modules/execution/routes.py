@@ -5,8 +5,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import Field
 from sqlalchemy import select
 
-from app.modules.creation.models import Creation, CreationOutput
+from app.modules.creation.models import CreationOutput
 from app.modules.creation.service import get_creation
+from app.modules.delivery.service import has_reservation
 from app.modules.identity.domain import Permission
 from app.modules.identity.security import (
     ActiveIdentity,
@@ -15,7 +16,9 @@ from app.modules.identity.security import (
     WriteIdentity,
     require_permission,
 )
+from app.modules.identity.team import record
 from app.modules.products.schemas import WriteSchema
+from app.modules.tasks.service import get_task
 
 from .models import Execution, ImageStep
 from .service import (
@@ -62,6 +65,7 @@ def reconcile(
         output.status = (
             "generation_failed" if data.outcome == "not_accepted" else "result_unavailable"
         )
+    record(db, identity, "核实生成费用", identifier)
     db.commit()
     return state(db, job)
 
@@ -117,6 +121,7 @@ def retry(
             "reserved",
         )
     output.status, step.error, step.lease = following[output.status], None, None
+    record(db, identity, "恢复生成输出", identifier)
     db.commit()
     return state(db, job)
 
@@ -163,7 +168,8 @@ def cancel(execution_id: str, identity: WriteIdentity, db: Database) -> Executio
     lock_budget(db, identity.tenant.id)
     job = job_for(db, identity.tenant.id, execution_id)
     draft = get_creation(db, identity.tenant.id, job.creation_id)
-    position = None if job.snapshot.get("media") == "video" else position_for(db, draft)
+    get_task(db, identity.tenant.id, draft.task_id, lock=True)
+    position = position_for(db, draft, job.position_id) if job.position_id else None
     for output, step in db.execute(
         select(CreationOutput, ImageStep)
         .join(ImageStep)
@@ -174,18 +180,8 @@ def cancel(execution_id: str, identity: WriteIdentity, db: Database) -> Executio
             output.status = "cancelled"
             step.fee_state, step.actual_cents = "released", 0
     db.flush()
-    active = db.scalar(
-        select(CreationOutput.id)
-        .join(Creation)
-        .where(
-            Creation.task_id == draft.task_id,
-            Creation.product_id == draft.product_id,
-            Creation.purpose == draft.purpose,
-            CreationOutput.status != "cancelled",
-        )
-        .limit(1)
-    )
-    if position and position.status == "reserved" and not active:
+    if position and position.status == "reserved" and not has_reservation(db, position.id):
         position.status = "unfilled"
+    record(db, identity, "取消未发出输出", job.id)
     db.commit()
     return state(db, job)

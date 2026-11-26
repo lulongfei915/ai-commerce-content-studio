@@ -56,6 +56,7 @@ export function TaskStudio({
   const canvas = entry === 'canvas';
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [active, setActive] = useState(initialDraft ?? (initialPosition ? `new:${initialPosition}` : ''));
+  const [targetPosition, setTargetPosition] = useState(initialPosition);
   const [edits, setEdits] = useState<Record<string, DraftEdits>>({});
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -72,6 +73,7 @@ export function TaskStudio({
   const [status, setStatus] = useState('');
   const [submitting, setSubmitting] = useState<{ count: number; media: 'image' | 'video' }>();
   const position = task.positions.find((item) => `new:${item.id}` === active) ?? task.positions[0];
+  const target = task.positions.find((item) => item.id === targetPosition);
   const selected =
     drafts.find((item) => item.id === active) ??
     drafts.find(
@@ -89,6 +91,7 @@ export function TaskStudio({
     canCreate && quick ? selected : undefined,
     token,
     task.id,
+    targetPosition,
   );
   useEffect(() => {
     const refresh = (e: Event) => {
@@ -191,7 +194,10 @@ export function TaskStudio({
                 aria-label="创作商品与用途"
                 disabled={busy}
                 value={editorId}
-                onChange={(event) => setActive(event.target.value)}
+                onChange={(event) => {
+                  setTargetPosition(undefined);
+                  setActive(event.target.value);
+                }}
               >
                 {task.positions
                   .filter(
@@ -267,6 +273,8 @@ export function TaskStudio({
               categories={categories}
               token={token}
               selected={selected}
+              targetSpec={target?.ratio && target.resolution
+                ? { ratio: target.ratio, resolution: target.resolution } : undefined}
               edits={edits[editorId]}
               busy={busy}
               loading={loading || Boolean(error)}

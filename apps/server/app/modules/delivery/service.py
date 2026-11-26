@@ -15,6 +15,30 @@ from app.modules.tasks.models import DeliveryPosition
 
 from .models import Adoption
 
+LABELS = {"main": "商品主图", "detail": "详情素材", "video": "带货视频"}
+
+
+def module_for(position: DeliveryPosition) -> str:
+    return position.module or LABELS[position.purpose]
+
+
+def matches_module(position: DeliveryPosition, job: Execution | None) -> bool:
+    module = job.snapshot.get("delivery_module") if job else None
+    return module_for(position) == (module or LABELS[position.purpose])
+
+
+def has_reservation(db: Session, position_id: str) -> bool:
+    return db.scalar(
+        select(CreationOutput.id)
+        .join(Execution, Execution.id == CreationOutput.execution_id)
+        .where(
+            Execution.position_id == position_id,
+            CreationOutput.status.not_in(("cancelled", "approved", "revoked")),
+        )
+        .limit(1)
+        .with_for_update()
+    ) is not None
+
 
 def matches_spec(position: DeliveryPosition, file: PrivateFile | TaskResult) -> bool:
     if not position.ratio:
@@ -63,6 +87,8 @@ def lock_adoption(db: Session, position_id: str) -> Adoption | None:
 
 def fill_open_position(db: Session, position: DeliveryPosition) -> None:
     """Select a unique candidate while the caller holds the position lock."""
+    if position.purpose == "video":
+        return
     if lock_adoption(db, position.id) is not None:
         return
     candidates = db.execute(
@@ -86,6 +112,8 @@ def fill_open_position(db: Session, position: DeliveryPosition) -> None:
         if not file_ready(file, output.file_version) or not matches_spec(position, file):
             continue
         job = db.get(Execution, output.execution_id)
+        if not matches_module(position, job):
+            continue
         if job:
             try:
                 verify_sources(db, position.tenant_id, job.snapshot)

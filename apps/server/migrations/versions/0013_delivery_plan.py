@@ -10,6 +10,9 @@ depends_on = None
 
 
 def upgrade() -> None:
+    op.create_index(
+        "ix_delivery_member", "delivery_positions", ["tenant_id", "task_id", "product_id"]
+    )
     with op.batch_alter_table("delivery_positions") as batch:
         batch.add_column(sa.Column("module", sa.String(40), nullable=False, server_default=""))
         batch.add_column(sa.Column("sequence", sa.Integer(), nullable=False, server_default="0"))
@@ -30,3 +33,4 @@ def downgrade() -> None:
         )
         for col in ("module", "sequence", "ratio", "resolution", "duration"):
             batch.drop_column(col)
+    op.drop_index("ix_delivery_member", table_name="delivery_positions")

@@ -15,12 +15,13 @@ from app.modules.identity.security import (
     WriteIdentity,
     require_permission,
 )
+from app.modules.identity.team import record
 from app.modules.products.schemas import ResourceId, WriteSchema
 from app.modules.reviews.routes import list_versions, version_for
 from app.modules.tasks.models import DeliveryPosition
 
 from .models import Adoption
-from .service import lock_adoption, matches_spec
+from .service import has_reservation, lock_adoption, matches_module, matches_spec
 
 router = APIRouter(tags=["公司资产与交付"])
 
@@ -46,12 +47,20 @@ def assets(
                 DeliveryPosition.tenant_id == identity.tenant.id,
             )
         ).all()
+        jobs = {
+            job.id: job
+            for job in db.scalars(
+                select(Execution).where(Execution.id.in_({i.execution_id for i in items}))
+            )
+        }
         for item in items:
             item.matching_positions = [
                 p.id
                 for p in positions
                 if p.purpose == item.purpose
                 and p.product_id == item.product_id
+                and p.purpose != "video"
+                and matches_module(p, jobs.get(item.execution_id))
                 and matches_spec(p, item)
             ]
     return items
@@ -78,6 +87,7 @@ def position(db: Database, tenant: str, identifier: str) -> DeliveryPosition:
 def deliverable(db: Database, pos: DeliveryPosition, identifier: str) -> PrivateFile:
     out, draft = version_for(db, pos.tenant_id, identifier, True)
     file = db.get(PrivateFile, out.file_id) if out.file_id else None
+    job = db.get(Execution, out.execution_id)
     if (
         not file
         or file.tenant_id != pos.tenant_id
@@ -86,9 +96,10 @@ def deliverable(db: Database, pos: DeliveryPosition, identifier: str) -> Private
         or not matches_spec(pos, file)
         or draft.product_id != pos.product_id
         or draft.purpose != pos.purpose
+        or pos.purpose == "video"
+        or not matches_module(pos, job)
     ):
         raise HTTPException(409, "asset_not_deliverable")
-    job = db.get(Execution, out.execution_id)
     if job:
         verify_sources(db, pos.tenant_id, job.snapshot)
     return file
@@ -125,8 +136,10 @@ def adopt(
     if not item:
         item = Adoption(position_id=identifier, output_id=data.version_id, token=new_id())
         db.add(item)
+        record(db, identity, "采用交付版本", f"{identifier} · {data.version_id}")
     elif item.output_id != data.version_id:
         item.output_id, item.token = data.version_id, new_id()
+        record(db, identity, "更换交付版本", f"{identifier} · {data.version_id}")
     pos.status = "adopted"
     db.commit()
     return {
@@ -142,7 +155,8 @@ def withdraw(identifier: str, identity: WriteIdentity, db: Database) -> Response
     item = lock_adoption(db, identifier)
     if item:
         db.delete(item)
-        pos.status = "unfilled"
+        pos.status = "reserved" if has_reservation(db, pos.id) else "unfilled"
+        record(db, identity, "撤销交付采用", f"{identifier} · {item.output_id}")
     db.commit()
     return Response(status_code=204)
 
@@ -161,4 +175,8 @@ def download(
     item = db.get(Adoption, identifier)
     if not item or item.token != token:
         raise HTTPException(409, "adoption_withdrawn")
-    return stream_private_file(deliverable(db, pos, item.output_id), request, identity, db, storage)
+    file = deliverable(db, pos, item.output_id)
+    return stream_private_file(
+        file, request, identity, db, storage,
+        audit=("下载交付版本", f"{identifier} · {item.output_id}"),
+    )

@@ -11,9 +11,13 @@ from app.modules.creation.models import Creation, CreationOutput
 from app.modules.creation.results import asset_id_for
 from app.modules.creation.schemas import InputSnapshot, VideoParameters
 from app.modules.creation.service import REFERENCE_TAG, build_input_snapshot, get_creation
-from app.modules.identity.models import Tenant, new_id
+from app.modules.delivery.service import LABELS, has_reservation, module_for
+from app.modules.identity.models import Tenant, User, new_id
+from app.modules.identity.team import add_record
+from app.modules.products.schemas import ResourceId
 from app.modules.products.service import get_fact, get_product
 from app.modules.tasks.models import DeliveryPosition
+from app.modules.tasks.service import get_task
 from app.modules.templates.schemas import VersionInput
 from app.shared.config import Settings
 from app.shared.studio_errors import check_version
@@ -24,6 +28,7 @@ from .sources import verify_sources
 
 class Submission(VersionInput):
     idempotency_key: str = Field(min_length=1, max_length=100)
+    position_id: ResourceId | None = None
 
 
 class OutputState(BaseModel):
@@ -164,8 +169,12 @@ def submit(
     data: Submission,
     settings: Settings,
     parent: CreationOutput | None = None,
+    *,
+    batch: bool = False,
 ) -> ExecutionState:
     lock_budget(db, tenant)
+    scope = get_creation(db, tenant, identifier)
+    get_task(db, tenant, scope.task_id, lock=True)
     draft = get_creation(db, tenant, identifier, lock=True)
     prior = db.scalar(
         select(Execution)
@@ -177,12 +186,14 @@ def submit(
             prior.creation_id != identifier
             or prior.snapshot["draft"]["version"] != data.expected_version
             or prior.parent_output != (parent.id if parent else None)
+            or prior.snapshot.get("requested_position") != data.position_id
         ):
             raise HTTPException(409, "idempotency_conflict")
         return state(db, prior)
     check_version(draft.version, data.expected_version)
     is_video = draft.purpose == "video"
-    if draft.entry == "batch" or (is_video and parent):
+    old_position = None
+    if (draft.entry == "batch" and not (batch or parent)) or (is_video and (batch or parent)):
         raise HTTPException(422, "image_entry_required")
     count = 1 if parent or is_video else int(draft.parameters["count"])
     if is_video and db.scalar(
@@ -200,6 +211,7 @@ def submit(
         step = db.get(ImageStep, parent.id)
         if not old or not step or parent.status != "rejected":
             raise HTTPException(409, "rework_unavailable")
+        old_position = old.position_id
         snapshot = {**old.snapshot, "feedback": step.decision}
         snapshot["draft"] = {**snapshot["draft"], "version": data.expected_version}
     elif is_video:
@@ -219,6 +231,24 @@ def submit(
             "quality": (params.quality or "low") if params.provider == "gpt-image" else None,
         }
     verify_sources(db, tenant, snapshot)
+    position = None
+    if is_video and data.position_id:
+        raise HTTPException(422, "video_delivery_confirmation_required")
+    if not is_video:
+        position = position_for(db, draft, data.position_id or old_position)
+        if not position and not parent:
+            raise HTTPException(409, "position_unavailable")
+        if position and not parent:
+            if position.ratio and (
+                (params.ratio, params.resolution) != (position.ratio, position.resolution)
+            ):
+                raise HTTPException(422, "delivery_spec_mismatch")
+            if data.position_id and (
+                has_reservation(db, position.id) or position.status == "adopted"
+            ):
+                raise HTTPException(409, "position_already_reserved")
+            snapshot["delivery_module"] = module_for(position)
+        snapshot["requested_position"] = data.position_id
     ceiling = (
         settings.video_ceiling_cents if is_video
         else image_ceiling(settings, snapshot.get("provider", "ark"))
@@ -234,6 +264,7 @@ def submit(
         request_key=data.idempotency_key,
         snapshot=snapshot,
         parent_output=parent.id if parent else None,
+        position_id=position.id if position else None,
     )
     db.add(job)
     db.flush()
@@ -269,24 +300,33 @@ def submit(
                 reserved_cents=ceiling,
             )
         )
-    if not is_video:
-        position = position_for(db, draft)
-        if position is None:
-            raise HTTPException(409, "position_unavailable")
-        if position.status == "unfilled":
-            position.status = "reserved"
-    db.commit()
+    if position and position.status == "unfilled":
+        position.status = "reserved"
+    actor = db.get_one(User, user)
+    action = "提交视频生成" if is_video else "提交图片返工" if parent else "提交图片生成"
+    add_record(db, tenant, actor.email, action, f"{job.id} · {count}")
+    if batch:
+        db.flush()
+    else:
+        db.commit()
     return state(db, job)
 
 
-def position_for(db: Session, draft: Creation) -> DeliveryPosition | None:
-    return db.scalar(
-        select(DeliveryPosition)
-        .where(
-            DeliveryPosition.tenant_id == draft.tenant_id,
-            DeliveryPosition.task_id == draft.task_id,
-            DeliveryPosition.product_id == draft.product_id,
-            DeliveryPosition.purpose == draft.purpose,
-        )
-        .with_for_update()
+def position_for(
+    db: Session, draft: Creation, identifier: str | None = None
+) -> DeliveryPosition | None:
+    query = select(DeliveryPosition).where(
+        DeliveryPosition.tenant_id == draft.tenant_id,
+        DeliveryPosition.task_id == draft.task_id,
+        DeliveryPosition.product_id == draft.product_id,
+        DeliveryPosition.purpose == draft.purpose,
+    )
+    if identifier:
+        query = query.where(DeliveryPosition.id == identifier)
+    positions = list(db.scalars(query.order_by(DeliveryPosition.id).with_for_update()))
+    if identifier:
+        return positions[0] if positions else None
+    return next(
+        (p for p in positions if module_for(p) == LABELS[draft.purpose]),
+        positions[0] if len(positions) == 1 else None,
     )

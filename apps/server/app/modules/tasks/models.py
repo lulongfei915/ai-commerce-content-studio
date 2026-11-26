@@ -48,6 +48,7 @@ class TaskProduct(Base):
 class DeliveryPosition(Base):
     __tablename__ = "delivery_positions"
     __table_args__ = (
+        Index("ix_delivery_member", "tenant_id", "task_id", "product_id"),
         UniqueConstraint(
             "task_id", "product_id", "purpose", "module", "sequence", name="uq_delivery_slot"
         ),
