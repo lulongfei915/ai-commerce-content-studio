@@ -129,9 +129,9 @@ export function DeliveryChecklist({
                         ? '已驳回'
                         : revoked
                           ? '已撤回'
-                          : p.purpose === 'video'
-                            ? '待确认成片'
-                            : p.status === 'reserved' ? '已有制作预留' : '未制作';
+                          : p.status === 'reserved'
+                            ? '已有制作预留'
+                            : p.purpose === 'video' ? '待确认成片' : '未制作';
                 const note = available.length
                   ? `${available.length} 个匹配的已批准版本`
                   : pending

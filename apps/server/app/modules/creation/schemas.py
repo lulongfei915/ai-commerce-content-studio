@@ -76,6 +76,26 @@ class ReferenceView(ReferenceInput):
     media: Literal["image", "video"] = "image"
 
 
+class Shot(WriteSchema):
+    duration: int = Field(gt=0, le=30, strict=True)
+    visual: str = Field(min_length=1, max_length=500)
+    narration: str = Field(default="", max_length=300)
+    fact_keys: list[str] = Field(default_factory=list, max_length=20)
+
+
+class StoryboardInput(VersionInput):
+    position_id: ResourceId
+    shots: list[Shot] = Field(min_length=1, max_length=15)
+
+
+class StoryboardView(BaseModel):
+    position_id: str
+    shots: list[Shot]
+    confirmed_version: int
+    product_fact_version: int
+    position_version: list[str | int | None]
+
+
 class CreationView(BaseModel):
     id: str
     task_id: str
@@ -86,6 +106,7 @@ class CreationView(BaseModel):
     prompt: str
     parameters: ImageParameters
     video_parameters: VideoParameters | None = None
+    storyboard: StoryboardView | None = None
     references: list[ReferenceView]
     template_id: str | None
     template_version: int | None
@@ -110,3 +131,4 @@ class Capabilities(BaseModel):
     max_outputs: int
     sizes: list[SizeOption]
     models: list[ImageModelOption]
+    video_models: list[str] = Field(default_factory=list)

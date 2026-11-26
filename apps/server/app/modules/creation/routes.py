@@ -46,6 +46,7 @@ from .schemas import (
     ReferenceCreate,
     ReferenceEdit,
     ReuseDraft,
+    StoryboardInput,
     VideoParameters,
 )
 from .service import (
@@ -73,7 +74,8 @@ def entry_filter(entry: CreationEntry) -> ColumnElement[bool]:
 def get_creation_capabilities(identity: ActiveIdentity, settings: AppSettings) -> Capabilities:
     require_permission(identity, Permission.VIEW)
     return Capabilities(
-        model=MODEL, max_outputs=MAX_OUTPUTS, sizes=SIZES, models=image_models(settings)
+        model=MODEL, max_outputs=MAX_OUTPUTS, sizes=SIZES, models=image_models(settings),
+        video_models=["seedance-2.0"] + (["seedance-2.5"] if settings.ark_video_25_model else []),
     )
 
 
@@ -188,6 +190,55 @@ def editable(db: Database, identity: WriteIdentity, identifier: str, expected: i
     check_version(item.version, expected)
     require_unsubmitted(db, item)
     return item
+
+
+@router.post("/creations/{creation_id}/storyboard")
+def confirm_storyboard(
+    creation_id: str, data: StoryboardInput, identity: WriteIdentity, db: Database,
+) -> CreationView:
+    from app.modules.execution.service import position_for, position_version
+
+    target = get_creation(db, identity.tenant.id, creation_id)
+    get_task(db, target.tenant_id, target.task_id, lock=True)
+    item = editable(db, identity, creation_id, data.expected_version)
+    if item.purpose != "video":
+        reject("shots", "parameters_media_mismatch")
+    source = build_input_snapshot(db, item)
+    product = member_product(db, item.tenant_id, item.task_id, item.product_id)
+    facts = get_fact(db, product, source.product_fact_version).facts
+    params = source.draft.video_parameters or VideoParameters()
+    if sum(shot.duration for shot in data.shots) != params.duration:
+        reject("shots", "storyboard_duration_mismatch")
+    for index, shot in enumerate(data.shots):
+        if (shot.narration and not shot.fact_keys) or any(
+            key not in facts or not facts[key].get("value") or not facts[key].get("evidence")
+            for key in shot.fact_keys
+        ):
+            reject(f"shots.{index}.fact_keys", "storyboard_fact_required")
+    position = position_for(db, item, data.position_id)
+    if not position or (item.batch_position_id and item.batch_position_id != position.id):
+        raise HTTPException(422, "position_unavailable")
+    item.version += 1
+    item.storyboard = {
+        "position_id": position.id,
+        "shots": [shot.model_dump() for shot in data.shots],
+        "confirmed_version": item.version,
+        "product_fact_version": source.product_fact_version,
+        "position_version": position_version(position),
+    }
+    db.commit()
+    return view(item)
+
+
+@router.post("/creations/{creation_id}/storyboard/clear")
+def clear_storyboard(
+    creation_id: str, data: VersionInput, identity: WriteIdentity, db: Database,
+) -> CreationView:
+    item = editable(db, identity, creation_id, data.expected_version)
+    item.storyboard = None
+    item.version += 1
+    db.commit()
+    return view(item)
 
 
 @router.post("/creations/{creation_id}/reuse")

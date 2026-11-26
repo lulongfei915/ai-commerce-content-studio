@@ -159,8 +159,9 @@ export function QuickCreation({
   }
 
   function uploadMaterial(file: File, asProductPhoto: boolean) {
-    if (file.size > 10 * 1024 * 1024) {
-      setFeedback({ id: editorId, message: '图片不能超过 10 MB。', error: true });
+    const videoFile = isVideo && !asProductPhoto && file.type === 'video/mp4';
+    if (file.size > (videoFile ? 100 : 10) * 1024 * 1024) {
+      setFeedback({ id: editorId, message: videoFile ? '视频不能超过 100 MB。' : '图片不能超过 10 MB。', error: true });
       return;
     }
     addMaterial(async (draft) => {
@@ -231,7 +232,7 @@ export function QuickCreation({
           </b>
           <span>
             <AppstoreOutlined />{' '}
-            {isVideo ? 'Seedance 2.0' : imageModelLabel(value.parameters.model)}
+            {isVideo ? (value.video?.model === 'seedance-2.5' ? 'Seedance 2.5' : 'Seedance 2.0') : imageModelLabel(value.parameters.model)}
           </span>
           <button disabled={disabled} onClick={() => setPanel('specs')}>
             {spec.ratio} · {spec.resolution} <DownOutlined />
@@ -243,7 +244,7 @@ export function QuickCreation({
             disabled={disabled}
             onClick={() => void withDraft(async () => setPanel('settings'))}
           >
-            <ControlOutlined /> 创作设置
+            <ControlOutlined /> {isVideo && selected?.storyboard ? '成片设置' : '创作设置'}
           </button>
           <button
             className="work-primary studio-save"

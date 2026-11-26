@@ -48,6 +48,7 @@ class Card(BaseModel):
     version: int
     title: str
     prompt: str
+    media: Literal["image", "video"] = "image"
 
 
 @router.get("/prompt-cards")
@@ -62,6 +63,14 @@ def cards(identity: ActiveIdentity) -> list[Card]:
         ),
         Card(
             id="detail", version=1, title="细节特写", prompt="局部近景，清晰呈现已确认的商品结构。"
+        ),
+        Card(
+            id="video-overview", version=1, media="video", title="商品全貌",
+            prompt="镜头平稳环绕商品，从全貌过渡到实拍可见的细节，以完整商品画面收尾。",
+        ),
+        Card(
+            id="video-detail", version=1, media="video", title="细节推进",
+            prompt="镜头缓慢推进，依次展示商品外轮廓与已确认的材质、结构细节。",
         ),
     ]
 
@@ -116,7 +125,8 @@ def assist(
     db.commit()
     try:
         media = read_media(get_object_storage(), sources) if sources else []
-        instruction = "保留当前SKU已核实事实，输出可用于商品图的中文提示词正文。" + (
+        medium = "商品视频" if draft.purpose == "video" else "商品图"
+        instruction = f"保留当前SKU已核实事实，输出可用于{medium}的中文提示词正文。" + (
             "只分析参考图构图、光线、背景，不继承参考图商品属性。"
             if sources
             else "优化原文，不新增商品属性。"

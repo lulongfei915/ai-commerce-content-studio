@@ -1862,6 +1862,110 @@
         }
       }
     },
+    "/api/v1/creations/{creation_id}/storyboard": {
+      "post": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Confirm Storyboard",
+        "operationId": "confirm_storyboard_api_v1_creations__creation_id__storyboard_post",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoryboardInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreationView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/creations/{creation_id}/storyboard/clear": {
+      "post": {
+        "tags": [
+          "共用创作草稿"
+        ],
+        "summary": "Clear Storyboard",
+        "operationId": "clear_storyboard_api_v1_creations__creation_id__storyboard_clear_post",
+        "parameters": [
+          {
+            "name": "creation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Creation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreationView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/creations/{creation_id}/reuse": {
       "post": {
         "tags": [
@@ -2788,15 +2892,13 @@
             }
           }
         }
-      }
-    },
-    "/api/v1/tasks/{task_id}/batches/image/executions": {
+      },
       "post": {
         "tags": [
           "批量制作"
         ],
         "summary": "Start",
-        "operationId": "start_api_v1_tasks__task_id__batches_image_executions_post",
+        "operationId": "start_api_v1_tasks__task_id__batches__media__executions_post",
         "parameters": [
           {
             "name": "task_id",
@@ -2805,6 +2907,19 @@
             "schema": {
               "type": "string",
               "title": "Task Id"
+            }
+          },
+          {
+            "name": "media",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "image",
+                "video"
+              ],
+              "type": "string",
+              "title": "Media"
             }
           }
         ],
@@ -2828,7 +2943,7 @@
                   "items": {
                     "$ref": "#/components/schemas/ItemExecution"
                   },
-                  "title": "Response Start Api V1 Tasks  Task Id  Batches Image Executions Post"
+                  "title": "Response Start Api V1 Tasks  Task Id  Batches  Media  Executions Post"
                 }
               }
             }
@@ -5133,6 +5248,13 @@
             },
             "type": "array",
             "title": "Models"
+          },
+          "video_models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Video Models"
           }
         },
         "type": "object",
@@ -5161,6 +5283,15 @@
           "prompt": {
             "type": "string",
             "title": "Prompt"
+          },
+          "media": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video"
+            ],
+            "title": "Media",
+            "default": "image"
           }
         },
         "type": "object",
@@ -5632,6 +5763,16 @@
               }
             ]
           },
+          "storyboard": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryboardView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "references": {
             "items": {
               "$ref": "#/components/schemas/ReferenceView"
@@ -5823,6 +5964,14 @@
             "type": "array",
             "maxItems": 40,
             "title": "Regions"
+          },
+          "time_notes": {
+            "items": {
+              "$ref": "#/components/schemas/TimeNote"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "title": "Time Notes"
           }
         },
         "additionalProperties": false,
@@ -7434,6 +7583,43 @@
         ],
         "title": "Role"
       },
+      "Shot": {
+        "properties": {
+          "duration": {
+            "type": "integer",
+            "maximum": 30.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Duration"
+          },
+          "visual": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Visual"
+          },
+          "narration": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Narration",
+            "default": ""
+          },
+          "fact_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Fact Keys"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "duration",
+          "visual"
+        ],
+        "title": "Shot"
+      },
       "SizeOption": {
         "properties": {
           "ratio": {
@@ -7511,6 +7697,87 @@
           "status"
         ],
         "title": "SourceDetails"
+      },
+      "StoryboardInput": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "position_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Position Id"
+          },
+          "shots": {
+            "items": {
+              "$ref": "#/components/schemas/Shot"
+            },
+            "type": "array",
+            "maxItems": 15,
+            "minItems": 1,
+            "title": "Shots"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "position_id",
+          "shots"
+        ],
+        "title": "StoryboardInput"
+      },
+      "StoryboardView": {
+        "properties": {
+          "position_id": {
+            "type": "string",
+            "title": "Position Id"
+          },
+          "shots": {
+            "items": {
+              "$ref": "#/components/schemas/Shot"
+            },
+            "type": "array",
+            "title": "Shots"
+          },
+          "confirmed_version": {
+            "type": "integer",
+            "title": "Confirmed Version"
+          },
+          "product_fact_version": {
+            "type": "integer",
+            "title": "Product Fact Version"
+          },
+          "position_version": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Position Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "position_id",
+          "shots",
+          "confirmed_version",
+          "product_fact_version",
+          "position_version"
+        ],
+        "title": "StoryboardView"
       },
       "Submission": {
         "properties": {
@@ -8212,6 +8479,34 @@
         ],
         "title": "TenantInfo"
       },
+      "TimeNote": {
+        "properties": {
+          "start": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "End"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "note"
+        ],
+        "title": "TimeNote"
+      },
       "UploadRequest": {
         "properties": {
           "filename": {
@@ -8340,38 +8635,49 @@
         "properties": {
           "model": {
             "type": "string",
-            "const": "seedance-2.0",
+            "enum": [
+              "seedance-2.0",
+              "seedance-2.5"
+            ],
             "title": "Model",
             "default": "seedance-2.0"
           },
           "ratio": {
             "type": "string",
             "enum": [
+              "21:9",
               "16:9",
+              "4:3",
+              "1:1",
+              "3:4",
               "9:16",
-              "1:1"
+              "adaptive"
             ],
             "title": "Ratio",
             "default": "16:9"
           },
           "resolution": {
             "type": "string",
-            "const": "720p",
+            "enum": [
+              "480p",
+              "720p",
+              "1080p",
+              "4k"
+            ],
             "title": "Resolution",
             "default": "720p"
           },
           "duration": {
             "type": "integer",
-            "enum": [
-              5,
-              10
-            ],
+            "maximum": 30.0,
+            "minimum": 4.0,
             "title": "Duration",
             "default": 5
           },
           "count": {
             "type": "integer",
-            "const": 1,
+            "maximum": 6.0,
+            "minimum": 1.0,
             "title": "Count",
             "default": 1
           }

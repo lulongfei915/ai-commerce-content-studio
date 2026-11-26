@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, TypeVar
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
 from app.shared.config import DEFAULT_ARK_VIDEO_MODEL, Settings
 
@@ -13,6 +13,37 @@ TASKS_PATH = "/contents/generations/tasks"
 SAFE_IDENTIFIER = r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}"
 TaskStatus = Literal["queued", "running", "succeeded", "failed", "cancelled", "expired"]
 Body = TypeVar("Body", bound=BaseModel)
+
+VIDEO_DIMENSIONS = {
+    "480p": ((854, 480), (752, 560), (640, 640), (992, 432)),
+    "720p": ((1280, 720), (1112, 834), (960, 960), (1470, 630)),
+    "1080p": ((1920, 1080), (1664, 1248), (1440, 1440), (2206, 946)),
+    "4k": ((3840, 2160), (3326, 2494), (2880, 2880), (4398, 1886)),
+}
+
+
+def matches_video_dimensions(
+    width: int, height: int, ratio: str, resolution: str, *, seedance_25: bool = False,
+    frame_size: list[int] | None = None,
+) -> bool:
+    sizes = VIDEO_DIMENSIONS.get(resolution.lower())
+    if not sizes or width <= 0 or height <= 0:
+        return False
+    if ratio == "adaptive":
+        if not frame_size:
+            return False
+        frame_width, frame_height = frame_size
+        square_side = sizes[2][0]
+        return (
+            abs(width / height / (frame_width / frame_height) - 1) <= 0.02
+            and abs(width * height / square_side**2 - 1) <= 0.08
+        )
+    if resolution == "480p" and not seedance_25:
+        sizes = ((864, 480), (736, 544), (640, 640), (960, 416))
+    expected = dict(zip(("16:9", "4:3", "1:1", "21:9"), sizes, strict=True))
+    expected["9:16"] = sizes[0][::-1]
+    expected["3:4"] = sizes[1][::-1]
+    return (width, height) == expected.get(ratio)
 
 
 class VideoReference(BaseModel):
@@ -25,12 +56,21 @@ class VideoGenerationRequest(BaseModel):
 
     model: str = Field(default=DEFAULT_ARK_VIDEO_MODEL, min_length=1)
     prompt: str = Field(min_length=1)
-    duration: int = Field(default=5, ge=4, le=15, strict=True)
-    ratio: Literal["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"] = "16:9"
-    resolution: Literal["480p", "720p", "1080p", "4K"] = "720p"
+    duration: int = Field(default=5, ge=4, le=30, strict=True)
+    ratio: Literal["21:9", "16:9", "4:3", "1:1", "3:4", "9:16", "adaptive"] = "16:9"
+    resolution: Literal["480p", "720p", "1080p", "4K", "4k"] = "720p"
     watermark: bool = True
     generate_audio: bool = False
     references: list[VideoReference] = Field(default_factory=list, repr=False)
+    seedance_25: bool = Field(default=False, exclude=True)
+
+    @model_validator(mode="after")
+    def validate_model_range(self) -> VideoGenerationRequest:
+        if not (self.seedance_25 or self.model.startswith("doubao-seedance-2-5-")) and (
+            self.duration > 15 or self.ratio == "adaptive"
+        ):
+            raise ValueError("Seedance 2.0 only supports fixed ratios and 4–15 seconds")
+        return self
 
     def to_payload(self) -> dict[str, Any]:
         content: list[dict[str, Any]] = [{"type": "text", "text": self.prompt}]

@@ -87,11 +87,18 @@ class Region(WriteSchema):
         return self
 
 
+class TimeNote(WriteSchema):
+    start: float = Field(ge=0, allow_inf_nan=False)
+    end: float = Field(gt=0, allow_inf_nan=False)
+    note: str = Field(min_length=1, max_length=500)
+
+
 class Decision(WriteSchema):
     version: int = Field(ge=1)
     decision: Literal["approved", "rejected"]
     reason: str = Field(default="", max_length=1000)
     regions: list[Region] = Field(default_factory=list, max_length=40)
+    time_notes: list[TimeNote] = Field(default_factory=list, max_length=40)
 
 
 @router.get("/reviews")
@@ -116,6 +123,7 @@ def quality(identifier: str, identity: ActiveIdentity, db: Database) -> dict[str
         "product_id": draft.product_id,
         "product_fact_version": job.snapshot["product_fact_version"] if job else None,
         "product_photos": job.snapshot["product_photos"] if job else [],
+        "storyboard": job.snapshot.get("storyboard") if job else None,
         "status": output.status,
         "quality": step.quality if step else None,
         "decision": step.decision if step else None,
@@ -146,6 +154,12 @@ def decide(
         raise HTTPException(409, "review_unavailable")
     if data.decision == "rejected" and not data.reason.strip():
         raise HTTPException(422, "reason_required")
+    is_video = file.content_type == "video/mp4"
+    if (is_video and data.regions) or (not is_video and data.time_notes):
+        raise HTTPException(422, "annotation_media_mismatch")
+    if any(note.end <= note.start or note.end > (file.duration_seconds or 0)
+           for note in data.time_notes):
+        raise HTTPException(422, "video_annotation_out_of_range")
     job = db.get(Execution, output.execution_id)
     if job:
         verify_sources(db, identity.tenant.id, job.snapshot)

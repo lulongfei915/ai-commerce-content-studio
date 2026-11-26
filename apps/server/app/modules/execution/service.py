@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.modules.assets.models import PrivateFile
 from app.modules.commerce.models import ModelCall
 from app.modules.creation.capabilities import validate_parameters
 from app.modules.creation.models import Creation, CreationOutput
@@ -123,40 +124,113 @@ def require_video_provider(settings: Settings) -> None:
         raise HTTPException(503, "video_provider_not_configured")
 
 
-def video_snapshot(source: InputSnapshot, settings: Settings) -> dict[str, Any]:
+def position_version(position: DeliveryPosition) -> list[str | int | None]:
+    return [module_for(position), position.ratio, position.resolution, position.duration]
+
+
+def video_snapshot(
+    db: Session, source: InputSnapshot, settings: Settings, facts: dict[str, Any],
+) -> dict[str, Any]:
     require_video_provider(settings)
+    params = source.draft.video_parameters or VideoParameters()
+    version_25 = params.model == "seedance-2.5"
+    model = settings.ark_video_25_model if version_25 else settings.ark_video_model
+    if not model:
+        raise HTTPException(422, "video_model_unavailable")
+    if not version_25 and params.duration > 15:
+        raise HTTPException(422, "video_duration_unsupported")
+    if params.resolution in {"1080p", "4k"} and any(
+        f"-{tier}-" in model.lower() for tier in ("fast", "mini", "flash")
+    ):
+        raise HTTPException(422, "resolution_unsupported")
     frames = [ref for ref in source.references if ref.usage in {"first_frame", "last_frame"}]
     if frames and (
         len(frames) != len(source.references) or {ref.usage for ref in frames} == {"last_frame"}
     ):
         raise HTTPException(422, "video_frame_combination_unsupported")
-    if sum(ref.media == "video" for ref in source.references) > 3:
+    videos = [ref for ref in source.references if ref.media == "video"]
+    if len(videos) > (5 if "flash" in model else 10 if version_25 else 3) or sum(
+        ref.media == "image" for ref in source.references
+    ) > (10 if "flash" in model else 30 if version_25 else 9):
         raise HTTPException(422, "video_reference_limit")
-    if sum(ref.media == "image" for ref in source.references) > 9:
-        raise HTTPException(422, "video_reference_limit")
-    if any(ref.media == "video" for ref in source.references) and not (
+    if videos and not (settings.storage_signed_endpoint or "").startswith("https://"):
+        raise HTTPException(503, "video_reference_storage_not_configured")
+    durations = []
+    frame_size = None
+    image_bytes = 0
+    for index, ref in enumerate(source.references):
+        file = db.get(PrivateFile, ref.file_id)
+        assert file is not None
+        if ref.media == "video":
+            seconds = file.duration_seconds or 0
+            if not 2 <= seconds <= (30 if version_25 else 15):
+                raise HTTPException(422, {
+                    "code": "video_reference_duration", "field": f"references.{index}",
+                })
+            durations.append(seconds)
+        else:
+            image_bytes += file.size_bytes
+            if ref.usage == "first_frame" and file.width and file.height:
+                frame_size = [file.width, file.height]
+        if not file.width or not file.height or not (
+            300 <= min(file.width, file.height)
+            and max(file.width, file.height) <= 6000
+            and 0.4 <= file.width / file.height <= 2.5
+        ):
+            raise HTTPException(422, {
+                "code": "video_reference_dimensions", "field": f"references.{index}",
+            })
+    if sum(durations) > (30 if version_25 else 15):
+        raise HTTPException(422, "video_reference_duration")
+    if image_bytes > 45 * 1024 * 1024 and not (
         settings.storage_signed_endpoint or ""
     ).startswith("https://"):
-        raise HTTPException(503, "video_reference_storage_not_configured")
-    ordered = (
-        sorted(frames, key=lambda ref: ref.usage) if frames else source.references
-    )
+        raise HTTPException(422, "video_reference_limit")
+    if version_25 and frames and params.ratio != "adaptive":
+        raise HTTPException(422, "video_frame_ratio_required")
+    if params.ratio == "adaptive" and not (version_25 and frames):
+        raise HTTPException(422, "video_frame_ratio_required")
+    ordered = sorted(frames, key=lambda ref: ref.usage) if frames else source.references
     labels = {}
     for media, label in (("image", "图片"), ("video", "视频")):
         labels.update({
-            ref.id: f"{label}{index}"
+            ref.id: f"{'@' if version_25 else ''}{label}{index}"
             for index, ref in enumerate((ref for ref in ordered if ref.media == media), 1)
         })
-    params = source.draft.video_parameters or VideoParameters()
+    storyboard = source.draft.storyboard
+    prompt = source.draft.prompt
+    if storyboard:
+        start = 0
+        lines = []
+        for shot in storyboard.shots:
+            end = start + shot.duration
+            line = f"{start}-{end} 秒：{shot.visual}"
+            if shot.narration:
+                line += f"；文案或旁白：{shot.narration}"
+            if shot.fact_keys:
+                line += "；已确认商品事实：" + "、".join(
+                    str(facts[key]["value"]) for key in shot.fact_keys
+                )
+            lines.append(line)
+            start = end
+        prompt += "\n\n成片分镜：\n" + "\n".join(lines)
+    if set(REFERENCE_TAG.findall(prompt)) - labels.keys():
+        raise HTTPException(422, "reference_label_dangling")
     return {
         **source.model_dump(exclude={"references"}),
         "references": [ref.model_dump() for ref in ordered],
         "media": "video",
         "provider": "ark",
-        "model": settings.ark_video_model,
+        "model": model,
+        "frame_size": frame_size,
+        "storyboard": storyboard.model_dump() if storyboard else None,
+        "facts": facts,
         "video_request": {
             **params.model_dump(exclude={"model", "count"}),
-            "prompt": REFERENCE_TAG.sub(lambda match: labels[match[1]], source.draft.prompt),
+            "seedance_25": version_25,
+            "resolution": ("4K" if not version_25 else "4k")
+            if params.resolution == "4k" else params.resolution,
+            "prompt": REFERENCE_TAG.sub(lambda match: labels[match[1]], prompt),
         },
     }
 
@@ -193,9 +267,14 @@ def submit(
     check_version(draft.version, data.expected_version)
     is_video = draft.purpose == "video"
     old_position = None
-    if (draft.entry == "batch" and not (batch or parent)) or (is_video and (batch or parent)):
+    if draft.entry == "batch" and not (batch or parent):
         raise HTTPException(422, "image_entry_required")
-    count = 1 if parent or is_video else int(draft.parameters["count"])
+    video_params = VideoParameters.model_validate(draft.video_parameters or {})
+    count = 1 if parent else video_params.count if is_video else int(draft.parameters["count"])
+    if is_video and not parent and draft.storyboard and (
+        draft.storyboard["confirmed_version"] != draft.version
+    ):
+        raise HTTPException(409, "video_delivery_confirmation_required")
     if is_video and db.scalar(
         select(CreationOutput.id)
         .join(Execution, Execution.id == CreationOutput.execution_id)
@@ -214,8 +293,26 @@ def submit(
         old_position = old.position_id
         snapshot = {**old.snapshot, "feedback": step.decision}
         snapshot["draft"] = {**snapshot["draft"], "version": data.expected_version}
+        if is_video and step.decision:
+            request = snapshot["video_request"]
+            feedback = [step.decision.get("reason", "")] + [
+                f"{note['start']}-{note['end']} 秒：{note['note']}"
+                for note in step.decision.get("time_notes", [])
+            ]
+            prompt = "\n".join(filter(None, feedback))
+            if prompt:
+                snapshot["video_request"] = {
+                    **request, "prompt": f"{request['prompt']}\n\n整条视频返工意见：\n{prompt}",
+                }
     elif is_video:
-        snapshot = video_snapshot(build_input_snapshot(db, draft, settings=settings), settings)
+        source = build_input_snapshot(db, draft, settings=settings)
+        if source.draft.storyboard and (
+            source.draft.storyboard.product_fact_version != source.product_fact_version
+        ):
+            raise HTTPException(409, "video_delivery_confirmation_required")
+        product = get_product(db, tenant, draft.product_id)
+        facts = get_fact(db, product, source.product_fact_version).facts
+        snapshot = video_snapshot(db, source, settings, facts)
     else:
         source = build_input_snapshot(db, draft, settings=settings)
         params = source.draft.parameters
@@ -232,8 +329,33 @@ def submit(
         }
     verify_sources(db, tenant, snapshot)
     position = None
-    if is_video and data.position_id:
-        raise HTTPException(422, "video_delivery_confirmation_required")
+    if is_video:
+        require_video_provider(settings)
+        storyboard = snapshot.get("storyboard")
+        if data.position_id and (
+            not storyboard or data.position_id != storyboard["position_id"]
+        ):
+            raise HTTPException(422, "video_delivery_confirmation_required")
+        if storyboard:
+            position = position_for(db, draft, storyboard["position_id"])
+            if not position or position_version(position) != storyboard["position_version"]:
+                raise HTTPException(409, "video_delivery_confirmation_required")
+            request = snapshot["video_request"]
+            ratio = request["ratio"]
+            if ratio == "adaptive" and position.ratio and snapshot.get("frame_size"):
+                w, h = snapshot["frame_size"]
+                a, b = map(int, position.ratio.split(":"))
+                if abs(w / h / (a / b) - 1) < 0.01:
+                    ratio = position.ratio
+            if position.ratio and (
+                (ratio, request["resolution"].lower(), request["duration"])
+                != (position.ratio, position.resolution, position.duration)
+            ):
+                raise HTTPException(422, "delivery_spec_mismatch")
+            if not parent and (has_reservation(db, position.id) or position.status == "adopted"):
+                raise HTTPException(409, "position_already_reserved")
+            snapshot["delivery_module"] = module_for(position)
+        snapshot["requested_position"] = data.position_id
     if not is_video:
         position = position_for(db, draft, data.position_id or old_position)
         if not position and not parent:
@@ -303,7 +425,8 @@ def submit(
     if position and position.status == "unfilled":
         position.status = "reserved"
     actor = db.get_one(User, user)
-    action = "提交视频生成" if is_video else "提交图片返工" if parent else "提交图片生成"
+    medium = "视频" if is_video else "图片"
+    action = f"提交{medium}{'返工' if parent else '生成'}"
     add_record(db, tenant, actor.email, action, f"{job.id} · {count}")
     if batch:
         db.flush()

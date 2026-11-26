@@ -274,7 +274,7 @@ export function DeliveryRequirements({
                           onChange={(e) => update(row.key, { duration: Number(e.target.value) })}
                         >
                           {!row.ratio && <option value="">规格未指定</option>}
-                          {[5, 6, 10, 12, 15].map((d) => (
+                          {Array.from({ length: 27 }, (_, i) => i + 4).map((d) => (
                             <option key={d} value={d}>
                               {d} 秒
                             </option>

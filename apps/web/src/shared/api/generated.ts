@@ -556,6 +556,40 @@ export interface paths {
         patch: operations["edit_creation_api_v1_creations__creation_id__patch"];
         trace?: never;
     };
+    "/api/v1/creations/{creation_id}/storyboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Storyboard */
+        post: operations["confirm_storyboard_api_v1_creations__creation_id__storyboard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/creations/{creation_id}/storyboard/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clear Storyboard */
+        post: operations["clear_storyboard_api_v1_creations__creation_id__storyboard_clear_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/creations/{creation_id}/reuse": {
         parameters: {
             query?: never;
@@ -773,24 +807,8 @@ export interface paths {
         /** History */
         get: operations["history_api_v1_tasks__task_id__batches__media__executions_get"];
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tasks/{task_id}/batches/image/executions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
         /** Start */
-        post: operations["start_api_v1_tasks__task_id__batches_image_executions_post"];
+        post: operations["start_api_v1_tasks__task_id__batches__media__executions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1482,6 +1500,8 @@ export interface components {
             sizes: components["schemas"]["SizeOption"][];
             /** Models */
             models: components["schemas"]["ImageModelOption"][];
+            /** Video Models */
+            video_models?: string[];
         };
         /** Card */
         Card: {
@@ -1493,6 +1513,12 @@ export interface components {
             title: string;
             /** Prompt */
             prompt: string;
+            /**
+             * Media
+             * @default image
+             * @enum {string}
+             */
+            media: "image" | "video";
         };
         /** CaseCreate */
         CaseCreate: {
@@ -1636,6 +1662,7 @@ export interface components {
             prompt: string;
             parameters: components["schemas"]["ImageParameters"];
             video_parameters?: components["schemas"]["VideoParameters"] | null;
+            storyboard?: components["schemas"]["StoryboardView"] | null;
             /** References */
             references: components["schemas"]["ReferenceView"][];
             /** Template Id */
@@ -1692,6 +1719,8 @@ export interface components {
             reason: string;
             /** Regions */
             regions?: components["schemas"]["Region"][];
+            /** Time Notes */
+            time_notes?: components["schemas"]["TimeNote"][];
         };
         /** ExecutionState */
         ExecutionState: {
@@ -2266,6 +2295,20 @@ export interface components {
          * @enum {string}
          */
         Role: "admin" | "designer" | "reviewer" | "viewer";
+        /** Shot */
+        Shot: {
+            /** Duration */
+            duration: number;
+            /** Visual */
+            visual: string;
+            /**
+             * Narration
+             * @default
+             */
+            narration: string;
+            /** Fact Keys */
+            fact_keys?: string[];
+        };
         /** SizeOption */
         SizeOption: {
             /** Ratio */
@@ -2293,6 +2336,28 @@ export interface components {
             referenceable: boolean;
             /** Status */
             status: string;
+        };
+        /** StoryboardInput */
+        StoryboardInput: {
+            /** Expected Version */
+            expected_version: number;
+            /** Position Id */
+            position_id: string;
+            /** Shots */
+            shots: components["schemas"]["Shot"][];
+        };
+        /** StoryboardView */
+        StoryboardView: {
+            /** Position Id */
+            position_id: string;
+            /** Shots */
+            shots: components["schemas"]["Shot"][];
+            /** Confirmed Version */
+            confirmed_version: number;
+            /** Product Fact Version */
+            product_fact_version: number;
+            /** Position Version */
+            position_version: (string | number | null)[];
         };
         /** Submission */
         Submission: {
@@ -2509,6 +2574,15 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** TimeNote */
+        TimeNote: {
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Note */
+            note: string;
+        };
         /** UploadRequest */
         UploadRequest: {
             /** Filename */
@@ -2567,33 +2641,31 @@ export interface components {
             /**
              * Model
              * @default seedance-2.0
-             * @constant
+             * @enum {string}
              */
-            model: "seedance-2.0";
+            model: "seedance-2.0" | "seedance-2.5";
             /**
              * Ratio
              * @default 16:9
              * @enum {string}
              */
-            ratio: "16:9" | "9:16" | "1:1";
+            ratio: "21:9" | "16:9" | "4:3" | "1:1" | "3:4" | "9:16" | "adaptive";
             /**
              * Resolution
              * @default 720p
-             * @constant
+             * @enum {string}
              */
-            resolution: "720p";
+            resolution: "480p" | "720p" | "1080p" | "4k";
             /**
              * Duration
              * @default 5
-             * @enum {integer}
              */
-            duration: 5 | 10;
+            duration: number;
             /**
              * Count
              * @default 1
-             * @constant
              */
-            count: 1;
+            count: number;
         };
         /** ViewportEdit */
         ViewportEdit: {
@@ -3864,6 +3936,76 @@ export interface operations {
             };
         };
     };
+    confirm_storyboard_api_v1_creations__creation_id__storyboard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                creation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StoryboardInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreationView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_storyboard_api_v1_creations__creation_id__storyboard_clear_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                creation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreationView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reuse_draft_api_v1_creations__creation_id__reuse_post: {
         parameters: {
             query?: never;
@@ -4412,12 +4554,13 @@ export interface operations {
             };
         };
     };
-    start_api_v1_tasks__task_id__batches_image_executions_post: {
+    start_api_v1_tasks__task_id__batches__media__executions_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 task_id: string;
+                media: "image" | "video";
             };
             cookie?: never;
         };

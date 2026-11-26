@@ -12,6 +12,7 @@ from app.adapters.ark_video import (
     ArkVideoError,
     VideoGenerationRequest,
     VideoReference,
+    matches_video_dimensions,
 )
 from app.adapters.media_probe import InvalidMedia, inspect_media
 from app.adapters.object_storage import ObjectStorage, S3Storage
@@ -58,6 +59,15 @@ def save_result(
         path = Path(directory) / "result.mp4"
         path.write_bytes(body)
         info = inspect_media(path, "video/mp4")
+    spec = job.snapshot["video_request"]
+    if (
+        not matches_video_dimensions(
+            info.width, info.height, spec["ratio"], spec["resolution"],
+            seedance_25=spec.get("seedance_25", False), frame_size=job.snapshot.get("frame_size"),
+        )
+        or abs(info.duration_seconds - spec["duration"]) >= 0.5
+    ):
+        raise InvalidMedia("video_spec_mismatch")
     key = f"generated/{job.tenant_id}/{output.id}.mp4"
     storage.put(key, BytesIO(body), "video/mp4", len(body))
     db.add(PrivateFile(

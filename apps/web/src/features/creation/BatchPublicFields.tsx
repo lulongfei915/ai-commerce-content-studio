@@ -45,8 +45,8 @@ export function BatchPublicFields({ config, image, busy, onChange }: {
       )}
       <label>
         每项产出
-        <input type="number" min={1} max={image ? 6 : 1} value={config.count} required
-          disabled={busy || !image}
+        <input type="number" min={1} max={6} value={config.count} required
+          disabled={busy}
           onChange={(event) => onChange({ ...config, count: Number(event.target.value) })} />
       </label>
     </>

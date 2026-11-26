@@ -33,6 +33,7 @@ class Creation(Base):
     prompt: Mapped[str] = mapped_column(Text)
     parameters: Mapped[dict[str, Any]] = mapped_column(JSON)
     video_parameters: Mapped[dict[str, Any] | None] = mapped_column(JSON(none_as_null=True))
+    storyboard: Mapped[dict[str, Any] | None] = mapped_column(JSON(none_as_null=True))
     references: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
     template_id: Mapped[str | None] = mapped_column(String(36))
     template_version: Mapped[int | None]

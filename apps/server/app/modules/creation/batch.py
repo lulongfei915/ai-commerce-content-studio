@@ -106,8 +106,6 @@ def edit_public(
         if media != "image" or data.ratio is None or data.resolution is None:
             raise HTTPException(422, "invalid_batch_specification")
         validate_parameters(ImageParameters(ratio=data.ratio, resolution=data.resolution))
-    if media == "video" and data.count != 1:
-        raise HTTPException(422, "output_count_unsupported")
     defaults = ImageParameters()
     inherited = (
         {"ratio": defaults.ratio, "resolution": defaults.resolution, **values}
@@ -256,9 +254,9 @@ def history(
     return [ItemExecution(item_id=job.creation_id, execution=state(db, job)) for job in jobs]
 
 
-@router.post("/image/executions", status_code=202)
+@router.post("/{media}/executions", status_code=202)
 def start(
-    task_id: str, data: BatchSubmission, identity: WriteIdentity,
+    task_id: str, media: Media, data: BatchSubmission, identity: WriteIdentity,
     db: Database, settings: AppSettings,
 ) -> list[ItemExecution]:
     require_permission(identity, Permission.CREATE)
@@ -279,7 +277,7 @@ def start(
         for request in data.items:
             try:
                 item = get_creation(db, tenant, request.id, lock=True)
-                if item.task_id != task_id or item.entry != "batch" or item.purpose == "video":
+                if item.task_id != task_id or item.entry != "batch" or media_for(item) != media:
                     raise HTTPException(422, "invalid_batch_item")
                 require_unsubmitted(db, item)
                 key = sha256(f"{task_id}/{data.idempotency_key}/{item.id}".encode()).hexdigest()

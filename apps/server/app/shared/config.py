@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     ark_base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
     ark_image_model: str = "doubao-seedream-5-5-261028"
     ark_video_model: str = DEFAULT_ARK_VIDEO_MODEL
+    ark_video_25_model: str = ""
     video_budget_cents: int = Field(default=0, ge=0)
     video_budget_unlimited: bool = False
     video_ceiling_cents: int = Field(default=0, ge=0)

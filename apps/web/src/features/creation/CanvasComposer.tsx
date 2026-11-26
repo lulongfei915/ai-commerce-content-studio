@@ -34,6 +34,7 @@ type Props = {
   references: ReactNode;
   canvasReference?: ReactNode;
   settings: ReactNode;
+  storyboard?: ReactNode;
   feedback: ReactNode;
   saveDraft: ReactNode;
   onSaved: (draft: Draft) => void;
@@ -69,14 +70,14 @@ export function CanvasComposer(props: Props) {
       <div className="composer-writing-surface">
         <div className="composer-prompt-actions" role="group" aria-label="编辑工具">
           <button type="button" disabled={busy} onClick={() => upload.current?.click()}>
-            <PlusOutlined /> 上传参考图
+            <PlusOutlined /> {isVideo ? '上传参考素材' : '上传参考图'}
           </button>
           <input
             type="file"
             hidden
             ref={upload}
-            aria-label="上传参考图"
-            accept="image/jpeg,image/png,image/webp"
+            aria-label={isVideo ? '上传参考素材' : '上传参考图'}
+            accept={`image/jpeg,image/png,image/webp${isVideo ? ',video/mp4' : ''}`}
             onChange={(event) => {
               const file = event.target.files?.[0];
               event.target.value = '';
@@ -84,11 +85,9 @@ export function CanvasComposer(props: Props) {
             }}
           />
           {props.canvasReference}
-          {!isVideo && (
-            <button type="button" disabled={busy} onClick={() => setSection('tools')}>
-              <BulbOutlined /> 提示词工具
-            </button>
-          )}
+          <button type="button" disabled={busy} onClick={() => setSection('tools')}>
+            <BulbOutlined /> 提示词工具
+          </button>
           <div className="composer-source-tools" role="group" aria-label="创作素材">
             <button
               type="button"
@@ -164,6 +163,7 @@ export function CanvasComposer(props: Props) {
             <DownOutlined aria-hidden="true" />
           </button>
           <div className="composer-submit-actions">
+            {props.storyboard}
             {props.saveDraft}
             <button
               type="button"

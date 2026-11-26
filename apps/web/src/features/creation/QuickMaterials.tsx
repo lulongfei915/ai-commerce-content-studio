@@ -86,7 +86,8 @@ export function QuickMaterials({
           )
         ) : (
           <>
-            <MaterialUpload label="上传参考图" disabled={busy} upload={onUpload} />
+            <MaterialUpload label={purpose === 'video' ? '上传参考素材' : '上传参考图'}
+              video={purpose === 'video'} disabled={busy} upload={onUpload} />
             <CaseBrowser
               categories={categories}
               category={product.category}
@@ -107,17 +108,19 @@ function MaterialUpload({
   label,
   disabled,
   upload,
+  video = false,
 }: {
   label: string;
   disabled: boolean;
   upload: (file: File) => void;
+  video?: boolean;
 }) {
   return (
     <label className="creative-upload">
       {label}
       <input
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept={`image/jpeg,image/png,image/webp${video ? ',video/mp4' : ''}`}
         disabled={disabled}
         onChange={(event) => {
           const file = event.target.files?.[0];

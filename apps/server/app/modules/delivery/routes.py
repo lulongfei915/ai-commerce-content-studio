@@ -59,7 +59,6 @@ def assets(
                 for p in positions
                 if p.purpose == item.purpose
                 and p.product_id == item.product_id
-                and p.purpose != "video"
                 and matches_module(p, jobs.get(item.execution_id))
                 and matches_spec(p, item)
             ]
@@ -96,7 +95,6 @@ def deliverable(db: Database, pos: DeliveryPosition, identifier: str) -> Private
         or not matches_spec(pos, file)
         or draft.product_id != pos.product_id
         or draft.purpose != pos.purpose
-        or pos.purpose == "video"
         or not matches_module(pos, job)
     ):
         raise HTTPException(409, "asset_not_deliverable")

@@ -22,6 +22,7 @@ from app.modules.identity.security import (
 )
 from app.modules.identity.team import record
 from app.modules.products.schemas import WriteSchema
+from app.modules.reviews.routes import version_for
 from app.modules.tasks.models import DeliveryPosition
 from app.modules.tasks.schemas import Purpose, TaskResponse
 from app.modules.tasks.service import get_task, task_view
@@ -74,7 +75,7 @@ def validate_plan(data: PlanEdit, products: set[str]) -> None:
                 (
                     row.ratio in {"1:1", "16:9", "9:16"}
                     and row.resolution in {"720p", "1080p"}
-                    and row.duration in {5, 6, 10, 12, 15}
+                    and row.duration is not None and 4 <= row.duration <= 30
                 )
                 if row.purpose == "video"
                 else (
@@ -218,8 +219,8 @@ def export(
                     "duration": pos.duration,
                     "status": "待补齐",
                     "reason": (
-                        "待确认成片" if pos.purpose == "video"
-                        else "已有制作预留" if pos.status == "reserved"
+                        "已有制作预留" if pos.status == "reserved"
+                        else "待确认成片" if pos.purpose == "video"
                         else "未采用有效版本"
                     ),
                 }
@@ -242,6 +243,10 @@ def export(
                 if package.getinfo(name).file_size != file.size_bytes:
                     raise HTTPException(409, "delivery_file_changed")
                 row.update(status="可交付", version_id=adoption.output_id, file=name)
+                if pos.purpose == "video":
+                    output, _ = version_for(db, pos.tenant_id, adoption.output_id)
+                    job = db.get_one(Execution, output.execution_id)
+                    row["storyboard"] = job.snapshot["storyboard"]
                 row.pop("reason")
                 count += 1
             if not count:

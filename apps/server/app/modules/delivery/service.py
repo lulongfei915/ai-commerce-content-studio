@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.adapters.ark_video import matches_video_dimensions
 from app.modules.assets.models import PrivateFile
 from app.modules.creation.capabilities import GPT_SIZES, SIZES
 from app.modules.creation.models import Creation, CreationOutput
@@ -23,6 +24,8 @@ def module_for(position: DeliveryPosition) -> str:
 
 
 def matches_module(position: DeliveryPosition, job: Execution | None) -> bool:
+    if position.purpose == "video" and (not job or not job.snapshot.get("storyboard")):
+        return False
     module = job.snapshot.get("delivery_module") if job else None
     return module_for(position) == (module or LABELS[position.purpose])
 
@@ -44,13 +47,11 @@ def matches_spec(position: DeliveryPosition, file: PrivateFile | TaskResult) -> 
     if not position.ratio:
         return True
     if position.purpose == "video":
-        a, b = map(int, position.ratio.split(":"))
         duration = file.duration_seconds if isinstance(file, PrivateFile) else file.duration
         return bool(
-            file.width
-            and file.height
-            and file.width * b == file.height * a
-            and min(file.width, file.height) == int((position.resolution or "0p")[:-1])
+            matches_video_dimensions(
+                file.width or 0, file.height or 0, position.ratio, position.resolution or "",
+            )
             and duration
             and abs(duration - (position.duration or 0)) < 0.5
         )
@@ -87,8 +88,6 @@ def lock_adoption(db: Session, position_id: str) -> Adoption | None:
 
 def fill_open_position(db: Session, position: DeliveryPosition) -> None:
     """Select a unique candidate while the caller holds the position lock."""
-    if position.purpose == "video":
-        return
     if lock_adoption(db, position.id) is not None:
         return
     candidates = db.execute(

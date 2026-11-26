@@ -26,9 +26,7 @@ def uses_explicit_image_references(entry: str | None, purpose: str) -> bool:
 
 
 def uses_explicit_references(entry: str | None, purpose: str) -> bool:
-    return uses_explicit_image_references(entry, purpose) or (
-        entry in (None, "quick", "canvas") and purpose == "video"
-    )
+    return uses_explicit_image_references(entry, purpose) or purpose == "video"
 
 
 def get_creation(db: Session, tenant: str, identifier: str, *, lock: bool = False) -> Creation:
@@ -78,10 +76,7 @@ def save(
         files.update(str(photo["file_id"]) for photo in fact.photos)
     if validate_sources:
         validate_references(db, product, references, item)
-    if item.purpose == "video":
-        if len(files) > 10:
-            reject("references", "reference_limit")
-    else:
+    if item.purpose != "video":
         validate_parameters(parameters, len(files))
     item.references = [ref.model_dump() for ref in references]
     item.parameters = parameters.model_dump()
@@ -195,8 +190,6 @@ def build_input_snapshot(
     files = {photo.file_id for photo in photos} | {ref.file_id for ref in draft.references}
     if item.purpose != "video":
         validate_parameters(draft.parameters, len(files), settings=settings)
-    elif len(files) > 10:
-        reject("references", "reference_limit")
     return InputSnapshot(
         draft=draft,
         product_fact_version=product.fact_version,

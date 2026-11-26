@@ -7,6 +7,9 @@ import { actionError, type Draft } from '../creation/api';
 import { resultPreview, type TaskResult } from '../creation/results';
 import { photoPreviewUrl } from '../products/preview';
 import type { Task } from './api';
+import type { components } from '../../shared/api/generated';
+
+type TimeNote = components['schemas']['TimeNote'];
 
 export function VersionActions({
   id,
@@ -33,10 +36,12 @@ export function VersionActions({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [region, setRegion] = useState<number[]>();
+  const [timeRange, setTimeRange] = useState<[string, string]>(['', '']);
   const [revision, setRevision] = useState(0);
   const [lineage, setLineage] = useState<{
     parent_version_id?: string;
-    decision?: { reason?: string; revocation?: { reason?: string } };
+    storyboard?: components['schemas']['StoryboardView'];
+    decision?: { reason?: string; revocation?: { reason?: string }; time_notes?: TimeNote[] };
   }>();
   const token = session.csrf_token;
   const reviewLayout = reviewFooter !== undefined;
@@ -97,6 +102,12 @@ export function VersionActions({
     }
   }
   const canReview = asset.status === 'pending_review' && session.permissions.includes('review');
+  const isVideo = asset.media === 'video';
+  const hasTime = isVideo && timeRange.some(Boolean);
+  const start = Number(timeRange[0]);
+  const end = Number(timeRange[1]);
+  const validTime = !hasTime || (timeRange.every(Boolean) && start >= 0 && end > start &&
+    end <= (asset.duration ?? 0) && reason.trim().length > 0 && reason.trim().length <= 500);
   const decisions = reviewLayout
     ? (['rejected', 'approved'] as const)
     : (['approved', 'rejected'] as const);
@@ -107,13 +118,14 @@ export function VersionActions({
           type="button"
           key={decision}
           className={reviewLayout && decision === 'approved' ? 'work-primary' : undefined}
-          disabled={busy || ((decision === 'rejected' || !!region) && !reason.trim())}
+          disabled={busy || !validTime || ((decision === 'rejected' || !!region) && !reason.trim())}
           onClick={() =>
             void run(async () => {
               await apiWrite(path + '/review', token, {
                 version: asset.version,
                 decision,
                 reason,
+                ...(hasTime ? { time_notes: [{ start, end, note: reason }] } : {}),
                 regions: region
                   ? [
                       {
@@ -152,6 +164,15 @@ export function VersionActions({
     <fieldset className={`work-form${reviewLayout ? ' review-dialog-form' : ''}`} disabled={busy}>
       <legend className={reviewLayout ? 'review-dialog-legend' : undefined}>版本处理</legend>
       {lineage?.decision?.reason && <p>审核意见 · {lineage.decision.reason}</p>}
+      {lineage?.decision?.time_notes?.map((note, index) =>
+        <p key={index}>{note.start}–{note.end} 秒 · {note.note}</p>,
+      )}
+      {lineage?.storyboard && <details>
+        <summary>生成时确认的分镜</summary>
+        <ol>{lineage.storyboard.shots.map((shot, index) => (
+          <li key={index}>{shot.duration} 秒 · {shot.visual}{shot.narration && ` · ${shot.narration}`}</li>
+        ))}</ol>
+      </details>}
       {lineage?.decision?.revocation?.reason && (
         <p>撤回原因 · {lineage.decision.revocation.reason}</p>
       )}
@@ -188,7 +209,20 @@ export function VersionActions({
             {reviewLayout ? '审核意见（驳回必填）' : '审核意见'}
             <textarea value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
-          {!reviewLayout && (
+          {isVideo && (
+            <details>
+              <summary>标注视频时间段</summary>
+              {['开始秒数', '结束秒数'].map((label, index) => (
+                <label key={label}>{label}
+                  <input type="number" min={0} max={asset.duration ?? 0} step={0.01}
+                    value={timeRange[index]} onChange={(event) => setTimeRange(
+                      index === 0 ? [event.target.value, timeRange[1]] : [timeRange[0], event.target.value],
+                    )} />
+                </label>
+              ))}
+            </details>
+          )}
+          {!isVideo && !reviewLayout && (
             <details>
               <summary>标注图片区域</summary>
               {['横坐标', '纵坐标', '宽度', '高度'].map((text, i) => (
@@ -247,10 +281,10 @@ export function VersionActions({
             })
           }
         >
-          返工该图片
+          {isVideo ? '返工整条视频' : '返工该图片'}
         </button>
       )}
-      {pos && asset.status === 'approved' && session.permissions.includes('adopt') && (
+      {pos && (!isVideo || lineage?.storyboard) && asset.status === 'approved' && session.permissions.includes('adopt') && (
         <>
           <button
             onClick={() =>

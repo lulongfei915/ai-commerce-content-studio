@@ -84,12 +84,12 @@ export function ImageProduction({
   }
   return (
     <fieldset className="work-form image-tools" disabled={busy || disabled}>
-      <legend>图片工具</legend>
+      <legend>{draft.purpose === 'video' ? '视频提示词工具' : '图片工具'}</legend>
       <div className="image-tools-actions">
         {!promptToolsOnly && <CompanyAssetPicker draft={draft} token={token} onSaved={onSaved} />}
         <select aria-label="快捷词卡片" value={cardId} onChange={(e) => setCardId(e.target.value)}>
           <option value="">选择快捷词</option>
-          {cards.map((c) => (
+          {cards.filter((c) => (c.media ?? 'image') === (draft.purpose === 'video' ? 'video' : 'image')).map((c) => (
             <option key={c.id} value={c.id}>
               {c.title} · V{c.version}
             </option>

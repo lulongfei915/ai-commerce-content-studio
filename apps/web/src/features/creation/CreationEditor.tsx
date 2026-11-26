@@ -12,6 +12,7 @@ import { CanvasComposer } from './CanvasComposer';
 import { VideoFields } from './VideoFields';
 import { ImageProduction } from './ImageProduction';
 import type { ImageExecution } from './useImageExecution';
+import { StoryboardControl } from './StoryboardControl';
 import { BoundPhotos } from './BoundPhotos';
 import {
   actionError,
@@ -199,8 +200,9 @@ export function CreationEditor({
   );
   function upload(file?: File) {
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      setError('参考图片不能超过 10 MB。');
+    const videoFile = isVideo && file.type === 'video/mp4';
+    if (file.size > (videoFile ? 100 : 10) * 1024 * 1024) {
+      setError(videoFile ? '参考视频不能超过 100 MB。' : '参考图片不能超过 10 MB。');
       return;
     }
     run(() => uploadReference(draft, token, file), 'references');
@@ -279,11 +281,11 @@ export function CreationEditor({
         >
           添加案例
         </button>
-        {draft.entry !== 'batch' && <label className="creative-upload">
-          上传参考图
+        {(isVideo || draft.entry !== 'batch') && <label className="creative-upload">
+          {isVideo ? '上传参考素材' : '上传参考图'}
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept={`image/jpeg,image/png,image/webp${isVideo ? ',video/mp4' : ''}`}
             disabled={busy}
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -357,6 +359,18 @@ export function CreationEditor({
       {saveDraft}
     </>
   );
+  const storyboard = isVideo && video && (
+    <StoryboardControl draft={draft} product={product} token={token} video={video}
+      busy={busy} dirty={dirty}
+      prepare={async () => {
+        if (!dirty) return draft;
+        const saved = await saveDraftInputs(draft, token, values);
+        onSaved(saved);
+        onEdit(undefined);
+        return saved;
+      }}
+      onSaved={onSaved} />
+  );
 
   return (
     <article
@@ -376,6 +390,7 @@ export function CreationEditor({
           references={strip}
           canvasReference={canvasReference}
           settings={outputSettings}
+          storyboard={storyboard}
           feedback={feedback}
           saveDraft={saveDraft}
           onSaved={onSaved}
@@ -411,20 +426,20 @@ export function CreationEditor({
       ) : (
         <>
           {legacyBody}
-          {!isVideo && (
+          {(!isVideo || draft.entry === 'batch' || draft.entry === 'quick') && (
             <ImageProduction
               key={draft.id}
               draft={draft}
               token={token}
               disabled={busy || dangling}
               unsaved={dirty}
-              promptToolsOnly={draft.entry === 'batch'}
+              promptToolsOnly={isVideo || draft.entry === 'batch'}
               onSaved={onSaved}
               onPrompt={(value) => edit({ ...values, prompt: value })}
               execution={imageExecution}
             />
           )}
-          <footer className="work-actions creative-footer">{draftActions}</footer>
+          <footer className="work-actions creative-footer">{storyboard}{draftActions}</footer>
         </>
       )}
       {picker === 'case' && (

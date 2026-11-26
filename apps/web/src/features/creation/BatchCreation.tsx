@@ -379,11 +379,11 @@ export function BatchCreation({
             <p className="work-muted">批量清单为空</p>
           )}
           {canCreate && <footer className="batch-submit work-actions">
-            {media === 'image' ? <button className="work-primary"
+            <button className="work-primary"
               disabled={busy || Boolean(edits) || !pending.length || !progress.rows}
               onClick={() => void submit()}>
-              <SendOutlined /> 提交批量图片（{pending.length} 项）
-            </button> : <span className="work-muted">视频制作待分镜确认</span>}
+              <SendOutlined /> 提交批量{media === 'image' ? '图片' : '视频'}（{pending.length} 项）
+            </button>
           </footer>}
         </>
       ) : (

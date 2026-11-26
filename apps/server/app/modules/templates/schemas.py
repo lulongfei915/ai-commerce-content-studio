@@ -9,11 +9,11 @@ TemplatePurpose = Literal["main", "detail", "video"]
 
 
 class VideoParameters(WriteSchema):
-    model: Literal["seedance-2.0"] = "seedance-2.0"
-    ratio: Literal["16:9", "9:16", "1:1"] = "16:9"
-    resolution: Literal["720p"] = "720p"
-    duration: Literal[5, 10] = 5
-    count: Literal[1] = 1
+    model: Literal["seedance-2.0", "seedance-2.5"] = "seedance-2.0"
+    ratio: Literal["21:9", "16:9", "4:3", "1:1", "3:4", "9:16", "adaptive"] = "16:9"
+    resolution: Literal["480p", "720p", "1080p", "4k"] = "720p"
+    duration: int = Field(default=5, ge=4, le=30, strict=True)
+    count: int = Field(default=1, ge=1, le=6)
 
 
 class TemplateContent(WriteSchema):
