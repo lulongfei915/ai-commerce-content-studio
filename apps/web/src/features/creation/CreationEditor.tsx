@@ -47,6 +47,7 @@ export function CreationEditor({
   edits,
   onEdit,
   inCanvas = false,
+  quickTools = false,
   previewUrl,
   onLocateReference,
   imageExecution,
@@ -61,6 +62,7 @@ export function CreationEditor({
   edits?: DraftEdits;
   onEdit: (edits: DraftEdits | undefined) => void;
   inCanvas?: boolean;
+  quickTools?: boolean;
   previewUrl?: (reference: Reference) => string | undefined;
   onLocateReference?: (reference: Reference) => void;
   imageExecution?: ImageExecution;
@@ -238,7 +240,7 @@ export function CreationEditor({
   );
   const legacyBody = !inCanvas && (
     <div className="creative-body work-form">
-      <div className="creative-product-context">
+      {!quickTools && <div className="creative-product-context">
         <div className="work-row">
           {draft.entry !== 'batch' && <h3>快捷创作</h3>}
           <span className="work-muted">
@@ -248,21 +250,23 @@ export function CreationEditor({
         {(isVideo || draft.entry === 'canvas' || draft.entry === 'batch') && (
           <BoundPhotos product={product} />
         )}
-      </div>
-      {promptField}
-      {outputSettings}
+      </div>}
+      {!quickTools && promptField}
+      {!quickTools && outputSettings}
       <div className="work-actions creative-reference-actions">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            setError('');
-            setPicker('template');
-          }}
-        >
-          {draft.template_version ? `切换模板 · V${draft.template_version}` : '应用模板'}
-        </button>
-        {draft.template_id && (
+        {!quickTools && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setError('');
+              setPicker('template');
+            }}
+          >
+            {draft.template_version ? `切换模板 · V${draft.template_version}` : '应用模板'}
+          </button>
+        )}
+        {!quickTools && draft.template_id && (
           <button
             type="button"
             disabled={busy}
@@ -433,13 +437,14 @@ export function CreationEditor({
               token={token}
               disabled={busy || dangling}
               unsaved={dirty}
-              promptToolsOnly={isVideo || draft.entry === 'batch'}
+              promptToolsOnly={quickTools || isVideo || draft.entry === 'batch'}
+              showAssistance={!quickTools}
               onSaved={onSaved}
               onPrompt={(value) => edit({ ...values, prompt: value })}
               execution={imageExecution}
             />
           )}
-          <footer className="work-actions creative-footer">{storyboard}{draftActions}</footer>
+          <footer className="work-actions creative-footer">{!quickTools && storyboard}{draftActions}</footer>
         </>
       )}
       {picker === 'case' && (

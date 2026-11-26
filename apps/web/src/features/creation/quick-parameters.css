@@ -1,0 +1,113 @@
+.quick-parameter-anchor {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+}
+.workspace .studio-toolbar .quick-parameter-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 8px;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.quick-parameter-trigger .anticon {
+  flex: none;
+  font-size: 10px;
+}
+.workspace .studio-toolbar .quick-parameter-trigger:hover:not(:disabled),
+.workspace .studio-toolbar .quick-parameter-popover button:hover:not(:disabled) {
+  background: #f0f4ef;
+}
+.workspace .studio-toolbar .quick-parameter-trigger[aria-expanded='true'],
+.workspace .studio-toolbar .quick-parameter-popover button[aria-pressed='true'] {
+  background: #e7f1e1;
+  color: #355c2a;
+}
+.quick-parameter-popover {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 6px);
+  left: 0;
+  display: grid;
+  gap: 10px;
+  width: min(108px, calc(100vw - 24px));
+  padding: 10px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--work-line);
+  border-radius: 8px;
+  background: var(--work-surface);
+  box-shadow: 0 8px 24px #242c251f;
+}
+.quick-parameter-popover[data-width='wide'] {
+  width: min(306px, calc(100vw - 24px));
+}
+.quick-parameter-popover[data-above='true'] {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+.quick-parameter-section {
+  display: grid;
+  gap: 5px;
+}
+.quick-parameter-label {
+  color: var(--work-muted);
+  font-size: 12px;
+}
+.quick-ratio-options,
+.quick-value-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+  gap: 4px;
+}
+.workspace .studio-toolbar .quick-parameter-popover button {
+  min-height: 34px;
+  padding: 4px;
+  border: 1px solid var(--work-line);
+  border-radius: 6px;
+}
+.workspace .studio-toolbar .quick-parameter-popover button[aria-pressed='true'] {
+  border-color: var(--work-focus);
+}
+.workspace .studio-toolbar .quick-parameter-popover button:focus-visible {
+  outline-offset: -2px;
+}
+.quick-ratio-options button {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+.quick-ratio-icon {
+  display: grid;
+  height: 24px;
+  place-items: center;
+}
+.quick-ratio-icon > span {
+  width: 22px;
+  height: 16px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+}
+.quick-ratio-icon > span[data-adaptive='true'] {
+  border-style: dashed;
+}
+.workspace .studio-toolbar .quick-model-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 9px;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.quick-model-option small {
+  display: block;
+  font-size: 11px;
+}
+@media (pointer: coarse) {
+  .workspace .studio-toolbar .quick-parameter-trigger,
+  .workspace .studio-toolbar .quick-parameter-popover button {
+    min-height: 44px;
+  }
+}

@@ -37,7 +37,7 @@ export function StoryboardControl({
   );
 }
 
-function StoryboardDialog({
+export function StoryboardDialog({
   draft, product, video, token, prepare, onSaved, onClose,
 }: {
   draft: Draft;

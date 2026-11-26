@@ -172,7 +172,7 @@ export function TaskStudio({
   }
 
   return (
-    <section className={canvas ? 'task-studio task-studio-canvas' : 'task-studio'}>
+    <section className={`task-studio task-studio-${entry}`}>
       <header className="task-studio-bar">
         <div className="studio-context">
           <div className="task-studio-title">

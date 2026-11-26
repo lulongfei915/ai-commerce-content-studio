@@ -68,13 +68,10 @@ try {
 
   await visit('quick');
   const continueTask = page.getByRole('button', { name: `继续创作：${task.name}` });
-  const settings = page.getByRole('button', { name: /创作设置/ });
-  await expect(settings.or(continueTask).first()).toBeVisible();
+  const quickStoryboard = page.getByRole('button', { name: '成片分镜', exact: true });
+  await expect(quickStoryboard.or(continueTask).first()).toBeVisible();
   if (await continueTask.isVisible()) await continueTask.click();
-  await settings.click();
-  await page.getByRole('button', { name: '优化提示词' }).waitFor();
   await confirm('quick');
-  await page.keyboard.press('Escape');
 
   await visit('canvas');
   await page.locator(`.react-flow__node[data-id="creation:${drafts.canvas.id}"]`).dblclick();

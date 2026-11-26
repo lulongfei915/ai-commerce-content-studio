@@ -1,26 +1,29 @@
 import { useRef, useState } from 'react';
 import {
   ArrowRightOutlined,
-  ControlOutlined,
   ExclamationCircleOutlined,
+  FileTextOutlined,
   PictureOutlined,
   PlusOutlined,
+  ProfileOutlined,
+  ThunderboltOutlined,
   VideoCameraOutlined,
-  DownOutlined,
-  AppstoreOutlined,
 } from '@ant-design/icons';
+import { apiWrite } from '../../shared/api/client';
+import type { components } from '../../shared/api/generated';
 import { Modal } from '../../shared/ui/Modal';
 import { updateFacts, uploadPhoto, type Category, type Product } from '../products/api';
+import { TemplatePicker } from '../templates/TemplatePicker';
+import type { Template } from '../templates/api';
 import { CreationEditor } from './CreationEditor';
-import { ParametersFields } from './ParametersFields';
 import { QuickMaterials, SelectedQuickMaterials } from './QuickMaterials';
-import { VideoFields } from './VideoFields';
+import { QuickParameters } from './QuickParameters';
+import { StoryboardDialog } from './StoryboardControl';
 import {
   actionError,
   addProductPhotoReference,
   defaults,
   draftWrite,
-  imageModelLabel,
   referencePreview,
   removeReference,
   saveDraftInputs,
@@ -73,20 +76,21 @@ export function QuickCreation({
   execution,
   onSubmitting,
 }: Props) {
-  const [panel, setPanel] = useState<'settings' | 'specs' | 'product' | 'reference'>();
+  const [panel, setPanel] = useState<'tools' | 'storyboard' | 'product' | 'reference' | 'optimize' | 'template'>();
   const [feedback, setFeedback] = useState<{ id: string; message: string; error?: boolean }>();
+  const [suggestion, setSuggestion] = useState<components['schemas']['AssistanceView']>();
   const isVideo = purpose === 'video';
   const working = useRef(false);
   const preferred = selected?.parameters ?? defaults;
-  const value: DraftEdits = edits ?? {
+  const base: DraftEdits = edits ?? {
     prompt: selected?.prompt ?? '',
-    parameters: !isVideo && targetSpec ? { ...preferred, ...targetSpec } : preferred,
-    video:
-      selected?.video_parameters ??
-      (isVideo
-        ? { model: 'seedance-2.0', ratio: '16:9', resolution: '720p', duration: 5, count: 1 }
-        : undefined),
+    parameters: preferred,
+    video: selected?.video_parameters ?? undefined,
   };
+  const value: DraftEdits = isVideo
+    ? { ...base, video: base.video ?? selected?.video_parameters ??
+      { model: 'seedance-2.0', ratio: '16:9', resolution: '720p', duration: 5, count: 1 } }
+    : { ...base, video: undefined, parameters: targetSpec ? { ...base.parameters, ...targetSpec } : base.parameters };
   const spec = value.video ?? value.parameters;
   const labels = isVideo
     ? ['商品环绕', '细节推进', '分镜展示']
@@ -108,6 +112,7 @@ export function QuickCreation({
     (phrase) => `以${product.name}${hasPhotos ? '实拍' : ''}为主体，${phrase}`,
   );
   const disabled = busy || loading;
+  const editorFeedback = feedback?.id === editorId ? feedback : undefined;
 
   function change(next: DraftEdits) {
     onEdit(editorId, next);
@@ -123,7 +128,10 @@ export function QuickCreation({
     let id = editorId;
     try {
       const draft = selected ?? (await onCreate(product.id, purpose, true));
-      if (!draft) return;
+      if (!draft) {
+        setPanel((current) => current === 'template' || current === 'optimize' ? undefined : current);
+        return;
+      }
       id = draft.id;
       if (editorId !== id && edits) {
         onEdit(id, edits);
@@ -145,10 +153,58 @@ export function QuickCreation({
       draft.parameters.resolution !== targetSpec.resolution
     );
     if (!edits && !hasTargetSpec) return draft;
-    const updated = await saveDraftInputs(draft, token, edits ?? value);
+    const updated = await saveDraftInputs(draft, token, value);
     onSaved(updated);
     onEdit(draft.id, undefined);
     return updated;
+  }
+
+  function closePromptTool() {
+    setPanel(undefined);
+    setFeedback(undefined);
+    setSuggestion(undefined);
+  }
+
+  function optimizePrompt() {
+    setSuggestion(undefined);
+    setPanel('optimize');
+    void withDraft(async (draft) => {
+      const saved = await saveInputs(draft);
+      const result = await apiWrite<components['schemas']['AssistanceView']>(
+        `/creations/${saved.id}/assistances`,
+        token,
+        { kind: 'optimize', expected_version: saved.version },
+      );
+      setSuggestion(result);
+    });
+  }
+
+  function updateSuggestion(action: 'apply' | 'undo') {
+    if (!suggestion) return;
+    void withDraft(async () => {
+      const updated = await apiWrite<Draft>(`/assistances/${suggestion.id}/${action}`, token);
+      onSaved(updated);
+      setSuggestion({ ...suggestion, status: action === 'apply' ? 'applied' : 'undone' });
+    });
+  }
+
+  function applyTemplate(template: Template, action: 'keep' | 'replace') {
+    void withDraft(async (draft) => {
+      const updated = await draftWrite(draft, token, '/template', {
+        template_id: template.id,
+        template_version: template.published_version,
+        prompt_action: action,
+      });
+      onSaved(updated);
+      onEdit(draft.id, action === 'keep' && value.prompt !== updated.prompt
+        ? {
+            prompt: value.prompt,
+            parameters: updated.parameters,
+            video: updated.video_parameters ?? undefined,
+          }
+        : undefined);
+      closePromptTool();
+    });
   }
 
   function addMaterial(operation: (draft: Draft) => Promise<Draft>) {
@@ -190,63 +246,66 @@ export function QuickCreation({
   return (
     <section className="studio-quick" aria-label="快捷创作">
       <div className="studio-composer">
-        <div className="studio-input">
+        <div className="studio-editor-row">
           <button
+            type="button"
             className="studio-reference"
+            aria-label="参考素材"
+            title="参考素材"
             disabled={disabled}
-            aria-label={isVideo ? '参考素材' : '添加素材'}
             onClick={() => setPanel(isVideo ? 'reference' : 'product')}
           >
             <PlusOutlined aria-hidden="true" />
-            <span>
-              {isVideo ? '参考素材' : '添加素材'}
-              {references.length ? ` ${references.length}` : ''}
-            </span>
           </button>
-          <textarea
-            aria-label="提示词"
-            maxLength={6000}
-            disabled={disabled}
-            value={value.prompt}
-            placeholder={
-              hasPhotos
-                ? `描述你想要的画面，或添加参考。商品外观以${product.name}实拍为准。`
-                : '描述你想要的画面，也可以添加参考素材。'
-            }
-            onChange={(e) => change({ ...value, prompt: e.target.value })}
-          />
+          <div className="studio-input">
+            <textarea
+              aria-label="提示词"
+              maxLength={6000}
+              rows={2}
+              disabled={disabled}
+              value={value.prompt}
+              placeholder={isVideo ? '描述你想生成的视频画面' : '描述你想生成的画面'}
+              onChange={(e) => change({ ...value, prompt: e.target.value })}
+            />
+            {selected && (
+              <SelectedQuickMaterials
+                draft={selected}
+                disabled={disabled}
+                remove={(ref) =>
+                  void withDraft(async (draft) => onSaved(await removeReference(draft, token, ref.id)))
+                }
+              />
+            )}
+          </div>
         </div>
-        {selected && (
-          <SelectedQuickMaterials
-            draft={selected}
-            disabled={disabled}
-            remove={(ref) =>
-              void withDraft(async (draft) => onSaved(await removeReference(draft, token, ref.id)))
-            }
-          />
-        )}
         <div className="studio-toolbar">
           <b>
-            {isVideo ? <VideoCameraOutlined /> : <PictureOutlined />}{' '}
+            {isVideo ? <VideoCameraOutlined aria-hidden="true" /> : <PictureOutlined aria-hidden="true" />}{' '}
             {isVideo ? '视频生成' : '图片生成'}
           </b>
-          <span>
-            <AppstoreOutlined />{' '}
-            {isVideo ? (value.video?.model === 'seedance-2.5' ? 'Seedance 2.5' : 'Seedance 2.0') : imageModelLabel(value.parameters.model)}
-          </span>
-          <button disabled={disabled} onClick={() => setPanel('specs')}>
-            {spec.ratio} · {spec.resolution} <DownOutlined />
-          </button>
-          <button disabled={disabled} onClick={() => setPanel('specs')}>
-            {spec.count} {isVideo ? '条' : '张'} <DownOutlined />
-          </button>
+          <QuickParameters key={editorId} value={value} targetSpec={targetSpec} disabled={disabled} onChange={change} />
+          <div className="studio-prompt-actions">
+            <button type="button" aria-haspopup="dialog" disabled={disabled || !value.prompt.trim()}
+              onClick={optimizePrompt}>
+              <ThunderboltOutlined aria-hidden="true" /> 优化提示词
+            </button>
+            <button type="button" aria-haspopup="dialog" disabled={disabled} onClick={() => {
+              setFeedback(undefined);
+              setPanel('template');
+            }}>
+              <FileTextOutlined aria-hidden="true" />{' '}
+              {selected?.template_version ? `切换模板 · V${selected.template_version}` : '应用模板'}
+            </button>
+          </div>
+          {isVideo && (
+            <button type="button" disabled={disabled} onClick={() => void withDraft(async () => setPanel('storyboard'))}>
+              <ProfileOutlined aria-hidden="true" />{' '}
+              {selected?.storyboard && !edits && selected.storyboard.confirmed_version === selected.version &&
+                selected.storyboard.product_fact_version === product.fact_version ? '已确认分镜' : '成片分镜'}
+            </button>
+          )}
           <button
-            disabled={disabled}
-            onClick={() => void withDraft(async () => setPanel('settings'))}
-          >
-            <ControlOutlined /> {isVideo && selected?.storyboard ? '成片设置' : '创作设置'}
-          </button>
-          <button
+            type="button"
             className="work-primary studio-save"
             disabled={disabled || execution.inProgress || !value.prompt.trim()}
             onClick={() =>
@@ -255,7 +314,7 @@ export function QuickCreation({
                   const updated = await saveInputs(draft);
                   await execution.submit(updated);
                 },
-                spec.count,
+                spec.count ?? 1,
               )
             }
           >
@@ -263,14 +322,14 @@ export function QuickCreation({
             {execution.inProgress ? '制作中' : isVideo ? '生成视频' : '生成图片'}
           </button>
         </div>
-        {feedback?.id === editorId && (
+        {editorFeedback && panel !== 'optimize' && panel !== 'template' && (
           <div
             className="studio-generation-feedback"
-            data-error={feedback.error || undefined}
-            role={feedback.error ? 'alert' : 'status'}
+            data-error={editorFeedback.error || undefined}
+            role={editorFeedback.error ? 'alert' : 'status'}
           >
-            {feedback.error && <ExclamationCircleOutlined aria-hidden="true" />}
-            <span>{feedback.message}</span>
+            {editorFeedback.error && <ExclamationCircleOutlined aria-hidden="true" />}
+            <span>{editorFeedback.message}</span>
           </div>
         )}
       </div>
@@ -288,21 +347,11 @@ export function QuickCreation({
         <button disabled={disabled} onClick={() => setPanel('reference')}>
           更多灵感 ›
         </button>
+        <button type="button" className="studio-draft-tools" disabled={disabled}
+          onClick={() => void withDraft(async () => setPanel('tools'))}>
+          <FileTextOutlined aria-hidden="true" /> 草稿工具
+        </button>
       </div>
-      {panel === 'specs' && (
-        <Modal title="画面规格" onClose={() => setPanel(undefined)}>
-          <div className="work-form">
-            {value.video ? (
-              <VideoFields value={value.video} onChange={(video) => change({ ...value, video })} />
-            ) : (
-              <ParametersFields
-                value={value.parameters}
-                onChange={(parameters) => change({ ...value, parameters })}
-              />
-            )}
-          </div>
-        </Modal>
-      )}
       {(panel === 'product' || panel === 'reference') && (
         <QuickMaterials
           product={product}
@@ -326,14 +375,15 @@ export function QuickCreation({
           }
         />
       )}
-      {panel === 'settings' && selected && (
-        <Modal title="创作设置" busy={busy} onClose={() => setPanel(undefined)}>
+      {panel === 'tools' && selected && (
+        <Modal title="草稿工具" busy={busy} onClose={() => setPanel(undefined)}>
           <CreationEditor
             draft={selected}
+            quickTools
             product={product}
             token={token}
             categories={categories}
-            edits={edits}
+            edits={edits ? value : undefined}
             onEdit={(next) => onEdit(editorId, next)}
             onSaved={onSaved}
             onBusy={onBusy}
@@ -341,6 +391,55 @@ export function QuickCreation({
             previewUrl={isVideo ? undefined : (ref) => referencePreview(selected, ref)}
           />
         </Modal>
+      )}
+      {panel === 'template' && (
+        <TemplatePicker
+          category={product.category}
+          purpose={purpose}
+          hasPrompt={Boolean(value.prompt.trim())}
+          busy={busy}
+          error={editorFeedback?.message ?? ''}
+          onClose={closePromptTool}
+          onApply={applyTemplate}
+          onClear={selected?.template_id ? () => void withDraft(async (draft) => {
+            onSaved(await draftWrite(draft, token, '/template/clear', {}));
+            closePromptTool();
+          }) : undefined}
+        />
+      )}
+      {panel === 'optimize' && (
+        <Modal title="优化提示词" busy={busy} onClose={closePromptTool}>
+          <div className="work-form">
+            {busy && !suggestion && <p role="status">正在优化提示词…</p>}
+            {editorFeedback?.error && <p role="alert" className="work-error">{editorFeedback.message}</p>}
+            {suggestion?.status === 'unverified' && (
+              <p role="alert" className="work-error">辅助调用待核实，请查看调用记录。</p>
+            )}
+            {suggestion?.suggestion && <p className="creative-prewrap">{suggestion.suggestion}</p>}
+            {suggestion?.status === 'ready' && (
+              <div className="work-actions">
+                <button type="button" className="work-primary"
+                  disabled={busy || !!edits || suggestion.source_version !== selected?.version}
+                  onClick={() => updateSuggestion('apply')}>
+                  采用建议
+                </button>
+              </div>
+            )}
+            {suggestion?.status === 'applied' && (
+              <div className="work-actions">
+                <span role="status">已采用建议</span>
+                <button type="button" disabled={busy} onClick={() => updateSuggestion('undo')}>
+                  撤销建议
+                </button>
+              </div>
+            )}
+            {suggestion?.status === 'undone' && <p role="status">已恢复原提示词</p>}
+          </div>
+        </Modal>
+      )}
+      {panel === 'storyboard' && selected && value.video && (
+        <StoryboardDialog draft={selected} product={product} video={value.video} token={token}
+          prepare={() => saveInputs(selected)} onSaved={onSaved} onClose={() => setPanel(undefined)} />
       )}
     </section>
   );

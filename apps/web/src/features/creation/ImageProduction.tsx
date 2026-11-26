@@ -20,6 +20,7 @@ export function ImageProduction({
   execution,
   promptToolsOnly = false,
   unsaved = false,
+  showAssistance = true,
 }: {
   draft: Draft;
   token: string;
@@ -29,6 +30,7 @@ export function ImageProduction({
   execution?: ImageExecution;
   promptToolsOnly?: boolean;
   unsaved?: boolean;
+  showAssistance?: boolean;
 }) {
   const localExecution = useImageExecution(execution || promptToolsOnly ? undefined : draft, token);
   const [cards, setCards] = useState<Card[]>([]);
@@ -42,11 +44,13 @@ export function ImageProduction({
   useEffect(() => {
     mounted.current = true;
     const ctl = new AbortController();
-    void apiFetch<Suggestion[]>(path + '/assistances', { signal: ctl.signal })
-      .then((items) => {
-        if (!ctl.signal.aborted) setAssist((current) => current ?? items[0]);
-      })
-      .catch(() => {});
+    if (showAssistance) {
+      void apiFetch<Suggestion[]>(path + '/assistances', { signal: ctl.signal })
+        .then((items) => {
+          if (!ctl.signal.aborted) setAssist((current) => current ?? items[0]);
+        })
+        .catch(() => {});
+    }
     void apiFetch<Card[]>('/prompt-cards', { signal: ctl.signal })
       .then((items) => {
         if (!ctl.signal.aborted) setCards(items);
@@ -56,7 +60,7 @@ export function ImageProduction({
       mounted.current = false;
       ctl.abort();
     };
-  }, [path]);
+  }, [path, showAssistance]);
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     setError('');
@@ -103,33 +107,37 @@ export function ImageProduction({
             </button>
           </>
         )}
-        <button
-          type="button"
-          disabled={unsaved}
-          onClick={() =>
-            draft.prompt.trim()
-              ? void run(() => requestSuggestion())
-              : setError('请先填写并保存提示词。')
-          }
-        >
-          优化提示词
-        </button>
-        <label className="image-analysis-upload">
-          <FileImageOutlined aria-hidden="true" /> 解析参考图
-          <input
-            disabled={unsaved}
-            aria-label="解析参考图"
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = '';
-              if (file) void run(() => requestSuggestion(file));
-            }}
-          />
-        </label>
+        {showAssistance && (
+          <>
+            <button
+              type="button"
+              disabled={unsaved}
+              onClick={() =>
+                draft.prompt.trim()
+                  ? void run(() => requestSuggestion())
+                  : setError('请先填写并保存提示词。')
+              }
+            >
+              优化提示词
+            </button>
+            <label className="image-analysis-upload">
+              <FileImageOutlined aria-hidden="true" /> 解析参考图
+              <input
+                disabled={unsaved}
+                aria-label="解析参考图"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (file) void run(() => requestSuggestion(file));
+                }}
+              />
+            </label>
+          </>
+        )}
       </div>
-      {assist?.suggestion && (
+      {showAssistance && assist?.suggestion && (
         <div>
           <p>{assist.suggestion}</p>
           <button

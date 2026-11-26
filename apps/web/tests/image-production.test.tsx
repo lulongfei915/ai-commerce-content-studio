@@ -1,9 +1,9 @@
-import type { ComponentProps } from 'react';
+import { useState, type ComponentProps } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { ImageProduction } from '../src/features/creation/ImageProduction';
 import { QuickCreation } from '../src/features/creation/QuickCreation';
-import { defaults, type Draft } from '../src/features/creation/api';
+import { defaults, type Capabilities, type Draft, type DraftEdits } from '../src/features/creation/api';
 import type { TaskResult } from '../src/features/creation/results';
 import { useImageExecution } from '../src/features/creation/useImageExecution';
 import type { Product } from '../src/features/products/api';
@@ -264,7 +264,8 @@ test('quick generation saves edits before submitting and retries with the same r
   const updated = props.onSaved.mock.calls[0][0] as Draft;
   page.rerender(<QuickEditorFixture {...props} selected={updated} />);
   expect(screen.getByRole('alert').closest('.studio-composer')).not.toBeNull();
-  expect(screen.queryByRole('button', { name: '优化提示词' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '优化提示词' }).closest('.studio-toolbar')).not.toBeNull();
+  expect(screen.getByRole('button', { name: '应用模板' }).closest('.studio-toolbar')).not.toBeNull();
   expect(screen.queryByLabelText('解析参考图')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '生成图片' }));
   expect(await screen.findByRole('button', { name: '取消排队' })).toBeVisible();
@@ -342,7 +343,7 @@ test('quick image materials show selected product photos and allow removing them
   };
   const page = render(<QuickEditorFixture {...props} selected={draft} />);
   expect(screen.queryByRole('list', { name: '本次生成素材' })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: '添加素材' }));
+  fireEvent.click(screen.getByRole('button', { name: '参考素材' }));
   const dialog = screen.getByRole('dialog', { name: '添加素材' });
   fireEvent.click(within(dialog).getByRole('button', { name: '参考图' }));
   expect(within(dialog).getByLabelText('上传参考图')).toBeVisible();
@@ -381,7 +382,7 @@ test('quick image materials show selected product photos and allow removing them
     return Response.json([]);
   });
   page.rerender(<QuickEditorFixture {...props} selected={{ ...draft, version: 3 }} />);
-  fireEvent.click(screen.getByRole('button', { name: '添加素材' }));
+  fireEvent.click(screen.getByRole('button', { name: '参考素材' }));
   fireEvent.change(screen.getByLabelText('上传并绑定商品实拍'), {
     target: { files: [new File(['xyz'], 'new.png', { type: 'image/png' })] },
   });
@@ -399,4 +400,89 @@ test('quick image materials show selected product photos and allow removing them
     usage: 'product',
     file_version: 1,
   });
+});
+
+test('quick image parameters use anchored selectors and are saved before generation', async () => {
+  const product: Product = {
+    id: 'sku', sku: 'TEST', name: '帆布鞋', category: 'apparel', version: 1,
+    fact_version: 1, facts: {}, photos: [], readiness: {},
+  };
+  const draft: Draft = {
+    id: 'draft-one', task_id: 'task-one', slot: 'primary', entry: 'quick', version: 1,
+    product_id: product.id, purpose: 'main', prompt: '商品棚拍', parameters: defaults,
+    references: [], template_id: null, template_version: null, video_parameters: null,
+  };
+  const square = { ratio: '1:1', resolution: '1K', width: 1024, height: 1024 };
+  const portrait = { ratio: '3:4', resolution: '1.5K', width: 1152, height: 1536 };
+  const capabilities: Capabilities = {
+    model: defaults.model, max_outputs: 3, sizes: [square], video_models: ['seedance-2.0'],
+    models: [
+      { provider: 'ark', model: defaults.model, label: 'Seedream 5.5',
+        sizes: [square], qualities: [], default_quality: null },
+      { provider: 'gpt-image', model: 'gpt-image-2', label: 'GPT Image 2',
+        sizes: [square, portrait], qualities: ['low', 'high'], default_quality: 'low' },
+    ],
+  };
+  const writes: Array<{ method: string; body: Record<string, unknown> }> = [];
+  vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+    if (url.endsWith('/creation-capabilities')) return Response.json(capabilities);
+    if (init?.method === 'PATCH') {
+      const body = JSON.parse(String(init.body));
+      writes.push({ method: 'PATCH', body });
+      return Response.json({ ...draft, parameters: body.parameters, version: 2 });
+    }
+    if (init?.method === 'POST') {
+      writes.push({ method: 'POST', body: JSON.parse(String(init.body)) });
+      return Response.json({ id: 'job-one', outputs: [{ id: 'output-one', status: 'queued' }] });
+    }
+    return Response.json([]);
+  });
+  const onCreate = vi.fn(async () => draft);
+  function Editor() {
+    const [edits, setEdits] = useState<DraftEdits>();
+    return <QuickEditorFixture product={product} purpose="main" editorId={draft.id}
+      categories={[]} token="test" busy={false} loading={false} selected={draft} edits={edits}
+      onCreate={onCreate} onEdit={(_id, next) => setEdits(next)}
+      onSaved={vi.fn()} onProductSaved={vi.fn()} onBusy={vi.fn()} />;
+  }
+  render(<Editor />);
+  expect(screen.queryByRole('button', { name: '创作设置' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /生成模型/ }));
+  const models = screen.getByRole('group', { name: '生成模型' });
+  expect(await within(models).findByText('火山方舟')).toBeVisible();
+  fireEvent.click(await within(models).findByRole('button', { name: /GPT Image 2/ }));
+  expect(screen.getByRole('button', { name: /生成模型.*GPT Image 2/ })).toHaveFocus();
+
+  fireEvent.click(screen.getByRole('button', { name: /画面规格/ }));
+  const specs = screen.getByRole('group', { name: '画面规格' });
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  fireEvent.click(within(specs).getByRole('button', { name: '3:4' }));
+  expect(within(specs).getByText('1152 × 1536')).toBeVisible();
+  expect(within(specs).queryByRole('button', { name: '1K' })).not.toBeInTheDocument();
+  fireEvent.click(within(specs).getByRole('button', { name: '高' }));
+  fireEvent.keyDown(within(specs).getByRole('button', { name: '高' }), { key: 'Escape' });
+  expect(specs).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /画面规格.*3:4.*1.5K/ })).toHaveFocus();
+
+  fireEvent.click(screen.getByRole('button', { name: /生成张数/ }));
+  const counts = screen.getByRole('group', { name: '生成张数' });
+  expect(within(counts).queryByRole('button', { name: '4 张' })).not.toBeInTheDocument();
+  fireEvent.click(within(counts).getByRole('button', { name: '3 张' }));
+  expect(screen.getByRole('button', { name: /生成张数.*3 张/ })).toHaveFocus();
+  expect(onCreate).not.toHaveBeenCalled();
+  expect(writes).toHaveLength(0);
+
+  fireEvent.click(screen.getByRole('button', { name: '生成图片' }));
+  await vi.waitFor(() => expect(writes).toHaveLength(2));
+  expect(writes[0]).toEqual({
+    method: 'PATCH',
+    body: {
+      expected_version: 1, prompt: draft.prompt,
+      parameters: {
+        provider: 'gpt-image', model: 'gpt-image-2', ratio: '3:4', resolution: '1.5K',
+        quality: 'high', count: 3,
+      },
+    },
+  });
+  expect(writes[1]).toMatchObject({ method: 'POST', body: { expected_version: 2 } });
 });

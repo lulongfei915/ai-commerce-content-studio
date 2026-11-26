@@ -329,17 +329,17 @@ try {
   await generate.click();
   const feedback = page.locator('.studio-composer').getByRole('alert');
   await expect(feedback).toContainText('Studio 尚未配置调用额度');
-  await expect(page.getByRole('button', { name: '优化提示词' })).toHaveCount(0);
+  await expect(page.locator('.studio-toolbar').getByRole('button', { name: '优化提示词' })).toBeVisible();
   await shoot('quick-error-1280');
   await page.setViewportSize({ width: 390, height: 640 });
   await expect(feedback).toBeInViewport({ ratio: 1 });
   await shoot('quick-error-390');
 
-  await page.getByRole('button', { name: /创作设置/ }).click();
-  const settings = page.getByRole('dialog', { name: '创作设置' });
-  await expect(settings.getByRole('button', { name: '优化提示词' })).toBeVisible();
-  await expect(settings.getByLabel('解析参考图')).toBeAttached();
-  await settings.getByRole('button', { name: '关闭', exact: true }).click();
+  await page.getByRole('button', { name: '草稿工具' }).click();
+  const tools = page.getByRole('dialog', { name: '草稿工具' });
+  await expect(tools.getByRole('button', { name: '优化提示词' })).toHaveCount(0);
+  await expect(tools.getByLabel('解析参考图')).toHaveCount(0);
+  await tools.getByRole('button', { name: '关闭', exact: true }).click();
   blockSubmission = false;
   await generate.click();
   await expect(page.getByRole('button', { name: '制作中', exact: true })).toBeDisabled();

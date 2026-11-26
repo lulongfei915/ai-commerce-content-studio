@@ -14,6 +14,7 @@ export function TemplatePicker({
   error,
   onClose,
   onApply,
+  onClear,
 }: {
   category: string;
   purpose: string;
@@ -22,6 +23,7 @@ export function TemplatePicker({
   error: string;
   onClose: () => void;
   onApply: (template: Template, action: 'keep' | 'replace') => void;
+  onClear?: () => void;
 }) {
   const load = useCallback(
     (_query: string, cursor: string | null, signal: AbortSignal) =>
@@ -106,6 +108,11 @@ export function TemplatePicker({
           </p>
         )}
         <div className="work-actions">
+          {onClear && (
+            <button type="button" disabled={busy} onClick={onClear}>
+              取消应用模板
+            </button>
+          )}
           <button
             type="button"
             className="work-primary"
