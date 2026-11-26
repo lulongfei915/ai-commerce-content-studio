@@ -8,6 +8,7 @@ from app.adapters.object_storage import get_object_storage
 from app.adapters.vision import suggest
 from app.modules.assets.models import PrivateFile
 from app.modules.commerce.models import ModelCall
+from app.modules.creation.batch_domain import override, require_unsubmitted
 from app.modules.creation.references import resolve_reference
 from app.modules.creation.schemas import CreationView, ReferenceInput
 from app.modules.creation.service import get_creation, view
@@ -77,6 +78,7 @@ def assist(
     tenant = identity.tenant.id
     lock_budget(db, tenant)
     draft = get_creation(db, tenant, identifier, lock=True)
+    require_unsubmitted(db, draft)
     check_version(draft.version, data.expected_version)
     product = get_product(db, tenant, draft.product_id)
     if data.kind == "optimize" and not draft.prompt.strip():
@@ -175,10 +177,12 @@ def change(identifier: str, identity: WriteIdentity, db: Database, undo: bool) -
     require_permission(identity, Permission.CREATE)
     item = own(db, identity.tenant.id, identity.user.id, identifier)
     draft = get_creation(db, identity.tenant.id, item.creation_id, lock=True)
+    require_unsubmitted(db, draft)
     if not item.suggestion or item.status != ("applied" if undo else "ready"):
         raise HTTPException(409, "assistance_unavailable")
     check_version(draft.version, (item.applied_version or 0) if undo else item.source_version)
     draft.prompt = item.original if undo else item.suggestion
+    override(draft, "prompt")
     draft.version += 1
     item.status = "undone" if undo else "applied"
     item.applied_version = draft.version

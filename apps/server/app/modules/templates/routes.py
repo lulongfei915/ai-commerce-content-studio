@@ -73,6 +73,7 @@ def create_template(data: TemplateContent, identity: WriteIdentity, db: Database
     require_permission(identity, Permission.MANAGE)
     item = Template(tenant_id=identity.tenant.id, draft=data.model_dump())
     db.add(item)
+    record(db, identity, "新增模板草稿", data.name)
     db.commit()
     return view(item)
 
@@ -86,6 +87,7 @@ def edit_template(
     check_version(item.version, data.expected_version)
     item.draft = data.model_dump(exclude={"expected_version"})
     item.version += 1
+    record(db, identity, "修改模板草稿", data.name)
     db.commit()
     return view(item)
 
