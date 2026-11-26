@@ -23,6 +23,7 @@ class CreationCreate(WriteSchema):
     video_parameters: VideoParameters | None = None
     primary: bool = True
     entry: CreationEntry = "quick"
+    position_id: ResourceId | None = None
 
 
 class CreationEdit(VersionInput):
@@ -89,6 +90,8 @@ class CreationView(BaseModel):
     template_id: str | None
     template_version: int | None
     version: int
+    batch_position_id: str | None = None
+    batch_overrides: list[str] | None = None
 
 
 class Readiness(BaseModel):

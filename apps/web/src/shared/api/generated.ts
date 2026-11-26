@@ -693,6 +693,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks/{task_id}/batches/{media}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Config */
+        get: operations["public_config_api_v1_tasks__task_id__batches__media__get"];
+        /** Edit Public */
+        put: operations["edit_public_api_v1_tasks__task_id__batches__media__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/batches/{media}/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Discard Item */
+        delete: operations["discard_item_api_v1_tasks__task_id__batches__media__items__item_id__delete"];
+        options?: never;
+        head?: never;
+        /** Change Scope */
+        patch: operations["change_scope_api_v1_tasks__task_id__batches__media__items__item_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/batches/{media}/items/{item_id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy Item */
+        post: operations["copy_item_api_v1_tasks__task_id__batches__media__items__item_id__copy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/batches/{media}/items/{item_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Item */
+        post: operations["restore_item_api_v1_tasks__task_id__batches__media__items__item_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/batches/{media}/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** History */
+        get: operations["history_api_v1_tasks__task_id__batches__media__executions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/batches/image/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: operations["start_api_v1_tasks__task_id__batches_image_executions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/outputs/{identifier}/reconcile": {
         parameters: {
             query?: never;
@@ -1291,6 +1395,13 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** BatchSubmission */
+        BatchSubmission: {
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Items */
+            items: components["schemas"]["ItemInput"][];
+        };
         /** CanvasEdge */
         CanvasEdge: {
             /** Id */
@@ -1492,6 +1603,8 @@ export interface components {
              * @enum {string}
              */
             entry: "quick" | "canvas" | "batch";
+            /** Position Id */
+            position_id?: string | null;
         };
         /** CreationEdit */
         CreationEdit: {
@@ -1531,6 +1644,10 @@ export interface components {
             template_version: number | null;
             /** Version */
             version: number;
+            /** Batch Position Id */
+            batch_position_id?: string | null;
+            /** Batch Overrides */
+            batch_overrides?: string[] | null;
         };
         /** Credentials */
         Credentials: {
@@ -1686,6 +1803,33 @@ export interface components {
             product_photos: components["schemas"]["ProductPhoto"][];
             /** References */
             references: components["schemas"]["ReferenceView"][];
+        };
+        /** ItemExecution */
+        ItemExecution: {
+            /** Item Id */
+            item_id: string;
+            execution: components["schemas"]["ExecutionState"];
+        };
+        /** ItemInput */
+        ItemInput: {
+            /** Id */
+            id: string;
+            /** Expected Version */
+            expected_version: number;
+        };
+        /** ItemRestore */
+        ItemRestore: {
+            /** Expected Version */
+            expected_version: number;
+            /** Field */
+            field?: ("prompt" | "count" | "size") | null;
+        };
+        /** ItemScope */
+        ItemScope: {
+            /** Expected Version */
+            expected_version: number;
+            /** Position Id */
+            position_id: string;
         };
         /** LayoutEdit */
         LayoutEdit: {
@@ -1881,6 +2025,44 @@ export interface components {
             expected_version: number;
             /** Name */
             name: string;
+        };
+        /** PublicEdit */
+        PublicEdit: {
+            /**
+             * Prompt
+             * @default
+             */
+            prompt: string;
+            /**
+             * Count
+             * @default 1
+             */
+            count: number;
+            /** Ratio */
+            ratio?: string | null;
+            /** Resolution */
+            resolution?: string | null;
+            /** Expected Version */
+            expected_version: number;
+        };
+        /** PublicState */
+        PublicState: {
+            /**
+             * Prompt
+             * @default
+             */
+            prompt: string;
+            /**
+             * Count
+             * @default 1
+             */
+            count: number;
+            /** Ratio */
+            ratio?: string | null;
+            /** Resolution */
+            resolution?: string | null;
+            /** Version */
+            version: number;
         };
         /** Readiness */
         Readiness: {
@@ -2118,6 +2300,8 @@ export interface components {
             expected_version: number;
             /** Idempotency Key */
             idempotency_key: string;
+            /** Position Id */
+            position_id?: string | null;
         };
         /** TaskCreate */
         TaskCreate: {
@@ -3971,6 +4155,285 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CreationView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_config_api_v1_tasks__task_id__batches__media__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                media: "image" | "video";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_public_api_v1_tasks__task_id__batches__media__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                media: "image" | "video";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_item_api_v1_tasks__task_id__batches__media__items__item_id__delete: {
+        parameters: {
+            query: {
+                expected_version: number;
+            };
+            header?: never;
+            path: {
+                task_id: string;
+                media: "image" | "video";
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_scope_api_v1_tasks__task_id__batches__media__items__item_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                media: "image" | "video";
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemScope"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreationView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    copy_item_api_v1_tasks__task_id__batches__media__items__item_id__copy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                media: "image" | "video";
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreationView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_item_api_v1_tasks__task_id__batches__media__items__item_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                media: "image" | "video";
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemRestore"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreationView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    history_api_v1_tasks__task_id__batches__media__executions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                media: "image" | "video";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemExecution"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_api_v1_tasks__task_id__batches_image_executions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchSubmission"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemExecution"][];
                 };
             };
             /** @description Validation Error */

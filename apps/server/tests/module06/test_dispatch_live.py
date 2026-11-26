@@ -61,7 +61,8 @@ def test_redis_loss_worker_and_private_download(tmp_path, monkeypatch):
             yield session
 
     monkeypatch.setattr(settings, "image_ceiling_cents", 5)
-    monkeypatch.setattr(settings, "image_budget_cents", 20)
+    monkeypatch.setattr(settings, "image_budget_cents", 40)
+    monkeypatch.setattr(settings, "image_budget_unlimited", False)
     monkeypatch.setattr("app.shared.db.SessionLocal", sessions)
     monkeypatch.setattr(scheduler, "SessionLocal", sessions)
     monkeypatch.setattr(ArkImageClient, "generate", generate)
@@ -128,8 +129,33 @@ def test_redis_loss_worker_and_private_download(tmp_path, monkeypatch):
                     )
                     assert result.status_code == 202, result.text
                     jobs.append(result.json())
+            batch_items = [
+                create_draft(
+                    client, headers, task, product, entry="batch", primary=False,
+                    parameters={"count": count},
+                )
+                for count in (1, 2, 1)
+            ]
+            batch = client.post(
+                f"{API}/tasks/{task['id']}/batches/image/executions",
+                headers=headers,
+                json={
+                    "idempotency_key": marker,
+                    "items": [
+                        {"id": item["id"], "expected_version": item["version"]}
+                        for item in batch_items
+                    ],
+                },
+            )
+            assert batch.status_code == 202, batch.text
+            batch_jobs = [row["execution"] for row in batch.json()]
+            assert [len(job["outputs"]) for job in batch_jobs] == [1, 2, 1]
+            archived.extend(
+                f"generated/alpha/{output['id']}.png"
+                for job in [*jobs, *batch_jobs] for output in job["outputs"]
+            )
             scheduler.dispatch()
-            assert broker.llen(queue) == 4
+            assert broker.llen(queue) == 8
             broker.delete(queue)
             with start_worker(
                 worker.celery_app,
@@ -142,13 +168,14 @@ def test_redis_loss_worker_and_private_download(tmp_path, monkeypatch):
                 while monotonic() < deadline:
                     scheduler.dispatch()
                     statuses = [
-                        client.get(f"{API}/executions/{j['id']}").json()["outputs"][0]["status"]
-                        for j in jobs
+                        output["status"]
+                        for job in [*jobs, *batch_jobs]
+                        for output in client.get(f"{API}/executions/{job['id']}").json()["outputs"]
                     ]
-                    if statuses == ["pending_review"] * 4:
+                    if statuses == ["pending_review"] * 8:
                         break
                     sleep(0.25)
-                assert statuses == ["pending_review"] * 4
+                assert statuses == ["pending_review"] * 8
             pos = next(
                 p
                 for p in task["positions"]
@@ -156,7 +183,6 @@ def test_redis_loss_worker_and_private_download(tmp_path, monkeypatch):
             )
             for j in jobs:
                 identifier = j["outputs"][0]["id"]
-                archived.append(f"generated/alpha/{identifier}.png")
                 approved = client.post(
                     f"{API}/assets/{identifier}/review",
                     headers=headers,
@@ -169,8 +195,8 @@ def test_redis_loss_worker_and_private_download(tmp_path, monkeypatch):
                     json={"version_id": identifier},
                 ).json()
                 assert client.get(receipt["download"]).content == generated
-            assert len(sent) == 4
-            assert sum(bool(request.image) for request in sent) == 2
+            assert len(sent) == 8
+            assert sum(bool(request.image) for request in sent) == 6
     finally:
         for key in [source_key, *archived]:
             storage.delete(key)

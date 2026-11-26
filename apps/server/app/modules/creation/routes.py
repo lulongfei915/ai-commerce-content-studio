@@ -18,10 +18,12 @@ from app.modules.identity.security import (
 )
 from app.modules.identity.team import record
 from app.modules.products.service import get_fact
+from app.modules.tasks.models import DeliveryPosition
 from app.modules.tasks.service import get_task
 from app.modules.templates.schemas import VersionInput
 from app.shared.studio_errors import check_version, reject
 
+from .batch_domain import BatchConfig, apply_public, media_for, override, require_unsubmitted
 from .capabilities import (
     MAX_OUTPUTS,
     MODEL,
@@ -64,7 +66,7 @@ router = APIRouter(tags=["共用创作草稿"])
 def entry_filter(entry: CreationEntry) -> ColumnElement[bool]:
     if entry == "quick":
         return or_(Creation.entry == entry, Creation.entry.is_(None))
-    return Creation.entry == entry
+    return (Creation.entry == entry) & Creation.discarded.is_(False)
 
 
 @router.get("/creation-capabilities")
@@ -106,6 +108,16 @@ def create_creation(
     tenant = identity.tenant.id
     get_task(db, tenant, task_id, lock=True)
     product = member_product(db, tenant, task_id, data.product_id)
+    position = None
+    if data.position_id:
+        position = db.scalar(select(DeliveryPosition).where(
+            DeliveryPosition.id == data.position_id,
+            DeliveryPosition.task_id == task_id,
+            DeliveryPosition.product_id == product.id,
+            DeliveryPosition.purpose == data.purpose,
+        ))
+        if data.entry != "batch" or not position:
+            raise HTTPException(422, "position_unavailable")
     if data.primary:
         existing = db.scalar(
             select(Creation)
@@ -142,7 +154,23 @@ def create_creation(
         else None,
         slot=f"{data.entry}-primary" if data.primary else new_id(),
         entry=data.entry,
+        batch_position_id=data.position_id,
     )
+    if data.entry == "batch":
+        parameters = data.video_parameters if data.purpose == "video" else data.parameters
+        item.batch_overrides = []
+        if data.prompt:
+            override(item, "prompt")
+        if parameters:
+            override(item, *parameters.model_fields_set)
+        config = db.get(BatchConfig, (task_id, media_for(item)))
+        if config:
+            apply_public(item, config.values)
+        if position and position.ratio and position.resolution and data.purpose != "video":
+            item.parameters = {
+                **item.parameters, "ratio": position.ratio, "resolution": position.resolution,
+            }
+            override(item, "ratio", "resolution")
     db.add(item)
     db.commit()
     return view(item)
@@ -158,6 +186,7 @@ def editable(db: Database, identity: WriteIdentity, identifier: str, expected: i
     require_permission(identity, Permission.CREATE)
     item = get_creation(db, identity.tenant.id, identifier, lock=True)
     check_version(item.version, expected)
+    require_unsubmitted(db, item)
     return item
 
 
@@ -174,6 +203,8 @@ def reuse_draft(
     source = get_creation(db, tenant, data.source_id, lock=True)
     if source.task_id != target.task_id:
         raise HTTPException(404, "creation_not_found")
+    if source.entry == "batch":
+        reject("source_id", "draft_incompatible")
     check_version(source.version, data.source_version)
     return reuse_configuration(db, target, source)
 
@@ -186,13 +217,24 @@ def edit_creation(
     draft = view(item)
     product = member_product(db, item.tenant_id, item.task_id, item.product_id)
     if data.prompt is not None:
+        if data.prompt != item.prompt:
+            override(item, "prompt")
         item.prompt = data.prompt
     if data.video_parameters is not None:
         if item.purpose != "video":
             reject("video_parameters", "parameters_media_mismatch")
         item.video_parameters = data.video_parameters.model_dump()
+        override(item, *(
+            key for key, value in item.video_parameters.items()
+            if draft.video_parameters is None or getattr(draft.video_parameters, key) != value
+        ))
     if data.parameters is not None and item.purpose == "video":
         reject("parameters", "parameters_media_mismatch")
+    if data.parameters is not None:
+        override(item, *(
+            key for key, value in data.parameters.model_dump().items()
+            if getattr(draft.parameters, key) != value
+        ))
     return save(
         db,
         item,

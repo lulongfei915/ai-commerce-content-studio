@@ -1,6 +1,6 @@
 from typing import Any
 
-from sqlalchemy import JSON, ForeignKey, ForeignKeyConstraint, String, Text, UniqueConstraint
+from sqlalchemy import JSON, ForeignKey, ForeignKeyConstraint, String, Text, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.modules.identity.models import new_id
@@ -37,6 +37,9 @@ class Creation(Base):
     template_id: Mapped[str | None] = mapped_column(String(36))
     template_version: Mapped[int | None]
     version: Mapped[int] = mapped_column(default=1)
+    batch_position_id: Mapped[str | None] = mapped_column(String(36))
+    batch_overrides: Mapped[list[str] | None] = mapped_column(JSON(none_as_null=True))
+    discarded: Mapped[bool] = mapped_column(server_default=false())
 
 
 class CreationOutput(Base):

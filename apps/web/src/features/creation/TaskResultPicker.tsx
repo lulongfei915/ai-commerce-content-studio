@@ -14,6 +14,7 @@ export function TaskResultPicker({
   onReference,
   referenceLabel = '引用到画布',
   busy = false,
+  initialVersion,
 }: {
   task: Task;
   sku: string;
@@ -22,9 +23,10 @@ export function TaskResultPicker({
   onReference?: (result: TaskResult) => void;
   referenceLabel?: string;
   busy?: boolean;
+  initialVersion?: string;
 }) {
   const [items, setItems] = useState<TaskResult[]>();
-  const [selected, setSelected] = useState<string>();
+  const [selected, setSelected] = useState(initialVersion);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
   const result = items?.find((item) => item.version_id === selected);

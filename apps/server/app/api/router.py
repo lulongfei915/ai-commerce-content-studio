@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.modules.assets.routes import router as assets_router
 from app.modules.canvas.routes import router as canvas_router
 from app.modules.cases.routes import router as cases_router
+from app.modules.creation.batch import router as batch_router
 from app.modules.creation.results import router as results_router
 from app.modules.creation.routes import router as creation_router
 from app.modules.delivery.library import router as library_router
@@ -31,6 +32,7 @@ api_router.include_router(canvas_router)
 api_router.include_router(product_preview_router)
 api_router.include_router(cases_router)
 api_router.include_router(creation_router)
+api_router.include_router(batch_router)
 api_router.include_router(execution_router)
 api_router.include_router(reviews_router)
 api_router.include_router(delivery_router)

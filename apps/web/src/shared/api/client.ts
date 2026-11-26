@@ -5,6 +5,7 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code?: string,
     readonly field?: string,
+    readonly itemId?: string,
   ) {
     super(`API request failed with status ${status}`);
   }
@@ -36,7 +37,11 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       detail && typeof detail === 'object' && 'field' in detail && typeof detail.field === 'string'
         ? detail.field
         : undefined;
-    throw new ApiError(response.status, code, field);
+    const itemId =
+      detail && typeof detail === 'object' && 'item_id' in detail && typeof detail.item_id === 'string'
+        ? detail.item_id
+        : undefined;
+    throw new ApiError(response.status, code, field, itemId);
   }
   return response.status === 204 ? (undefined as T) : (response.json() as Promise<T>);
 }

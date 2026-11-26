@@ -12,6 +12,7 @@ from app.modules.templates.service import find_template, version_content
 from app.shared.config import Settings
 from app.shared.studio_errors import FieldIssue, reject
 
+from .batch_domain import override
 from .capabilities import ImageParameters, validate_parameters
 from .models import Creation
 from .references import resolve_reference, validate_references
@@ -31,8 +32,12 @@ def uses_explicit_references(entry: str | None, purpose: str) -> bool:
 
 
 def get_creation(db: Session, tenant: str, identifier: str, *, lock: bool = False) -> Creation:
-    query = select(Creation).where(Creation.tenant_id == tenant, Creation.id == identifier)
-    item = db.scalar(query.with_for_update() if lock else query)
+    query = select(Creation).where(
+        Creation.tenant_id == tenant, Creation.id == identifier, Creation.discarded.is_(False)
+    )
+    if lock:
+        query = query.with_for_update().execution_options(populate_existing=True)
+    item = db.scalar(query)
     if item is None:
         raise HTTPException(404, "creation_not_found")
     return item
@@ -109,7 +114,9 @@ def apply_template(
     item.template_id, item.template_version = template.id, data.template_version
     if content.purpose == "video" and content.video_parameters:
         item.video_parameters = content.video_parameters.model_dump()
+        override(item, *item.video_parameters)
     if data.prompt_action == "replace":
+        override(item, "prompt")
         facts = get_fact(db, product, product.fact_version).facts
         values = {
             "商品名称": product.name,
@@ -119,6 +126,7 @@ def apply_template(
         item.prompt = re.sub(
             r"\{\{(商品名称|SKU|商品事实)\}\}", lambda m: values[m[1]], content.prompt
         )
+    override(item, *content.parameters.model_dump())
     return save(db, item, product, refs, content.parameters)
 
 
@@ -131,7 +139,7 @@ def template_check(db: Session, item: Creation) -> None:
 
 
 def reuse_configuration(db: Session, target: Creation, source: Creation) -> CreationView:
-    if target.entry != "batch" or source.entry == "batch" or target.purpose != source.purpose:
+    if target.entry != "batch" or target.purpose != source.purpose:
         reject("source_id", "draft_incompatible")
     product = member_product(db, target.tenant_id, target.task_id, target.product_id)
     template_check(db, source)
@@ -161,6 +169,7 @@ def reuse_configuration(db: Session, target: Creation, source: Creation) -> Crea
     target.prompt = REFERENCE_TAG.sub(lambda match: f"[[ref:{labels[match[1]]}]]", draft.prompt)
     target.video_parameters = source.video_parameters
     target.template_id, target.template_version = source.template_id, source.template_version
+    override(target, "prompt", *draft.parameters.model_dump(), *(target.video_parameters or {}))
     return save(db, target, product, references, draft.parameters)
 
 

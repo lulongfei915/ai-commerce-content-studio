@@ -108,7 +108,7 @@ def targets(
     return [
         view(c)
         for c in rows
-        if c.id not in submitted
+        if c.id not in submitted and not c.discarded
         and (asset.media == "image" or c.purpose == "video")
         and not any(r.get("file_id") == out.file_id for r in c.references)
     ]

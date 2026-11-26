@@ -30,7 +30,7 @@ export function ImageProduction({
   promptToolsOnly?: boolean;
   unsaved?: boolean;
 }) {
-  const localExecution = useImageExecution(execution ? undefined : draft, token);
+  const localExecution = useImageExecution(execution || promptToolsOnly ? undefined : draft, token);
   const [cards, setCards] = useState<Card[]>([]);
   const [cardId, setCardId] = useState('');
   const [assist, setAssist] = useState<Suggestion>();
@@ -166,7 +166,7 @@ export function ImageProduction({
           </button>
         </div>
       )}
-      {!execution && (
+      {!execution && !promptToolsOnly && (
         <>
           <div className="work-actions">
             <button

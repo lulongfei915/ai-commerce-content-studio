@@ -238,7 +238,7 @@ export function CreationEditor({
     <div className="creative-body work-form">
       <div className="creative-product-context">
         <div className="work-row">
-          <h3>快捷创作</h3>
+          {draft.entry !== 'batch' && <h3>快捷创作</h3>}
           <span className="work-muted">
             {product.sku} · {isVideo ? '视频' : draft.purpose === 'main' ? '主图' : '详情素材'}
           </span>
@@ -279,7 +279,7 @@ export function CreationEditor({
         >
           添加案例
         </button>
-        <label className="creative-upload">
+        {draft.entry !== 'batch' && <label className="creative-upload">
           上传参考图
           <input
             type="file"
@@ -291,7 +291,7 @@ export function CreationEditor({
               upload(file);
             }}
           />
-        </label>
+        </label>}
       </div>
       {!!draft.references.length && (
         <DraftReferenceList
@@ -411,12 +411,14 @@ export function CreationEditor({
       ) : (
         <>
           {legacyBody}
-          {!isVideo && draft.entry !== 'batch' && (
+          {!isVideo && (
             <ImageProduction
               key={draft.id}
               draft={draft}
               token={token}
-              disabled={busy || dirty || dangling}
+              disabled={busy || dangling}
+              unsaved={dirty}
+              promptToolsOnly={draft.entry === 'batch'}
               onSaved={onSaved}
               onPrompt={(value) => edit({ ...values, prompt: value })}
               execution={imageExecution}

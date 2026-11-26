@@ -50,12 +50,14 @@ export function createDraft(
   token: string,
   primary = true,
   entry: NonNullable<Draft['entry']> = 'quick',
+  position_id?: string,
 ) {
   return apiWrite<Draft>(`/tasks/${task}/creations`, token, {
     product_id,
     purpose,
     primary,
     entry,
+    position_id,
   });
 }
 export function draftWrite(
@@ -124,6 +126,10 @@ const messages: Record<string, string> = {
   last_admin: '公司须保留一名有效管理员。',
   invalid_successor: '请选择本公司有效的管理员或设计师接手。',
   invalid_delivery_requirement: '请核对商品、模块名称和规格。',
+  position_unavailable: '该交付位置已变化，请刷新后重新选择。',
+  position_already_reserved: '此位置已采用版本或存在制作预留。',
+  delivery_spec_mismatch: '生成规格与交付位置不一致。',
+  batch_item_submitted: '此项已提交，可在清单中查看进度。',
   budget_not_configured: 'Studio 尚未配置调用额度，请联系管理员。',
   budget_unavailable: 'Studio 可用调用额度不足，请联系管理员。',
   video_provider_not_configured: '尚未配置 Seedance API Key，请联系管理员。',
