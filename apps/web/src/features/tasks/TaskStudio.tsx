@@ -3,12 +3,14 @@ import type { ReactNode } from 'react';
 import {
   ArrowLeftOutlined,
   ControlOutlined,
+  PictureOutlined,
   SafetyOutlined,
   RightOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
 
 import type { Session } from '../auth/session';
+import { CanvasLoadBoundary } from '../canvas/CanvasLoadBoundary';
 import { actionError, createDraft, listDrafts } from '../creation/api';
 import type { Draft, DraftEdits } from '../creation/api';
 import { QuickCreation } from '../creation/QuickCreation';
@@ -16,11 +18,14 @@ import { getTaskResults, type TaskResult } from '../creation/results';
 import { useImageExecution } from '../creation/useImageExecution';
 import { BatchCreation } from '../creation/BatchCreation';
 import type { Category, Product } from '../products/api';
+import { ProductDetails } from '../products/ProductDetails';
+import { ProductEditor } from '../products/ProductEditor';
 import type { Task } from './api';
 import { purposeLabel } from './api';
 import { Modal } from '../../shared/ui/Modal';
 import { photoPreviewUrl } from '../products/preview';
 import { StudioResults } from './StudioResults';
+import { TaskSwitcher } from './TaskSwitcher';
 import type { CreationEntry } from './entryPreference';
 import '../canvas/canvas-workspace.css';
 
@@ -37,6 +42,8 @@ export function TaskStudio({
   initialDraft,
   onDirty,
   onBack,
+  onSelectTask,
+  onAllTasks,
   onReview,
   onNew,
   onProductSaved,
@@ -50,6 +57,8 @@ export function TaskStudio({
   initialDraft?: string;
   onDirty: (dirty: boolean) => void;
   onBack: () => void;
+  onSelectTask?: (id: string) => void;
+  onAllTasks?: () => void;
   onReview?: () => void;
   onNew: () => void;
   onProductSaved: (product: Product) => void;
@@ -70,6 +79,7 @@ export function TaskStudio({
   const canCreate = session.permissions.includes('create');
   const token = session.csrf_token;
   const [details, setDetails] = useState(false);
+  const [productPanel, setProductPanel] = useState<'details' | 'edit'>();
   const [results, setResults] = useState<TaskResult[]>();
   const [resultsError, setResultsError] = useState(false);
   const [resultsRetry, setResultsRetry] = useState(0);
@@ -184,16 +194,39 @@ export function TaskStudio({
               <ArrowLeftOutlined /> {canvas ? '返回工作台' : '全部任务'}
             </button>
             <span>/</span>
-            <h2 title={task.name}>{task.name}</h2>
-            <button onClick={() => setDetails(true)} aria-label="任务设置" title="任务设置">
-              <ControlOutlined />
-            </button>
+            <h2 aria-label={task.name}>
+              {onSelectTask && onAllTasks ? (
+                <TaskSwitcher
+                  task={task}
+                  session={session}
+                  onSelect={onSelectTask}
+                  onAll={onAllTasks}
+                  onSettings={quick && canCreate ? () => setDetails(true) : undefined}
+                />
+              ) : task.name}
+            </h2>
+            {!quick && (
+              <button type="button" onClick={() => setDetails(true)} aria-label="任务设置" title="任务设置">
+                <ControlOutlined aria-hidden="true" />
+              </button>
+            )}
           </div>
           {quick && product && (
-            <label className="studio-product">
-              {product.photos[0] && (
-                <img src={photoPreviewUrl(product.id, product.photos[0].file_id)} alt="" />
-              )}
+            <div className="studio-product">
+              <button
+                type="button"
+                className="studio-product-preview"
+                aria-label={`查看${product.name}实拍与资料`}
+                title="查看商品实拍与资料"
+                aria-haspopup="dialog"
+                onClick={() => setProductPanel('details')}
+              >
+                {product.photos[0] ? (
+                  <img src={photoPreviewUrl(product.id, product.photos[0].file_id)} alt="" />
+                ) : (
+                  <PictureOutlined aria-hidden="true" />
+                )}
+              </button>
               <select
                 aria-label="创作商品与用途"
                 disabled={busy}
@@ -227,7 +260,7 @@ export function TaskStudio({
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
           )}
         </div>
         <div className="studio-top-actions">
@@ -323,29 +356,51 @@ export function TaskStudio({
           {children}
         </Modal>
       )}
+      {product && productPanel === 'details' && (
+        <ProductDetails
+          product={product}
+          category={categories.find(({ id }) => id === product.category)}
+          onClose={() => setProductPanel(undefined)}
+          onEdit={canCreate && !busy ? () => setProductPanel('edit') : undefined}
+        />
+      )}
+      {product && productPanel === 'edit' && canCreate && (
+        <ProductEditor
+          categories={categories}
+          product={product}
+          token={token}
+          onClose={() => setProductPanel('details')}
+          onSave={(saved) => {
+            onProductSaved(saved);
+            setProductPanel('details');
+          }}
+        />
+      )}
       {entry === 'batch' && (
         <BatchCreation task={task} session={session} categories={categories} onDirty={onDirty}
           initialDraft={initialDraft} results={results} resultsError={resultsError} refreshResults={refreshResults} />
       )}
       {canvas && (
-        <Suspense fallback={<p role="status">正在加载画布…</p>}>
-          <CanvasPage
-            task={task}
-            categories={categories}
-            session={session}
-            active={active}
-            edits={edits}
-            drafts={drafts}
-            busy={busy}
-            onSelect={setActive}
-            onCreate={create}
-            onEdit={edit}
-            onSaved={save}
-            onMerge={merge}
-            onBusy={setEditing}
-            onSpatialDirty={setSpatialDirty}
-          />
-        </Suspense>
+        <CanvasLoadBoundary>
+          <Suspense fallback={<p role="status">正在加载画布…</p>}>
+            <CanvasPage
+              task={task}
+              categories={categories}
+              session={session}
+              active={active}
+              edits={edits}
+              drafts={drafts}
+              busy={busy}
+              onSelect={setActive}
+              onCreate={create}
+              onEdit={edit}
+              onSaved={save}
+              onMerge={merge}
+              onBusy={setEditing}
+              onSpatialDirty={setSpatialDirty}
+            />
+          </Suspense>
+        </CanvasLoadBoundary>
       )}
     </section>
   );

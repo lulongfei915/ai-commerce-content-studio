@@ -2,7 +2,10 @@ import type { Session } from '../auth/session';
 
 export type CreationEntry = 'quick' | 'canvas' | 'batch';
 
-function key(session: Session, setting: 'entry' | 'task') {
+type RecentTask = { id: string; name: string };
+const recentLimit = 6;
+
+function key(session: Session, setting: 'entry' | 'task' | 'recent-tasks') {
   return `zaowu-studio-${setting}:${session.tenant.id}:${session.user_id}`;
 }
 
@@ -33,9 +36,23 @@ export function readTaskPreference(session: Session) {
   }
 }
 
-export function rememberTask(session: Session, id: string) {
+export function readRecentTasks(session: Session): RecentTask[] {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem(key(session, 'recent-tasks')) ?? '[]');
+    if (!Array.isArray(stored)) return [];
+    return stored.filter((task): task is RecentTask =>
+      typeof task?.id === 'string' && typeof task?.name === 'string',
+    ).slice(0, recentLimit);
+  } catch {
+    return [];
+  }
+}
+
+export function rememberTask(session: Session, { id, name }: RecentTask) {
   try {
     localStorage.setItem(key(session, 'task'), id);
+    const recent = readRecentTasks(session).filter((task) => task.id !== id);
+    localStorage.setItem(key(session, 'recent-tasks'), JSON.stringify([{ id, name }, ...recent].slice(0, recentLimit)));
   } catch {
     // Navigation still works for this session.
   }

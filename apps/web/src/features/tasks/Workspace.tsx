@@ -67,7 +67,7 @@ export function Workspace({
   const [setup, setSetup] = useState<{ initial?: Product; task?: Task }>();
   const [editor, setEditor] = useState<{ product?: Product }>();
   const [revision, setRevision] = useState(0);
-  const [taskError, setTaskError] = useState(false);
+  const [taskError, setTaskError] = useState<true | { id: string; destination: View }>();
   const [loadingTask, setLoadingTask] = useState(false);
   const taskRequest = useRef<AbortController>();
   const navigationTrigger = useRef<HTMLButtonElement>(null);
@@ -91,11 +91,14 @@ export function Workspace({
   }, [categoryRetry]);
   useEffect(() => () => taskRequest.current?.abort(), []);
   useEffect(() => {
+    if (current) rememberTask(session, current);
+  }, [current, session]);
+  useEffect(() => {
     if (current || (!isCreationEntry(view) && !['cases', 'reviews', 'assets'].includes(view))) return;
     const request = new AbortController();
     taskRequest.current = request;
     setLoadingTask(true);
-    setTaskError(false);
+    setTaskError(undefined);
     async function loadInitialTask() {
       const stored = readTaskPreference(session);
       if (stored) {
@@ -112,7 +115,6 @@ export function Workspace({
       .then((task) => {
         if (request.signal.aborted || !task) return;
         setCurrent(task);
-        rememberTask(session, task.id);
       })
       .catch(() => {
         if (!request.signal.aborted) setTaskError(true);
@@ -163,7 +165,7 @@ export function Workspace({
     if (!workbench || !nextEntry || current) {
       taskRequest.current?.abort();
       setLoadingTask(false);
-      setTaskError(false);
+      setTaskError(undefined);
     }
     if (nextEntry) {
       setEntry(next);
@@ -180,19 +182,19 @@ export function Workspace({
     const request = new AbortController();
     taskRequest.current = request;
     setLoadingTask(true);
-    setTaskError(false);
+    setTaskError(undefined);
     void getTask(id, request.signal)
       .then((task) => {
         if (!request.signal.aborted) {
           setCurrent(task);
-          rememberTask(session, task.id);
           setQuickPosition(undefined);
+          setReferenceDraft(undefined);
           setView(destination);
           setNavigationOpen(false);
         }
       })
       .catch(() => {
-        if (!request.signal.aborted) setTaskError(true);
+        if (!request.signal.aborted) setTaskError({ id, destination });
       })
       .finally(() => {
         if (!request.signal.aborted) setLoadingTask(false);
@@ -331,17 +333,7 @@ export function Workspace({
       <div ref={main} className="work-main">
         {(view === 'tasks' || (workbench && !current)) && (
           <div className="work-row work-title">
-            <h2>
-              {workbench
-                ? view === 'canvas'
-                  ? '画布'
-                  : view === 'batch'
-                    ? '批量制作'
-                    : '创作工作台'
-                : view === 'tasks'
-                  ? '全部任务'
-                  : navigation.find((item) => item.view === view)?.label}
-            </h2>
+            <h2>{{ quick: '创作工作台', canvas: '画布', batch: '批量制作', tasks: '全部任务' }[view]}</h2>
             {workbench && (
               <button type="button" onClick={() => navigate('tasks')}>
                 全部任务
@@ -377,7 +369,10 @@ export function Workspace({
         {taskError && (
           <p role="alert" className="work-error">
             任务未加载，请重试。
-            {workbench && <button onClick={() => setHomeRetry((n) => n + 1)}>重新加载任务</button>}
+            <button type="button" onClick={() => taskError === true
+              ? setHomeRetry((n) => n + 1) : openTask(taskError.id, taskError.destination)}>
+              重新加载任务
+            </button>
           </p>
         )}
         {workbench && !current && !loadingTask && !taskError && (
@@ -439,7 +434,10 @@ export function Workspace({
               );
               setRevision((value) => value + 1);
             }}
-            onBack={() => navigate(view === 'canvas' ? 'quick' : 'tasks')} onReview={() => navigate('reviews')}
+            onBack={() => navigate(view === 'canvas' ? 'quick' : 'tasks')}
+            onAllTasks={() => navigate('tasks')}
+            onSelectTask={(id) => openTask(id, view)}
+            onReview={() => navigate('reviews')}
             onNew={() => {
               if (canLeave()) setSetup({});
             }}
@@ -486,10 +484,9 @@ export function Workspace({
             onSave={(task) => {
               taskRequest.current?.abort();
               setLoadingTask(false);
-              setTaskError(false);
+              setTaskError(undefined);
               setView(entry);
               setCurrent(task);
-              rememberTask(session, task.id);
               setSetup(undefined);
             }}
           />
