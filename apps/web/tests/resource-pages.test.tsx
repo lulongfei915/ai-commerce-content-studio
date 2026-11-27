@@ -2,7 +2,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, expect, test, vi } from 'vitest';
 import { InspirationGallery } from '../src/features/cases/InspirationGallery';
 import { CompanyResults } from '../src/features/tasks/CompanyResults';
+import { StudioResults } from '../src/features/tasks/StudioResults';
 import { TemplateManager } from '../src/features/templates/TemplateManager';
+import type { TaskResult } from '../src/features/creation/results';
 import type { Task } from '../src/features/tasks/api';
 import type { Session } from '../src/features/auth/session';
 
@@ -189,6 +191,83 @@ test('version details withdraw the selected position when two slots share a purp
   fireEvent.click(await screen.findByRole('button', { name: '撤回采用' }));
   await waitFor(() => expect(withdrawn).toMatch(/\/second\/adoption$/));
 });
+
+test.each(['approved', 'rejected'] as const)(
+  'quick generation opens the asset drawer and refreshes the %s version',
+  async (decision) => {
+    const current = {
+      ...task,
+      products: [{ ...task.products[0], photos: [{ file_id: 'photo', version: 1 }] }],
+    };
+    const asset: TaskResult = {
+      version_id: 'v2',
+      asset_id: 'asset',
+      task_id: task.id,
+      creation_id: 'draft',
+      execution_id: 'execution',
+      product_id: 'shoe',
+      purpose: 'main',
+      label: '白底图',
+      sku: 'SHOE',
+      version: 2,
+      status: 'pending_review',
+      media: 'image',
+      file_id: 'file',
+      file_version: 1,
+      previewable: true,
+      referenceable: true,
+    };
+    const write = vi.fn();
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      if (url.endsWith('/assets/v2')) return Response.json(asset);
+      if (url.endsWith('/assets/v2/quality')) return Response.json({});
+      if (url.endsWith('/assets/v2/review')) {
+        write(JSON.parse(String(init.body)));
+        asset.status = decision;
+        return Response.json({ status: asset.status });
+      }
+      return new Response(null, { status: 404 });
+    });
+    const props = {
+      taskId: current.id,
+      task: current,
+      session: { ...session, permissions: ['view', 'review'] as Session['permissions'] },
+    };
+    const refresh = () =>
+      rerender(<StudioResults {...props} results={[{ ...asset }]} refresh={refresh} />);
+    const { rerender } = render(
+      <StudioResults {...props} results={[{ ...asset }]} refresh={refresh} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '查看 白底图' }));
+    const dialog = within(screen.getByRole('dialog', { name: '素材详情' }));
+    expect(dialog.getByRole('img', { name: '白底图' })).toHaveAttribute(
+      'src', expect.stringContaining('detailed=true'),
+    );
+    expect(dialog.getByText('SHOE · 主图 · 版本 V2')).toBeVisible();
+    expect(dialog.getByRole('heading', { name: '商品实拍对照' })).toBeVisible();
+    fireEvent.click(dialog.getByRole('button', { name: '查看实拍 1' }));
+    expect(dialog.getByRole('img', { name: '帆布鞋 · 商品实拍' })).toBeVisible();
+
+    const reason = decision === 'rejected' ? '主体与实拍不一致' : '';
+    const action = await dialog.findByRole('button', {
+      name: decision === 'approved' ? '批准此版本' : '驳回返工',
+    });
+    if (reason) {
+      fireEvent.click(action);
+      const input = dialog.getByRole('textbox', { name: '审核意见（驳回必填）' });
+      expect(input).toHaveFocus();
+      expect(write).not.toHaveBeenCalled();
+      fireEvent.change(input, { target: { value: reason } });
+    }
+    fireEvent.click(action);
+    await waitFor(() => expect(write).toHaveBeenCalledWith({
+      decision, version: 2, reason, regions: [],
+    }));
+    const status = decision === 'approved' ? '已批准' : '已驳回';
+    expect(await dialog.findByText(status)).toBeVisible();
+    expect(within(screen.getByRole('article')).getByText(status)).toBeVisible();
+  },
+);
 
 test('review dialog compares the result with product photos and submits a versioned decision', async () => {
   const current = {

@@ -9,6 +9,7 @@ import { Modal } from '../../shared/ui/Modal';
 import { resultPreview, type TaskResult } from '../creation/results';
 import { statusLabel } from '../canvas/status';
 import type { ImageExecution } from '../creation/useImageExecution';
+import { AssetDetailDrawer } from './AssetDetailDrawer';
 import { VersionActions } from './VersionActions';
 import { StudioImagePlaceholder, type ImageSlot } from './StudioImagePlaceholder';
 import type { Session } from '../auth/session';
@@ -158,6 +159,10 @@ export function StudioResults({
   }
   for (const item of remaining.values()) cards.push({ id: item.id, item });
   const picked = gallery.filter((item) => selected.includes(item.id));
+  const singleImage = preview.length === 1 && preview[0].media === 'image' ? preview[0] : undefined;
+  const detail = singleImage?.assetId
+    ? results.find((item) => item.version_id === singleImage.id)
+    : undefined;
   return (
     <section id="studio-results" className="studio-results" aria-label="创作结果">
       <header>
@@ -212,8 +217,10 @@ export function StudioResults({
             {item && (
               <>
                 <button
+                  type="button"
                   className="studio-preview"
                   aria-label={`查看 ${item.name}`}
+                  aria-haspopup="dialog"
                   onClick={() => setPreview([item])}
                 >
                   <Preview item={item} />
@@ -263,7 +270,17 @@ export function StudioResults({
           <button onClick={() => setSelected([])}>取消选择</button>
         </div>
       )}
-      {!!preview.length && (
+      {detail && task && session && refresh ? (
+        <AssetDetailDrawer
+          key={detail.version_id}
+          item={detail}
+          task={task}
+          session={session}
+          refresh={refresh}
+          onClose={() => setPreview([])}
+          showVersionTools
+        />
+      ) : !!preview.length && (
         <Modal
           title={preview.length === 1 ? preview[0].name : '并排对比'}
           onClose={() => setPreview([])}

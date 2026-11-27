@@ -1,0 +1,100 @@
+.studio-dialog.asset-detail-drawer {
+  --asset-detail-gutter: 24px;
+  inset: 0 0 0 auto;
+  width: min(480px, 100%);
+  max-width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+}
+.studio-dialog.asset-detail-drawer[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.studio-dialog.asset-detail-drawer::backdrop {
+  background: #25322555;
+  backdrop-filter: blur(3px);
+}
+.studio-dialog.asset-detail-drawer > header {
+  justify-content: space-between;
+  margin: 0;
+  padding: 16px var(--asset-detail-gutter) 12px;
+}
+.studio-dialog.asset-detail-drawer > header button {
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-color: transparent;
+  color: var(--work-muted);
+  font-size: 22px;
+}
+.studio-dialog.asset-detail-drawer > header button:hover {
+  background: #eff2ee;
+}
+.asset-detail-body {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--asset-detail-gutter) 20px;
+  overflow-wrap: anywhere;
+}
+.asset-detail-preview {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: min(57dvh, 76vw, 340px);
+  overflow: hidden;
+  border-radius: 8px;
+  background: #eceee9;
+  color: var(--work-muted);
+}
+.asset-detail-preview :is(img, video) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+.asset-detail-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.asset-detail-heading .review-dialog-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.asset-detail-body h3 { margin: 0; font-size: 15px; }
+.asset-detail-body > p { margin: 0; font-size: 13px; }
+.asset-detail-body > h3 { margin-top: 8px; }
+.asset-detail-photos { display: flex; flex-wrap: wrap; gap: 8px; }
+.studio-dialog .asset-detail-photos button { width: 54px; height: 54px; padding: 2px; }
+.asset-detail-photos button img { width: 100%; height: 100%; object-fit: cover; }
+.asset-detail-photos button[aria-pressed='true'] { outline: 2px solid var(--work-focus); }
+.asset-detail-photo-expanded {
+  flex-basis: 100%;
+  width: 100%;
+  height: min(50dvh, 340px);
+  object-fit: contain;
+}
+.asset-detail-drawer .review-dialog-footer {
+  padding: 16px var(--asset-detail-gutter) max(16px, env(safe-area-inset-bottom));
+  background: #fff;
+}
+.asset-detail-drawer .review-dialog-actions { width: 100%; }
+.asset-detail-drawer .review-dialog-actions button { flex: 1; min-width: 0; }
+@media (max-width: 480px) {
+  .studio-dialog.asset-detail-drawer { --asset-detail-gutter: 14px; }
+}

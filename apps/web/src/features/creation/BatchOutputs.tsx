@@ -5,7 +5,7 @@ import type { Session } from '../auth/session';
 import { statusLabel } from '../canvas/status';
 import { purposeLabel, type Task } from '../tasks/api';
 import { type Draft } from './api';
-import { BatchAssetDrawer } from './BatchAssetDrawer';
+import { AssetDetailDrawer } from '../tasks/AssetDetailDrawer';
 import { BatchExecutionRecord } from './BatchExecutionRecord';
 import { resultPreview, type TaskResult } from './results';
 import type { BatchExecution } from './useBatchProgress';
@@ -109,7 +109,7 @@ export function BatchOutputs({
       {showRecord && <BatchExecutionRecord sku={product?.sku}
         path={`/tasks/${task.id}/batches/${job.media}/executions/${job.id}/record`}
         onClose={() => setShowRecord(false)} />}
-      {selected && <BatchAssetDrawer item={selected} task={task} session={session}
+      {selected && <AssetDetailDrawer item={selected} task={task} session={session}
         refresh={refreshResults} onClose={() => setSelected(undefined)} />}
     </>
   );

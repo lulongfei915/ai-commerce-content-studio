@@ -21,6 +21,7 @@ export function VersionActions({
   onAssetChange,
   onApproved,
   focusRejectionReason = false,
+  showVersionTools = false,
 }: {
   id: string;
   task: Task;
@@ -31,6 +32,7 @@ export function VersionActions({
   onAssetChange?: (asset: TaskResult) => void;
   onApproved?: () => void;
   focusRejectionReason?: boolean;
+  showVersionTools?: boolean;
 }) {
   const [asset, setAsset] = useState<TaskResult>();
   const [reason, setReason] = useState('');
@@ -48,11 +50,12 @@ export function VersionActions({
   }>();
   const token = session.csrf_token;
   const reviewLayout = reviewFooter !== undefined;
+  const versionTools = !reviewLayout || showVersionTools;
   const path = `/assets/${id}`;
   const compatible = task.positions.filter(
     (p) => p.product_id === asset?.product_id && p.purpose === asset?.purpose,
   );
-  const pos = reviewLayout
+  const pos = !versionTools
     ? undefined
     : positionId
       ? compatible.find((p) => p.id === positionId)
@@ -230,7 +233,7 @@ export function VersionActions({
               ))}
             </details>
           )}
-          {!isVideo && !reviewLayout && (
+          {!isVideo && versionTools && (
             <details>
               <summary>标注图片区域</summary>
               {['横坐标', '纵坐标', '宽度', '高度'].map((text, i) => (
