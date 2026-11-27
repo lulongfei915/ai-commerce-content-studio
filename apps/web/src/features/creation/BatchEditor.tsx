@@ -8,17 +8,14 @@ import { CaseBrowser } from '../cases/CaseBrowser';
 import type { Category, Product } from '../products/api';
 import { photoPreviewUrl } from '../products/preview';
 import { TemplatePicker } from '../templates/TemplatePicker';
-import { actionError, addProductPhotoReference, defaults, draftWrite, imageModelLabel, referencePreview, removeReference,
-  saveDraftInputs, uploadReference, type Draft, type DraftEdits, type VideoParameters } from './api';
+import { actionError, addProductPhotoReference, defaultVideo, defaults, draftWrite, imageModelLabel, referencePreview, removeReference,
+  saveDraftInputs, uploadReference, type Draft, type DraftEdits } from './api';
 import { BatchPhoto } from './BatchList';
 import { DraftReferenceList } from './DraftReferenceList';
 import { ParametersFields } from './ParametersFields';
 import { StoryboardControl } from './StoryboardControl';
 import { VideoFields } from './VideoFields';
 
-const defaultVideo: VideoParameters = {
-  model: 'seedance-2.0', ratio: '16:9', resolution: '720p', duration: 5, count: 1,
-};
 const presets = {
   image: [
     ['简洁棚拍', '使用干净的棚拍背景与柔和光线，保持商品外观与实拍一致。'],
