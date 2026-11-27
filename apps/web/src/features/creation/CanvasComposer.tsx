@@ -6,7 +6,6 @@ import {
   CloseCircleOutlined,
   DownOutlined,
   FolderOpenOutlined,
-  FormatPainterOutlined,
   PictureOutlined,
   PlusOutlined,
   ThunderboltFilled,
@@ -15,10 +14,11 @@ import {
 import { Modal } from '../../shared/ui/Modal';
 import type { Product } from '../products/api';
 import { photoPreviewUrl } from '../products/preview';
-import { imageModelLabel, type Draft, type DraftEdits } from './api';
+import type { Draft, DraftEdits } from './api';
 import { CompanyAssetPicker } from './CompanyAssetPicker';
 import { ImageExecutionStatus } from './ImageExecutionStatus';
 import { ImageProduction } from './ImageProduction';
+import { QuickParameters } from './QuickParameters';
 import { useImageExecution } from './useImageExecution';
 import './canvas-composer.css';
 
@@ -28,7 +28,6 @@ type Props = {
   token: string;
   values: DraftEdits;
   busy: boolean;
-  dirty: boolean;
   dangling: boolean;
   promptField: ReactNode;
   references: ReactNode;
@@ -36,16 +35,16 @@ type Props = {
   settings: ReactNode;
   storyboard?: ReactNode;
   feedback: ReactNode;
-  saveDraft: ReactNode;
   onSaved: (draft: Draft) => void;
   onPrompt: (prompt: string) => void;
+  onChangeParameters: (values: DraftEdits) => void;
   onTemplate: () => void;
   onClearTemplate: () => void;
   onCase: () => void;
   onUpload: (file?: File) => void;
   onPickPhoto: (photo: Product['photos'][number]) => void;
   onResetParameters: () => void;
-  onInspectInputs: () => void;
+  onPreparePromptTools: () => Promise<boolean>;
   onGenerate: (submit: (draft: Draft) => Promise<void>) => Promise<void>;
 };
 
@@ -57,8 +56,6 @@ export function CanvasComposer(props: Props) {
   const execution = useImageExecution(draft, token);
   const parameters = values.parameters;
   const video = values.video;
-  const specLabel = isVideo ? '视频参数' : '图片参数';
-  const ModelIcon = isVideo ? VideoCameraOutlined : FormatPainterOutlined;
   const photo = product.photos[0];
   const generating = execution.inProgress;
   const templateLabel = draft.template_version
@@ -85,7 +82,9 @@ export function CanvasComposer(props: Props) {
             }}
           />
           {props.canvasReference}
-          <button type="button" disabled={busy} onClick={() => setSection('tools')}>
+          <button type="button" disabled={busy || props.dangling} onClick={async () => {
+            if (await props.onPreparePromptTools()) setSection('tools');
+          }}>
             <BulbOutlined /> 提示词工具
           </button>
           <div className="composer-source-tools" role="group" aria-label="创作素材">
@@ -143,28 +142,29 @@ export function CanvasComposer(props: Props) {
           <ImageExecutionStatus execution={execution} disabled={busy} />
         </div>
         <footer className="composer-bar" role="group" aria-label="生成设置">
-          <button
-            className="composer-spec-trigger"
-            type="button"
-            disabled={busy}
-            aria-label={specLabel}
-            title="选择模型与画面规格"
-            onClick={() => setSection('specs')}
-          >
-            <span>
-              <ModelIcon aria-hidden="true" />{' '}
-              {isVideo ? 'Seedance 2.0' : imageModelLabel(parameters.model)}
-            </span>
-            <span className="composer-spec-size">
-              {video
-                ? `${video.ratio} · ${video.resolution} · ${video.duration}s · ${video.count} 条`
-                : `${parameters.ratio} · ${parameters.resolution} · ${parameters.count} 张`}
-            </span>
-            <DownOutlined aria-hidden="true" />
-          </button>
+          {isVideo ? (
+            <button
+              className="composer-spec-trigger"
+              type="button"
+              disabled={busy}
+              aria-label="视频参数"
+              title="选择模型与画面规格"
+              onClick={() => setSection('specs')}
+            >
+              <span><VideoCameraOutlined aria-hidden="true" /> Seedance 2.0</span>
+              {video && <span className="composer-spec-size">
+                {`${video.ratio} · ${video.resolution} · ${video.duration}s · ${video.count} 条`}
+              </span>}
+              <DownOutlined aria-hidden="true" />
+            </button>
+          ) : (
+            <div className="canvas-image-parameters">
+              <QuickParameters value={values} onChange={props.onChangeParameters} disabled={busy}
+                canvas={{ onReset: props.onResetParameters }} />
+            </div>
+          )}
           <div className="composer-submit-actions">
             {props.storyboard}
-            {props.saveDraft}
             <button
               type="button"
               className="image-generate"
@@ -212,35 +212,23 @@ export function CanvasComposer(props: Props) {
         </Modal>
       )}
       {section === 'specs' && (
-        <Modal title={specLabel} onClose={() => setSection(undefined)}>
+        <Modal title="视频参数" onClose={() => setSection(undefined)}>
           {props.settings}
           <div className="work-actions">
             <button type="button" disabled={busy} onClick={props.onResetParameters}>
               恢复默认参数
-            </button>
-            <button
-              type="button"
-              disabled={busy || props.dirty || props.dangling}
-              onClick={() => {
-                setSection(undefined);
-                props.onInspectInputs();
-              }}
-            >
-              核对生成输入
             </button>
           </div>
         </Modal>
       )}
       {section === 'tools' && (
         <Modal title="提示词工具" onClose={() => setSection(undefined)}>
-          {props.dirty && <p>优化和解析使用已保存的草稿，请先保存本次编辑。</p>}
           <ImageProduction
             draft={draft}
             token={token}
             execution={execution}
             promptToolsOnly
             disabled={busy || props.dangling}
-            unsaved={props.dirty}
             onSaved={props.onSaved}
             onPrompt={(value) => {
               props.onPrompt(value);

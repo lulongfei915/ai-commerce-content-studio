@@ -4,96 +4,78 @@ import {
   FileImageOutlined,
   VideoCameraOutlined,
 } from '@ant-design/icons';
-import { usageLabel } from './api';
+import { Tooltip } from 'antd';
 import type { Reference } from './api';
 
 type Props = {
   references: Reference[];
   busy: boolean;
-  video: boolean;
   preview?: (ref: Reference) => string | undefined;
   insert: (ref: Reference) => void;
   locate?: (ref: Reference) => void;
   remove: (ref: Reference) => void;
-  updateUsage: (ref: Reference, usage: string) => void;
 };
 
 export function ReferenceStrip({
   references,
   busy,
-  video,
   preview,
   insert,
   locate,
   remove,
-  updateUsage,
 }: Props) {
   return (
     <ul className="creative-references canvas-reference-strip" aria-label="参考素材">
-      {references.map((ref, i) => (
-        <li key={ref.id}>
-          <button
-            className="canvas-ref-thumb"
-            aria-label={`插入参考 ${i + 1} 标签`}
-            title={`${ref.label} · V${ref.file_version} · 插入标签`}
-            disabled={busy}
-            onClick={() => insert(ref)}
-          >
-            {ref.media === 'video' ? (
-              <VideoCameraOutlined />
-            ) : preview?.(ref) ? (
-              <img src={preview(ref)} alt="" loading="lazy" />
-            ) : (
-              <FileImageOutlined />
-            )}
-            <b>{i + 1}</b>
-          </button>
-          <div className="canvas-ref-tools">
-            {ref.origin === 'independent' ? (
-              <select
-                aria-label={`参考 ${i + 1} 用途`}
-                value={ref.usage ?? 'expression'}
-                disabled={busy}
-                onChange={(event) => updateUsage(ref, event.target.value)}
-              >
-                {Object.entries(usageLabel)
-                  .filter(
-                    ([id]) =>
-                      id === ref.usage ||
-                      (id !== 'product' && (video || !['first_frame', 'last_frame'].includes(id))),
-                  )
-                  .map(([id, label]) => (
-                    <option key={id} value={id}>
-                      {label}
-                    </option>
-                  ))}
-              </select>
-            ) : (
-              <small>{usageLabel[ref.usage ?? 'expression']}</small>
-            )}
+      {references.map((ref, i) => {
+        const src = preview?.(ref);
+        return (
+          <li key={ref.id}>
+            <button
+              type="button"
+              className="canvas-ref-thumb"
+              aria-label={`插入参考 ${i + 1} 标签`}
+              title={`${ref.label} · V${ref.file_version} · 插入标签`}
+              disabled={busy}
+              onClick={() => insert(ref)}
+            >
+              {ref.media === 'video' ? (
+                <VideoCameraOutlined aria-hidden="true" />
+              ) : src ? (
+                <img src={src} alt="" loading="lazy" />
+              ) : (
+                <FileImageOutlined aria-hidden="true" />
+              )}
+              <b>{i + 1}</b>
+            </button>
             {locate && (
-              <button
-                aria-label={`定位参考 ${i + 1}`}
-                title="定位来源"
-                disabled={busy}
-                onClick={() => locate(ref)}
-              >
-                <AimOutlined />
-              </button>
+              <Tooltip title="定位来源" trigger={['hover', 'focus']} color="#303030">
+                <button
+                  type="button"
+                  className="canvas-ref-action canvas-ref-locate"
+                  aria-label={`定位参考 ${i + 1}`}
+                  disabled={busy}
+                  onClick={() => locate(ref)}
+                >
+                  <AimOutlined aria-hidden="true" />
+                </button>
+              </Tooltip>
             )}
             {ref.origin === 'independent' && (
-              <button
-                aria-label={`移除参考 ${i + 1}`}
-                title="移除参考"
-                disabled={busy}
-                onClick={() => remove(ref)}
-              >
-                <DeleteOutlined />
-              </button>
+              <Tooltip title="移除参考" trigger={['hover', 'focus']} color="#303030">
+                <button
+                  type="button"
+                  className="canvas-ref-action canvas-ref-remove"
+                  aria-label={`移除参考 ${i + 1}`}
+                  disabled={busy}
+                  onClick={() => remove(ref)}
+                >
+                  <DeleteOutlined aria-hidden="true" />
+                </button>
+              </Tooltip>
             )}
-          </div>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }

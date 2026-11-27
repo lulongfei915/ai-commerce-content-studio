@@ -17,6 +17,11 @@
 .canvas-stage[data-editing-media] .canvas-focused .canvas-node-heading b {
   font-weight: 500;
 }
+.canvas-stage[data-editing-media='image'] .canvas-focused .canvas-image-node {
+  background: #202020;
+  border-color: #adadad;
+  border-radius: 8px;
+}
 .canvas-stage[data-editing-media] .canvas-focused .canvas-node-media {
   height: auto;
   aspect-ratio: 16/9;
@@ -25,6 +30,10 @@
 }
 .canvas-stage[data-editing-media='video'] .canvas-focused .canvas-node-media {
   aspect-ratio: 4/3;
+}
+.canvas-stage[data-editing-media='image'] .canvas-focused .canvas-image-node .canvas-node-media {
+  border-radius: 7px;
+  background: #202020;
 }
 .canvas-stage[data-editing-media] .canvas-focused .canvas-media-symbol {
   color: #606064;
@@ -193,18 +202,112 @@
   border-left: 1px solid #4b4b50;
   color: #b9b9bf;
 }
+.canvas-image-parameters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+.workspace .canvas-image-parameters .quick-parameter-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  min-height: 33px;
+  padding: 4px 7px;
+  color: #dedede;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.canvas-image-parameters .quick-parameter-trigger .anticon:first-child {
+  font-size: 13px;
+}
+.workspace .canvas-image-parameters .quick-parameter-trigger[aria-expanded='true'] {
+  background: #363636;
+}
+.canvas-image-parameters .quick-parameter-popover {
+  position: fixed;
+  width: min(326px, calc(100vw - 24px));
+  gap: 11px;
+  padding: 11px;
+  border: 1px solid #414141;
+  background: #242424;
+  box-shadow: 0 10px 28px #0006;
+  color: #e9e9e9;
+}
+.canvas-image-parameters .quick-parameter-label {
+  color: #c4c4c4;
+}
+.canvas-image-parameters .quick-parameter-section > .quick-parameter-label {
+  color: #e9e9e9;
+  font-weight: 600;
+}
+.workspace .canvas-image-parameters .quick-parameter-popover button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 4px 5px;
+  border: 1px solid #414141;
+  border-radius: 6px;
+  background: #262626;
+  color: #e9e9e9;
+  font-size: 12px;
+}
+.workspace .canvas-image-parameters .quick-parameter-popover button[aria-pressed='true'] {
+  border-color: #c6c6c6;
+  background: #383838;
+}
+.workspace .canvas-image-parameters .quick-parameter-popover button:enabled:hover {
+  background: #3b3b3b;
+}
+.canvas-image-parameters .quick-ratio-options {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.canvas-image-parameters .quick-ratio-options button {
+  min-height: 50px;
+}
+.canvas-image-parameters [aria-label='生成张数'] .quick-value-options {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.workspace .canvas-image-parameters .quick-model-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 5px 8px;
+  text-align: start;
+}
+.canvas-image-parameters .quick-model-name {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.canvas-image-parameters .quick-model-name small {
+  color: #b2b2b2;
+}
+.canvas-model-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 27px;
+  height: 27px;
+  border-radius: 5px;
+  background: #414141;
+}
+.canvas-spec-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 7px;
+  border-top: 1px solid #3b3b3b;
+}
 .composer-submit-actions {
   margin-inline-start: auto;
   flex-wrap: nowrap;
-}
-.workspace .composer-submit-actions .work-primary {
-  min-height: 33px;
-  padding: 5px 9px;
-  background: transparent;
-  color: #c5c5cb;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
 }
 .workspace .composer-bar .image-generate {
   display: inline-flex;
@@ -217,13 +320,12 @@
   border: 0;
   border-radius: 7px;
   background: var(--canvas-accent);
-  color: #21291b;
+  color: var(--canvas-on-accent);
   font-size: 13px;
   font-weight: 650;
 }
 .workspace .composer-bar .image-generate:enabled:hover {
-  background: #d5f6a9;
-  color: #182111;
+  background: #fff;
 }
 .workspace .composer-bar .image-generate:disabled {
   opacity: 1;

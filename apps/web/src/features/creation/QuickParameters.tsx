@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { CheckOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, BorderOutlined, CheckOutlined } from '@ant-design/icons';
 import { QuickParameterPopover } from './QuickParameterPopover';
 import {
   imageModelLabel, loadCapabilities, type Capabilities, type DraftEdits, type VideoParameters,
@@ -70,12 +70,15 @@ function ChoiceOptions<T extends string | number>({
 }
 
 export function QuickParameters({
-  value, onChange, disabled, targetSpec,
+  value, onChange, disabled, targetSpec, canvas,
 }: {
   value: DraftEdits;
   onChange: (value: DraftEdits) => void;
   disabled: boolean;
   targetSpec?: TargetSpec;
+  canvas?: {
+    onReset: () => void;
+  };
 }) {
   const [active, setActive] = useState<Field>();
   const [capabilities, setCapabilities] = useState<Capabilities>();
@@ -102,10 +105,13 @@ export function QuickParameters({
     item.ratio === target.ratio && item.resolution === target.resolution;
   const count = spec.count ?? 1;
   const countLabel = (option: number) => `${option} ${video ? '条' : '张'}`;
+  const counts = Array.from({ length: video ? 6 : capabilities?.max_outputs ?? 6 }, (_, i) => i + 1);
+  const specText = `${ratioLabel(spec.ratio)} · ${resolutionLabel(spec.resolution)}`;
 
   function popover(field: Field) {
     return {
       disabled,
+      anchored: Boolean(canvas),
       open: !disabled && active === field,
       onOpen: (open: boolean) => setActive((current) => open ? field : current === field ? undefined : current),
     };
@@ -136,7 +142,7 @@ export function QuickParameters({
       ));
     }
     if (!models.length) {
-      return <ModelChoice label={imageModelLabel(parameters.model)} provider={providerLabels[provider]}
+      return <ModelChoice label={imageModelLabel(parameters.model)} provider={providerLabels[provider]} withIcon={Boolean(canvas)}
         selected onClick={close} />;
     }
     return models.map((item) => {
@@ -144,7 +150,7 @@ export function QuickParameters({
       const nextSize = item.sizes.find((option) => sizeMatches(option, targetSpec ?? parameters))
         ?? (!targetSpec ? item.sizes.find((option) => option.ratio === parameters.ratio) ?? item.sizes[0] : undefined);
       return (
-        <ModelChoice key={`${item.provider}:${item.model}`} label={item.label}
+        <ModelChoice key={`${item.provider}:${item.model}`} label={item.label} withIcon={Boolean(canvas)}
           provider={providerLabels[item.provider]} selected={selected} disabled={!nextSize}
           onClick={() => {
             if (!selected && nextSize) onChange({ ...value, parameters: {
@@ -202,11 +208,29 @@ export function QuickParameters({
   return (
     <>
       <QuickParameterPopover label="生成模型" value={video ? videoLabels[video.model ?? 'seedance-2.0']
-        : model?.label ?? imageModelLabel(parameters.model)} width="wide" {...popover('model')}>
+        : model?.label ?? imageModelLabel(parameters.model)} width="wide"
+        icon={canvas && <AppstoreOutlined aria-hidden="true" />} {...popover('model')}>
         {modelOptions}
       </QuickParameterPopover>
-      <QuickParameterPopover label="画面规格" value={`${ratioLabel(spec.ratio)} · ${resolutionLabel(spec.resolution)}`}
-        width="wide" {...popover('specs')}>{specOptions}</QuickParameterPopover>
+      <QuickParameterPopover label="画面规格" value={canvas ? `${specText} · ${countLabel(count)}` : specText}
+        width="wide" icon={canvas && <BorderOutlined aria-hidden="true" />} {...popover('specs')}>
+        {() => (
+          <>
+            {specOptions()}
+            {canvas && (
+              <>
+                {!capabilityStatus && (
+                  <ChoiceOptions options={counts} value={count} label="生成张数" caption={countLabel}
+                    onChange={(next) => onChange({ ...value, parameters: { ...parameters, count: next } })} />
+                )}
+                <div className="canvas-spec-actions">
+                  <button type="button" onClick={canvas.onReset}>恢复默认参数</button>
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </QuickParameterPopover>
       {video && (
         <QuickParameterPopover label="视频时长" value={`${video.duration ?? 5} 秒`} width="wide" {...popover('duration')}>
           {(close) => <ChoiceOptions
@@ -215,24 +239,32 @@ export function QuickParameters({
             onChange={(duration) => { onChange({ ...value, video: { ...video, duration } }); close(); }} />}
         </QuickParameterPopover>
       )}
-      <QuickParameterPopover label={video ? '生成条数' : '生成张数'} value={countLabel(count)} {...popover('count')}>
-        {(close) => <ChoiceOptions options={Array.from({ length: video ? 6 : capabilities?.max_outputs ?? 6 }, (_, i) => i + 1)}
+      {!canvas && <QuickParameterPopover label={video ? '生成条数' : '生成张数'} value={countLabel(count)} {...popover('count')}>
+        {(close) => <ChoiceOptions options={counts}
           value={count} caption={countLabel} onChange={(next) => {
             onChange(video ? { ...value, video: { ...video, count: next } }
               : { ...value, parameters: { ...parameters, count: next } });
             close();
           }} />}
-      </QuickParameterPopover>
+      </QuickParameterPopover>}
     </>
   );
 }
 
 function ModelChoice({
-  label, provider, selected, disabled, onClick,
-}: { label: string; provider: string; selected: boolean; disabled?: boolean; onClick: () => void }) {
+  label, provider, selected, disabled, withIcon, onClick,
+}: {
+  label: string;
+  provider: string;
+  selected: boolean;
+  disabled?: boolean;
+  withIcon?: boolean;
+  onClick: () => void;
+}) {
   return (
     <button type="button" className="quick-model-option" aria-pressed={selected} disabled={disabled} onClick={onClick}>
-      <span>{label}<small>{provider}</small></span>
+      {withIcon && <span className="canvas-model-icon"><AppstoreOutlined aria-hidden="true" /></span>}
+      <span className="quick-model-name">{label}<small>{provider}</small></span>
       {selected && <CheckOutlined aria-hidden="true" />}
     </button>
   );

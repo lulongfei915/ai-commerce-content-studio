@@ -84,6 +84,8 @@ export function projectEdges(canvas: Canvas): Edge[] {
     ...canvas.edges.map((edge) => ({
       ...edge,
       label: usageLabel[edge.usage],
+      ariaLabel: usageLabel[edge.usage],
+      className: 'canvas-reference-edge',
       sourceHandle: 'reference',
       targetHandle: 'input',
     })),

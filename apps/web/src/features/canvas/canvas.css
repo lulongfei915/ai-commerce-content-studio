@@ -1,16 +1,22 @@
-.canvas-shell {
+.task-studio-canvas,
+.canvas-shell,
+.studio-dialog-in-canvas {
   --canvas-ground: #1b1c1e;
   --canvas-panel: #282a2d;
   --canvas-border: #45484c;
   --canvas-muted: #b7babc;
-  --canvas-accent: #c3ed8a;
+  --canvas-accent: #e8e8e8;
+  --canvas-on-accent: #202020;
   --work-field: #25272a;
   --work-surface: var(--canvas-panel);
   --work-line: var(--canvas-border);
   --work-text: #f2f3ef;
   --work-muted: var(--canvas-muted);
+  --work-accent: var(--canvas-accent);
   --work-focus: var(--canvas-accent);
   --work-error: #ffb8ad;
+}
+.canvas-shell {
   border: 1px solid var(--canvas-border);
   border-radius: 8px;
   overflow: hidden;
@@ -18,6 +24,10 @@
   color: var(--work-text);
   color-scheme: dark;
   font-size: 13px;
+}
+.workspace .task-studio-canvas .work-primary,
+.studio-dialog-in-canvas .work-primary {
+  color: var(--canvas-on-accent);
 }
 .canvas-top {
   display: flex;
@@ -56,9 +66,6 @@
   gap: 5px;
   color: var(--canvas-muted);
 }
-.canvas-save-saved {
-  color: #c1d3ad;
-}
 .canvas-save-error,
 .canvas-save-conflict {
   color: #ffbdab;
@@ -82,7 +89,7 @@
   --xy-background-color: var(--canvas-ground);
 }
 .canvas-background .react-flow__edge-path {
-  stroke: #858b85;
+  stroke: #858589;
   stroke-width: 1.9;
 }
 .canvas-background .react-flow__edge-text {
@@ -90,7 +97,7 @@
   font-size: 10px;
 }
 .canvas-background .react-flow__edge-textbg {
-  fill: #333a32;
+  fill: #363638;
   fill-opacity: 1;
 }
 .canvas-background .canvas-edge-active .react-flow__edge-path {
@@ -100,6 +107,20 @@
 .canvas-background .canvas-result-edge .react-flow__edge-path {
   stroke: #d6ad78;
   stroke-dasharray: 5 4;
+}
+.canvas-background .canvas-reference-edge .react-flow__edge-path {
+  stroke: #85878e;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.canvas-background .canvas-reference-edge.canvas-edge-active .react-flow__edge-path {
+  stroke: #b1bdce;
+}
+.canvas-background .canvas-reference-edge:is(:hover, :focus-visible) .react-flow__edge-path {
+  stroke: #e1e7f0;
+}
+.canvas-reference-edge:not(:hover, :focus-visible) :is(.react-flow__edge-text, .react-flow__edge-textbg) {
+  visibility: hidden;
 }
 .canvas-dim {
   opacity: 0.42;
@@ -234,10 +255,21 @@
   background: transparent;
   border-color: transparent;
 }
-.workspace .canvas-tool-button:is(:hover, [aria-pressed='true']) {
-  color: var(--canvas-accent);
-  background: #3b4435;
-  border-color: #515b48;
+.canvas-tool-trigger {
+  display: flex;
+}
+.canvas-tool-trigger > button:disabled {
+  pointer-events: none;
+}
+.workspace .canvas-tool-button:enabled:hover {
+  color: #f5f5f5;
+  background: #343434;
+  border-color: #464646;
+}
+.workspace .canvas-tool-button[aria-pressed='true'] {
+  color: var(--canvas-on-accent);
+  background: var(--canvas-accent);
+  border-color: var(--canvas-accent);
 }
 .canvas-context {
   max-width: min(260px, calc(100% - 24px));
@@ -267,33 +299,60 @@
 }
 .canvas-start,
 .canvas-empty {
-  display: flex;
-  gap: 8px;
   top: 48%;
   left: 50%;
   translate: -50% -50%;
   width: max-content;
   max-width: calc(100% - 24px);
 }
-.canvas-start button,
-.canvas-add-menu button {
-  display: inline-flex;
+.canvas-start {
+  display: grid;
+  justify-items: center;
+  gap: 26px;
+  width: min(600px, calc(100% - 24px));
+}
+.canvas-start-hint {
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
+  color: #bdbdbd;
+  font-size: 14px;
+}
+.canvas-start-hint .anticon {
+  color: #e4e4e4;
+  font-size: 18px;
+}
+.canvas-start-choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
 }
 .workspace .canvas-start button {
-  min-height: 54px;
-  min-width: 142px;
-  justify-content: center;
-  background: var(--canvas-panel);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 10px;
+  border: 1px solid #343434;
+  border-radius: 8px;
+  background: #212121;
+  color: #ededed;
+  font-weight: 550;
 }
-.workspace .canvas-start button:hover,
-.workspace .canvas-add-menu button:hover {
-  background: #353b32;
-  border-color: #6d7a61;
+.workspace .canvas-start button:hover {
+  background: #2a2a2a;
+  border-color: #505050;
 }
 .canvas-start button .anticon {
-  color: var(--canvas-accent);
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 7px;
+  color: #e4e4e4;
+  background: #2d2d2d;
   font-size: 17px;
 }
 .canvas-add-menu {
@@ -325,10 +384,16 @@
   font-size: 11px;
 }
 .workspace .canvas-add-menu button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-height: 31px;
   padding: 4px 7px;
   border-color: transparent;
   background: transparent;
+}
+.workspace .canvas-add-menu button:hover {
+  background: #343434;
 }
 .canvas-error {
   bottom: 62px;
@@ -500,13 +565,6 @@
 .studio-dialog-in-canvas {
   position: fixed;
   inset: auto;
-  --work-field: #25272a;
-  --work-surface: #282a2d;
-  --work-line: #45484c;
-  --work-text: #f2f3ef;
-  --work-muted: #b7babc;
-  --work-focus: #c3ed8a;
-  --work-error: #ffb8ad;
   color-scheme: dark;
 }
 
@@ -551,8 +609,24 @@
     font-size: 11px;
   }
   .canvas-start {
-    flex-wrap: wrap;
-    justify-content: center;
+    gap: 18px;
+  }
+  .canvas-start-choices {
+    gap: 6px;
+  }
+  .workspace .canvas-start button {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 6px;
+    min-height: 78px;
+    padding: 6px 3px;
+    font-size: 12px;
+    text-align: center;
+  }
+  .canvas-start button .anticon {
+    width: 32px;
+    height: 32px;
   }
   .canvas-panel .work-cards {
     grid-template-columns: 1fr;

@@ -28,6 +28,13 @@ export const defaults: Parameters = {
   resolution: '1K',
   count: 1,
 };
+export const defaultVideo: VideoParameters = {
+  model: 'seedance-2.0',
+  ratio: '16:9',
+  resolution: '720p',
+  duration: 5,
+  count: 1,
+};
 
 export function imageModelLabel(model: Parameters['model']) {
   return model === defaults.model ? 'Seedream 5.5' : model;

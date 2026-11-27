@@ -95,7 +95,11 @@ export function CanvasPanel({
   }, [editor, returnFocusId, stage]);
   useEffect(() => {
     function onEscape(event: KeyboardEvent) {
-      if (event.key !== 'Escape' || stage.querySelector('dialog[open]')) return;
+      if (event.key !== 'Escape' || event.isComposing || stage.querySelector('dialog[open]')) return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-parameter-open], [data-reference-mention-open]')
+      ) return;
       event.stopPropagation();
       event.preventDefault();
       if (!busy) onClose();

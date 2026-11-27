@@ -16,8 +16,9 @@ import {
 } from '@ant-design/icons';
 import { useViewport } from '@xyflow/react';
 import type { XYPosition } from '@xyflow/react';
+import { Tooltip } from 'antd';
 
-import type { CSSProperties, ReactNode } from 'react';
+import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 import type { SaveState } from './useVersionedSave';
 
 export type AddKind = 'photos' | 'image' | 'video' | 'cases' | 'upload' | 'results';
@@ -60,8 +61,13 @@ export function AddChoices({
   if (start) {
     return (
       <div className="canvas-start" role="group" aria-label="开始创作">
-        <strong>双击画布，添加节点</strong>
-        {(['photos', 'image', 'video'] as const).map(option)}
+        <div className="canvas-start-hint">
+          <AimOutlined aria-hidden="true" />
+          <span>双击画布，添加节点</span>
+        </div>
+        <div className="canvas-start-choices">
+          {(['photos', 'image', 'video'] as const).map(option)}
+        </div>
       </div>
     );
   }
@@ -93,17 +99,19 @@ export function ToolButton({
   onClick,
   disabled,
   pressed,
+  tooltip,
 }: {
   label: string;
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
   pressed?: boolean;
+  tooltip?: boolean;
 }) {
   return (
     <button
       type="button"
-      title={label}
+      title={tooltip ? undefined : label}
       aria-label={label}
       aria-pressed={pressed}
       disabled={disabled}
@@ -112,6 +120,23 @@ export function ToolButton({
     >
       {children}
     </button>
+  );
+}
+
+function DockButton(props: ComponentProps<typeof ToolButton>) {
+  return (
+    <Tooltip
+      title={props.label}
+      placement="top"
+      trigger={['hover', 'focus']}
+      mouseEnterDelay={0.2}
+      align={{ overflow: { shiftX: true, shiftY: true, adjustY: true } }}
+      color="#303030"
+    >
+      <span className="canvas-tool-trigger">
+        <ToolButton {...props} tooltip />
+      </span>
+    </Tooltip>
   );
 }
 
@@ -146,47 +171,47 @@ export function CanvasTools({
     <div className="canvas-tools">
       <div className="canvas-tool-group" aria-label="画布工具">
         {editable && (
-          <ToolButton label="添加节点" pressed={opened} onClick={onAdd}>
+          <DockButton label="添加节点" pressed={opened} onClick={onAdd}>
             {opened ? <CloseOutlined /> : <PlusOutlined />}
-          </ToolButton>
+          </DockButton>
         )}
-        <ToolButton label="任务作品" onClick={onResults}>
+        <DockButton label="任务作品" onClick={onResults}>
           <PictureOutlined />
-        </ToolButton>
-        <ToolButton label="选择节点" pressed={!moving} onClick={onSelect}>
+        </DockButton>
+        <DockButton label="选择节点" pressed={!moving} onClick={onSelect}>
           <SelectOutlined />
-        </ToolButton>
-        <ToolButton label="移动画布" pressed={moving} onClick={onMove}>
+        </DockButton>
+        <DockButton label="移动画布" pressed={moving} onClick={onMove}>
           <DragOutlined />
-        </ToolButton>
+        </DockButton>
         {editable && (
-          <ToolButton label="整理节点" onClick={onArrange}>
+          <DockButton label="整理节点" onClick={onArrange}>
             <CompressOutlined />
-          </ToolButton>
+          </DockButton>
         )}
-        <ToolButton
+        <DockButton
           label="仅显示选中关系"
           pressed={relations}
           disabled={!selected}
           onClick={onRelations}
         >
           <ApartmentOutlined />
-        </ToolButton>
+        </DockButton>
       </div>
       <div className="canvas-tool-group" aria-label="视口工具">
-        <ToolButton label="缩小" onClick={() => onCamera('out')}>
+        <DockButton label="缩小" onClick={() => onCamera('out')}>
           <MinusOutlined />
-        </ToolButton>
+        </DockButton>
         <ZoomReadout />
-        <ToolButton label="放大" onClick={() => onCamera('in')}>
+        <DockButton label="放大" onClick={() => onCamera('in')}>
           <PlusOutlined />
-        </ToolButton>
-        <ToolButton label="适应全部" onClick={() => onCamera('fit')}>
+        </DockButton>
+        <DockButton label="适应全部" onClick={() => onCamera('fit')}>
           <ExpandOutlined />
-        </ToolButton>
-        <ToolButton label="定位选中节点" disabled={!selected} onClick={() => onCamera('focus')}>
+        </DockButton>
+        <DockButton label="定位选中节点" disabled={!selected} onClick={() => onCamera('focus')}>
           <AimOutlined />
-        </ToolButton>
+        </DockButton>
       </div>
     </div>
   );

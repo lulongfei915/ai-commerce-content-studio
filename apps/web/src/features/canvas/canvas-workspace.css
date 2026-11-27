@@ -95,37 +95,6 @@
 .canvas-tools .canvas-tool-group[aria-label='视口工具'] {
   background: #202023;
 }
-.workspace .canvas-tool-button[aria-pressed='true'] {
-  color: #141417;
-  background: #e3e3e3;
-  border-color: #eee;
-}
-.canvas-start {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  text-align: center;
-}
-.canvas-start strong {
-  grid-column: 1/-1;
-  font-size: 14px;
-  font-weight: 500;
-  color: #c5c5c9;
-  margin-bottom: 6px;
-}
-.workspace .canvas-start button {
-  min-width: 144px;
-  min-height: 52px;
-  justify-content: flex-start;
-  background: #232325;
-  border-color: #353538;
-}
-.canvas-start button .anticon {
-  border-radius: 6px;
-  padding: 6px;
-  color: #ddd;
-  background: #303033;
-}
 .canvas-node {
   position: relative;
   display: block;
@@ -168,6 +137,74 @@
 .canvas-focused .canvas-node,
 .react-flow__node.selected .canvas-node {
   outline: 1px solid #d7d8cf;
+}
+.canvas-image-node.canvas-node {
+  background: #202020;
+  border-color: #3b3b3b;
+}
+:is(.canvas-image-node, .canvas-image-asset) .canvas-node-heading {
+  width: 100%;
+  justify-content: flex-start;
+  color: #bdbdbd;
+}
+:is(.canvas-image-node, .canvas-image-asset) .canvas-node-heading b {
+  font-weight: 500;
+}
+.canvas-node-heading .canvas-image-node-status {
+  margin-inline-start: auto;
+  color: #a3a3a3;
+  font-size: 9px;
+}
+.canvas-image-asset.canvas-node {
+  display: block;
+  border-color: transparent;
+  background: transparent;
+}
+.canvas-image-asset .canvas-node-heading {
+  bottom: calc(100% + 4px);
+  font-size: 11px;
+}
+.canvas-image-asset .canvas-node-media {
+  display: block;
+  aspect-ratio: auto;
+}
+.canvas-image-asset .canvas-node-media img {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 80px;
+  max-height: 142px;
+  object-fit: cover;
+}
+.canvas-background .canvas-image-asset .react-flow__handle {
+  width: 8px;
+  height: 8px;
+  border: 1px solid #65666a;
+  background: #303135;
+}
+.canvas-background .canvas-image-asset .react-flow__handle.connectable:hover {
+  background: var(--canvas-accent);
+}
+.canvas-image-node .canvas-node-media {
+  aspect-ratio: 16 / 9;
+  background: #202020;
+}
+.canvas-image-node .canvas-media-symbol {
+  color: #636363;
+  font-size: 28px;
+}
+.canvas-background .canvas-image-node .react-flow__handle {
+  width: 8px;
+  height: 8px;
+  border: 1px solid #737373;
+  background: #282828;
+}
+.canvas-background .canvas-image-node .react-flow__handle:hover,
+.canvas-background .canvas-image-node .react-flow__handle.connectingto {
+  background: var(--canvas-accent);
+}
+.canvas-background .canvas-image-node .react-flow__handle-bottom {
+  visibility: hidden;
 }
 .canvas-context {
   font-size: 12px;
@@ -264,31 +301,31 @@
 }
 .canvas-panel .canvas-reference-strip {
   display: flex;
-  gap: 6px;
+  gap: 7px;
   overflow: auto;
   padding: 2px;
+  margin: 0;
   max-height: none;
 }
 .canvas-panel .canvas-reference-strip li {
   flex: none;
   position: relative;
-  display: grid;
-  grid-template-columns: 54px auto;
-  align-items: center;
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid #414144;
-  border-radius: 6px;
+  display: block;
+  padding: 0;
+  border: 0;
 }
 .workspace .canvas-ref-thumb {
   position: relative;
   display: grid;
   place-items: center;
-  width: 54px;
-  height: 54px;
+  width: 48px;
+  height: 48px;
   min-height: 0;
   padding: 0;
   overflow: hidden;
+  border: 1px solid #414144;
+  border-radius: 7px;
+  background: #303033;
 }
 .workspace .canvas-ref-thumb img {
   width: 100%;
@@ -297,29 +334,46 @@
 }
 .canvas-ref-thumb b {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  background: #17171bdc;
-  padding: 1px 4px;
-  font-size: 10px;
-}
-.canvas-ref-tools {
+  top: 3px;
+  left: 3px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-.workspace .canvas-ref-tools select,
-.canvas-ref-tools small {
-  grid-column: 1/-1;
+  place-items: center;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #17171bdc;
+  color: #f3f3f3;
+  padding: 0 3px;
   font-size: 10px;
-  min-height: 24px;
-  max-width: 76px;
-  padding: 0;
 }
-.workspace .canvas-ref-tools button {
-  min-height: 24px;
-  border: 0;
+.workspace .canvas-reference-strip .canvas-ref-action {
+  position: absolute;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
   padding: 0;
-  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  background: #18181af2;
+  color: #f1f1f1;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+}
+.canvas-ref-locate { top: 3px; }
+.canvas-ref-remove { bottom: 3px; }
+.workspace .canvas-reference-strip li:is(:hover, :focus-within) .canvas-ref-action {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: none) {
+  .workspace .canvas-reference-strip .canvas-ref-action {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 @media (max-width: 800px) {
   .task-studio-canvas > .task-studio-bar,
@@ -340,17 +394,6 @@
   }
   .task-studio-canvas .canvas-top .canvas-count {
     display: none;
-  }
-  .canvas-start {
-    gap: 4px;
-  }
-  .workspace .canvas-start button {
-    min-width: 0;
-    display: grid;
-    justify-items: center;
-    justify-content: center;
-    font-size: 12px;
-    padding: 6px;
   }
 }
 @media (max-width: 700px) {

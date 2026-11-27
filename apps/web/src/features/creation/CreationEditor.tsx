@@ -7,8 +7,8 @@ import type { Category, Product } from '../products/api';
 import { TemplatePicker } from '../templates/TemplatePicker';
 import { ParametersFields } from './ParametersFields';
 import { ReferenceStrip } from './ReferenceStrip';
-import { InputSnapshotDialog } from './InputSnapshotDialog';
 import { CanvasComposer } from './CanvasComposer';
+import { CanvasPromptField, DraftPromptField, type CanvasMentionMaterial } from './CanvasPromptField';
 import { VideoFields } from './VideoFields';
 import { ImageProduction } from './ImageProduction';
 import type { ImageExecution } from './useImageExecution';
@@ -18,24 +18,16 @@ import {
   actionError,
   addProductPhotoReference,
   checkDraft,
+  defaultVideo,
   defaults,
   draftWrite,
   issueText,
-  loadSnapshot,
   removeReference,
   saveDraftInputs,
   uploadReference,
 } from './api';
-import type { Draft, DraftEdits, Issue, Reference, VideoParameters } from './api';
+import type { Draft, DraftEdits, Issue, Reference } from './api';
 import './creation.css';
-
-const defaultVideo: VideoParameters = {
-  model: 'seedance-2.0',
-  ratio: '16:9',
-  resolution: '720p',
-  duration: 5,
-  count: 1,
-};
 
 export function CreationEditor({
   draft,
@@ -48,10 +40,12 @@ export function CreationEditor({
   onEdit,
   inCanvas = false,
   quickTools = false,
+  externalBusy = false,
   previewUrl,
   onLocateReference,
   imageExecution,
   canvasReference,
+  mentionMaterials = [],
 }: {
   draft: Draft;
   product: Product;
@@ -63,10 +57,12 @@ export function CreationEditor({
   onEdit: (edits: DraftEdits | undefined) => void;
   inCanvas?: boolean;
   quickTools?: boolean;
+  externalBusy?: boolean;
   previewUrl?: (reference: Reference) => string | undefined;
   onLocateReference?: (reference: Reference) => void;
   imageExecution?: ImageExecution;
   canvasReference?: ReactNode;
+  mentionMaterials?: CanvasMentionMaterial[];
 }) {
   const isVideo = draft.purpose === 'video';
   const savedVideo = isVideo ? (draft.video_parameters ?? defaultVideo) : undefined;
@@ -79,8 +75,8 @@ export function CreationEditor({
   const video = values.video ?? savedVideo;
   const text = useRef<HTMLTextAreaElement>(null);
   const [picker, setPicker] = useState<'case' | 'template'>();
-  const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof loadSnapshot>>>();
-  const [busy, setBusy] = useState(false);
+  const [working, setBusy] = useState(false);
+  const busy = working || externalBusy;
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [issues, setIssues] = useState<Issue[]>();
@@ -90,9 +86,9 @@ export function CreationEditor({
     ([, id]) => !known.has(id),
   );
   useEffect(() => {
-    onBusy(busy);
+    onBusy(working);
     return () => onBusy(false);
-  }, [busy, onBusy]);
+  }, [working, onBusy]);
 
   function edit(next: DraftEdits) {
     onEdit(
@@ -148,26 +144,30 @@ export function CreationEditor({
       text.current?.setSelectionRange(at + tag.length, at + tag.length);
     });
   }
-  const promptField = (
-    <label className="work-form creative-prompt">
-      {!inCanvas && '提示词'}
-      <textarea
-        aria-label="提示词"
-        placeholder={
-          inCanvas
-            ? isVideo
-              ? '描述商品视频的场景、动作和镜头运动…'
-              : '描述你想生成的商品画面，例如背景、光线和构图…'
-            : undefined
+  const promptField = inCanvas ? (
+    <CanvasPromptField
+      text={text}
+      prompt={prompt}
+      video={isVideo}
+      busy={busy}
+      references={draft.references}
+      materials={mentionMaterials}
+      preview={previewUrl}
+      onChange={(value) => edit({ ...values, prompt: value })}
+      onAttach={async (attach) => {
+        start();
+        try {
+          const { updated, ref } = await attach();
+          onSaved(updated);
+          return ref;
+        } finally {
+          setBusy(false);
         }
-        ref={text}
-        rows={5}
-        maxLength={6000}
-        value={prompt}
-        disabled={busy}
-        onChange={(event) => edit({ ...values, prompt: event.target.value })}
-      />
-    </label>
+      }}
+    />
+  ) : (
+    <DraftPromptField text={text} prompt={prompt} busy={busy}
+      onChange={(value) => edit({ ...values, prompt: value })} />
   );
   const outputSettings = (
     <fieldset className="work-form creative-output-settings" disabled={busy}>
@@ -187,17 +187,10 @@ export function CreationEditor({
     <ReferenceStrip
       references={draft.references}
       busy={busy}
-      video={isVideo}
       preview={previewUrl}
       insert={insert}
       locate={onLocateReference}
       remove={(ref) => run(() => removeReference(draft, token, ref.id), 'references')}
-      updateUsage={(ref, usage) =>
-        run(
-          () => draftWrite(draft, token, `/references/${ref.id}`, { usage }, 'PATCH'),
-          'references',
-        )
-      }
     />
   );
   function upload(file?: File) {
@@ -317,12 +310,12 @@ export function CreationEditor({
       {feedback}
     </div>
   );
-  function inspectInputs() {
-    start();
-    void loadSnapshot(draft)
-      .then(setSnapshot)
-      .catch((cause: unknown) => setError(actionError(cause)))
-      .finally(() => setBusy(false));
+  async function prepareDraft() {
+    if (!dirty) return draft;
+    const saved = await saveDraftInputs(draft, token, values);
+    onSaved(saved);
+    onEdit(undefined);
+    return saved;
   }
 
   function resetParameters() {
@@ -366,13 +359,7 @@ export function CreationEditor({
   const storyboard = isVideo && video && (
     <StoryboardControl draft={draft} product={product} token={token} video={video}
       busy={busy} dirty={dirty}
-      prepare={async () => {
-        if (!dirty) return draft;
-        const saved = await saveDraftInputs(draft, token, values);
-        onSaved(saved);
-        onEdit(undefined);
-        return saved;
-      }}
+      prepare={prepareDraft}
       onSaved={onSaved} />
   );
 
@@ -388,7 +375,6 @@ export function CreationEditor({
           token={token}
           values={{ ...values, video }}
           busy={busy}
-          dirty={dirty}
           dangling={dangling}
           promptField={promptField}
           references={strip}
@@ -396,9 +382,9 @@ export function CreationEditor({
           settings={outputSettings}
           storyboard={storyboard}
           feedback={feedback}
-          saveDraft={saveDraft}
           onSaved={onSaved}
           onPrompt={(value) => edit({ ...values, prompt: value })}
+          onChangeParameters={edit}
           onTemplate={() => setPicker('template')}
           onCase={() => setPicker('case')}
           onClearTemplate={() =>
@@ -409,7 +395,19 @@ export function CreationEditor({
             run(() => addProductPhotoReference(draft, token, photo), 'references')
           }
           onResetParameters={resetParameters}
-          onInspectInputs={inspectInputs}
+          onPreparePromptTools={async () => {
+            if (!dirty) return true;
+            start();
+            try {
+              await prepareDraft();
+              return true;
+            } catch (cause) {
+              setError(actionError(cause));
+              return false;
+            } finally {
+              setBusy(false);
+            }
+          }}
           onGenerate={async (submit) => {
             start();
             try {
@@ -489,13 +487,6 @@ export function CreationEditor({
               action,
             );
           }}
-        />
-      )}
-      {snapshot && (
-        <InputSnapshotDialog
-          snapshot={snapshot}
-          sku={product.sku}
-          onClose={() => setSnapshot(undefined)}
         />
       )}
     </article>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { XYPosition } from '@xyflow/react';
 
 import { uploadMedia } from '../../shared/api/upload';
@@ -9,9 +9,10 @@ import { CreationEditor } from '../creation/CreationEditor';
 import { TaskResultPicker } from '../creation/TaskResultPicker';
 import { photoPreviewUrl } from '../products/preview';
 import { purposeLabel } from '../tasks/api';
-import type { PanelState } from './CanvasBoard';
+import type { PanelState } from './useCanvasDraftPanel';
 import { CanvasPanel } from './CanvasPanel';
 import { CanvasReferencePicker } from './CanvasReferencePicker';
+import { attachCanvasReference, referenceCandidates } from './referenceCandidates';
 import type { CanvasProps } from './CanvasPage';
 import { nodePreview } from './api';
 import type { Canvas } from './api';
@@ -63,6 +64,10 @@ export function CanvasPanelContent({
       : panel.kind === 'connect'
         ? drafts.find((item) => `creation:${item.id}` === panel.target)
         : undefined;
+  const mentionSources = useMemo(
+    () => panel.kind === 'edit' && draft ? referenceCandidates(canvas, draft) : [],
+    [canvas, draft, panel.kind],
+  );
   const product = task.products.find((item) => item.id === (draft?.product_id ?? productId));
   const title = {
     photos: '添加商品素材',
@@ -327,6 +332,7 @@ export function CanvasPanelContent({
         <CreationEditor
           key={draft.id}
           inCanvas
+          externalBusy={busy}
           canvasReference={
             <CanvasReferencePicker
               canvas={canvas}
@@ -337,6 +343,22 @@ export function CanvasPanelContent({
             />
           }
           draft={draft}
+          mentionMaterials={mentionSources.map((source) => ({
+            id: source.id,
+            label: source.label,
+            media: source.media,
+            preview: source.previewable && source.file_version
+              ? nodePreview(task.id, source.id, source.file_version, source.source_version ?? undefined)
+              : undefined,
+            attach: async () => {
+              const updated = await attachCanvasReference(
+                draft, token, source, allowedUsages(source, draft)[0],
+              );
+              const ref = updated.references.find((item) => item.file_id === source.file_id);
+              if (!ref) throw new Error('reference_not_found');
+              return { updated, ref };
+            },
+          }))}
           product={product}
           categories={categories}
           token={token}

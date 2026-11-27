@@ -26,6 +26,15 @@ const task = {
   positions: [{ id: 'position', product_id: product.id, purpose: 'main', status: 'unfilled' }],
 };
 const size = { ratio: '1:1', resolution: '1K', width: 1024, height: 1024 };
+const sizes = [
+  size,
+  { ratio: '1:1', resolution: '1.5K', width: 1536, height: 1536 },
+  { ratio: '1:1', resolution: '2K', width: 2048, height: 2048 },
+  { ratio: '9:16', resolution: '2K', width: 1440, height: 2560 },
+  { ratio: '16:9', resolution: '2K', width: 2560, height: 1440 },
+  { ratio: '3:4', resolution: '2K', width: 1728, height: 2304 },
+  { ratio: '4:3', resolution: '2K', width: 2304, height: 1728 },
+];
 const parameters = {
   provider: 'ark',
   model: 'seedream-5.5',
@@ -86,7 +95,7 @@ const source = {
 };
 const positions = [
   { id: creation.id, x: 300, y: 220 },
-  { id: source.id, x: -500, y: 270 },
+  { id: source.id, x: 78, y: 220 },
 ];
 const initialCamera = { x: 300, y: 70, zoom: 0.45, version: 1 };
 const writes = [];
@@ -95,13 +104,19 @@ await mkdir(artifacts, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome' });
 try {
   for (const width of [1280, 390, 320]) {
+    let empty = true;
     let video = false;
     let quick = false;
     let videoReady = false;
+    let failReference = width === 1280;
+    let failDraftSave = width === 1280;
     let draft = { ...initialDraft };
     writes.length = 0;
     const page = await browser.newPage({ viewport: { width, height: width === 320 ? 568 : 800 } });
-    page.on('pageerror', (e) => errors.push(e.message));
+    page.on('pageerror', (e) => {
+      errors.push(e.message);
+      console.error(e);
+    });
     await page.addInitScript(() => {
       const key = 'zaowu-studio-entry:studio:user';
       if (!localStorage.getItem(key)) localStorage.setItem(key, 'canvas');
@@ -144,9 +159,9 @@ try {
         return route.fulfill({ path: fixturePhoto, contentType: 'image/jpeg' });
       if (path === '/tasks/t/canvas')
         return ok({
-          nodes: [video ? { ...creation, label: '视频生成', media: 'video' } : creation, source],
-          creations: [draft],
-          layout: { positions, version: 1 },
+          nodes: empty ? [] : [video ? { ...creation, label: '视频生成', media: 'video' } : creation, source],
+          creations: empty ? [] : [draft],
+          layout: { positions: empty ? [] : positions, version: 1 },
           viewport: width === 1280 ? initialCamera : { ...initialCamera, x: 15 },
           edges: draft.references.map((ref) => ({
             id: ref.id,
@@ -158,8 +173,12 @@ try {
       if (path === '/creation-capabilities')
         return ok({
           max_outputs: 6,
-          sizes: [size],
-          models: [{ ...parameters, label: 'Seedream 5.5', qualities: [], sizes: [size] }],
+          sizes,
+          models: [
+            { provider: 'ark', model: parameters.model, label: 'Seedream 5.5', qualities: [], default_quality: null, sizes },
+            { provider: 'gpt-image', model: 'gpt-image-2', label: 'gpt-image-2',
+              qualities: ['low', 'high'], default_quality: 'low', sizes: [size] },
+          ],
         });
       if (path === '/creations/d/input-snapshot')
         return ok({
@@ -172,7 +191,19 @@ try {
           ),
           references: draft.references,
         });
+      if (path === '/tasks/t/canvas/viewport' && method === 'PUT') {
+        const { x, y, zoom, expected_version } = req.postDataJSON();
+        return ok({ x, y, zoom, version: expected_version + 1 });
+      }
       if (method === 'GET') return ok([]);
+      if (path === '/creations/d/references' && failReference) {
+        failReference = false;
+        return route.fulfill({ status: 503, json: { detail: 'unavailable' } });
+      }
+      if (path === '/creations/d' && method === 'PATCH' && failDraftSave) {
+        failDraftSave = false;
+        return route.fulfill({ status: 503, json: { detail: 'unavailable' } });
+      }
       const body = req.postDataJSON();
       writes.push({ method, path, body });
       if (path === '/creations/d/references') {
@@ -184,6 +215,11 @@ try {
           version: draft.version + 1,
           references: [{ ...source, id: 'ref-photo', usage: body.usage, origin: 'independent' }],
         };
+        return ok(draft);
+      }
+      if (path === '/creations/d/references/ref-photo' && method === 'DELETE') {
+        assert.equal(new URL(req.url()).searchParams.get('expected_version'), String(draft.version));
+        draft = { ...draft, version: draft.version + 1, references: [] };
         return ok(draft);
       }
       if (path === '/creations/d' && method === 'PATCH') {
@@ -218,11 +254,59 @@ try {
     });
 
     await page.goto(origin);
+    const start = page.getByRole('group', { name: '开始创作' });
+    const hint = start.getByText('双击画布，添加节点');
+    const entries = start.getByRole('button');
+    await expect(entries).toHaveCount(3, { timeout: 15000 }).catch(async (error) => {
+      console.error(await page.locator('body').innerText());
+      throw error;
+    });
+    const hintBox = await hint.boundingBox();
+    for (const entry of await entries.all()) {
+      const bounds = await entry.boundingBox();
+      assert(bounds.y > hintBox.y + hintBox.height, 'The hint must sit above the entry buttons');
+      await expect(entry).toBeInViewport({ ratio: 1 });
+      await expect(entry.locator('.anticon')).toHaveCSS('color', 'rgb(228, 228, 228)');
+      await expect(entry.locator('.anticon')).toHaveCSS('background-color', 'rgb(45, 45, 45)');
+    }
+    await expect(page.getByRole('button', { name: '选择节点', exact: true }))
+      .toHaveCSS('background-color', 'rgb(232, 232, 232)');
+    await page.screenshot({ path: resolve(artifacts, `empty-${width}.png`) });
+    const addNode = page.getByRole('button', { name: '添加节点', exact: true });
+    await addNode.hover();
+    const addTip = page.getByRole('tooltip', { name: '添加节点', exact: true });
+    await expect(addTip).toBeVisible();
+    const tipBox = await addTip.boundingBox();
+    const addBox = await addNode.boundingBox();
+    assert(tipBox.y + tipBox.height <= addBox.y, 'The tooltip must sit above the toolbar');
+    await expect(addTip).toBeInViewport({ ratio: 1 });
+    await page.screenshot({ path: resolve(artifacts, `tools-${width}.png`) });
+    const focusNode = page.getByRole('button', { name: '定位选中节点' });
+    await expect(focusNode).toBeDisabled();
+    await focusNode.locator('..').hover();
+    const focusTip = page.getByRole('tooltip', { name: '定位选中节点', exact: true });
+    await expect(focusTip).toBeInViewport({ ratio: 1 });
+    await hint.hover();
+    await expect(addTip).toBeHidden();
+    await expect(focusTip).toBeHidden();
+    await addNode.focus();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('tooltip', { name: '任务作品', exact: true })).toBeVisible();
+    await start.getByRole('button', { name: '添加商品素材' }).click();
+    await expect(page.getByRole('dialog', { name: '添加商品素材' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    empty = false;
+    await page.reload();
     const target = page.locator('.react-flow__node[data-id="creation:d"]');
     const composer = page.getByRole('dialog', { name: '图片生成', exact: true });
     const zoom = page.getByLabel('缩放倍率');
+    await expect(target.locator('.canvas-node-media')).toBeVisible();
+    await expect(target.locator('.canvas-node-heading')).toContainText('草稿');
+    await expect(target.locator('.canvas-node-meta')).toHaveCount(0);
     await target.click();
     await expect(zoom).not.toHaveText('45%');
+    await expect(composer.getByRole('button', { name: '生成 1 张' })).toBeDisabled();
+    await expect(composer.getByRole('alert')).toHaveCount(0);
     await composer
       .getByRole('textbox', { name: '提示词' })
       .fill('自然侧光，保留鞋面纹理，背景简洁。');
@@ -237,8 +321,28 @@ try {
       await expect(tool).toHaveText('');
     }
     const footer = composer.getByRole('group', { name: '生成设置' });
-    await expect(footer.getByRole('button')).toHaveCount(3);
-    await expect(footer.getByRole('button', { name: '保存草稿' })).toHaveText('保存草稿');
+    const modelTrigger = footer.getByRole('button', { name: /生成模型/ });
+    const specTrigger = footer.getByRole('button', { name: /画面规格/ });
+    await expect(modelTrigger).toContainText('Seedream 5.5');
+    await modelTrigger.click();
+    const models = composer.getByRole('group', { name: '生成模型' });
+    await expect(models.getByRole('button', { name: /Seedream 5.5/, pressed: true })).toBeVisible();
+    await expect(models).toBeInViewport({ ratio: 1 });
+    if (width === 1280) await page.screenshot({ path: resolve(artifacts, 'image-models.png') });
+    await page.keyboard.press('Escape');
+    await expect(modelTrigger).toBeFocused();
+    await expect(composer).toBeVisible();
+    await modelTrigger.click();
+    await models.getByRole('button', { name: /gpt-image-2/i }).click();
+    await expect(modelTrigger).toContainText('gpt-image-2');
+    await specTrigger.click();
+    const settings = composer.getByRole('group', { name: '画面规格', exact: true });
+    await expect(settings.getByRole('button', { name: '低', pressed: true })).toBeVisible();
+    await expect(settings.getByRole('button', { name: '16:9', exact: true })).toHaveCount(0);
+    await settings.getByRole('button', { name: '恢复默认参数' }).click();
+    await expect(modelTrigger).toContainText('Seedream 5.5');
+    await page.keyboard.press('Escape');
+    await expect(footer.getByRole('button', { name: '保存草稿' })).toHaveCount(0);
     await expect(composer.getByRole('button', { name: '展开输入框' })).toHaveCount(0);
     await expect
       .poll(() => sourceTools.locator('img').evaluate((img) => img.naturalWidth))
@@ -274,32 +378,108 @@ try {
       await page.keyboard.press('Escape');
     }
     const pick = page.getByRole('dialog', { name: '画布参考' });
-    await sourceTools.getByRole('button', { name: '商品实拍' }).click();
-    await page
-      .getByRole('dialog', { name: '商品实拍' })
-      .getByRole('button', { name: '添加实拍 1', exact: true })
-      .click();
+    const prompt = composer.getByRole('textbox', { name: '提示词' });
+    const mentionList = page.getByRole('listbox', { name: '画布素材' });
+    await prompt.fill('保留前文 @找不到');
+    await expect(page.getByText('没有匹配的画布素材')).toBeVisible();
+    await prompt.press('Escape');
+    await expect(mentionList).toHaveCount(0);
+    await expect(prompt).toBeFocused();
+    await prompt.fill('保留前文，保留后文。');
+    await prompt.evaluate((field) => field.setSelectionRange(4, 4));
+    await page.keyboard.insertText('@');
+    if (width === 1280) {
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send('Input.imeSetComposition', { text: 'fanbu', selectionStart: 5, selectionEnd: 5 });
+      await expect(mentionList).toHaveCount(0);
+      await cdp.send('Input.insertText', { text: '帆布' });
+      await cdp.detach();
+    } else {
+      await page.keyboard.insertText('帆布');
+    }
+    await expect(mentionList).toBeInViewport({ ratio: 1 });
+    const option = mentionList.getByRole('option', { name: '帆布鞋实拍' });
+    await expect(option).toHaveAttribute('aria-selected', 'true');
+    await page.screenshot({ path: resolve(artifacts, `reference-mention-${width}.png`) });
+    await prompt.press('Enter');
+    if (width === 1280) {
+      await expect(page.locator('.canvas-mention-popup').getByRole('alert')).toBeVisible();
+      await expect(prompt).toHaveValue('保留前文@帆布，保留后文。');
+      await prompt.press('Enter');
+    }
+    await expect(prompt).toHaveValue('保留前文[[ref:ref-photo]]，保留后文。');
+    await expect(prompt).toBeFocused();
     await expect(page.locator('.react-flow__edge')).toHaveCount(1);
+    const assetNode = page.locator('.react-flow__node[data-id="upload:photo"]');
+    const assetFrame = assetNode.locator('.canvas-node-media');
+    const assetImage = assetFrame.locator('img');
+    await expect(assetNode.locator('.canvas-node-meta')).toHaveCount(0);
+    await expect(assetImage).toHaveCSS('object-fit', 'cover');
+    await expect.poll(() => assetFrame.evaluate((frame) =>
+      frame.clientHeight === frame.querySelector('img').clientHeight && frame.clientHeight >= 80,
+    )).toBe(true);
+    if (width === 1280) await expect(assetFrame).toBeInViewport({ ratio: 1 });
+    const link = page.locator('.react-flow__edge');
+    await expect(link).toHaveAttribute('aria-label', '商品实拍');
+    await expect(link.locator('.react-flow__edge-text')).toBeHidden();
+    await expect(link.locator('.react-flow__edge-path')).toHaveCSS('stroke-width', '1.5px');
+    const thumb = composer.getByRole('button', { name: '插入参考 1 标签' });
+    const locate = composer.getByRole('button', { name: '定位参考 1' });
+    const remove = composer.getByRole('button', { name: '移除参考 1' });
+    await page.mouse.move(width - 1, 120);
+    await expect(locate).toHaveCSS('opacity', '0');
+    await thumb.hover();
+    await expect(locate).toHaveCSS('opacity', '1');
+    await expect(remove).toHaveCSS('opacity', '1');
+    const [thumbBox, locateBox, removeBox] = await Promise.all(
+      [thumb, locate, remove].map((item) => item.boundingBox()),
+    );
+    assert(locateBox.x > thumbBox.x + thumbBox.width / 2);
+    assert.equal(locateBox.x, removeBox.x);
+    assert(locateBox.y < thumbBox.y + thumbBox.height / 2);
+    assert(removeBox.y > thumbBox.y + thumbBox.height / 2);
+    await locate.hover();
+    await expect(page.getByRole('tooltip', { name: '定位来源' })).toBeVisible();
+    if (width === 1280) await page.screenshot({ path: resolve(artifacts, 'reference-actions.png') });
+    await prompt.fill('@');
+    await expect(mentionList.getByText('已引用', { exact: true })).toBeVisible();
+    await mentionList.getByRole('option', { name: /帆布鞋实拍/ }).click();
+    await expect(prompt).toHaveValue('[[ref:ref-photo]]');
+    assert.equal(writes.filter((item) => item.path === '/creations/d/references').length, 1);
+    await page.mouse.move(width - 1, 120);
+    await page.screenshot({ path: resolve(artifacts, `reference-${width}.png`) });
     await composer.getByRole('button', { name: '插入参考 1 标签' }).click();
     await expect(composer.getByLabel('提示词', { exact: true })).toHaveValue(
       /\[\[ref:ref-photo\]\]/,
     );
-    await footer.getByRole('button', { name: '保存草稿' }).click();
-    await expect(composer.getByText('草稿已保存')).toBeVisible();
-    await composer.getByRole('button', { name: '图片参数' }).click();
-    const settings = page.getByRole('dialog', { name: '图片参数' });
-    await settings.getByRole('button', { name: '核对生成输入' }).click();
-    const snapshot = page.getByRole('dialog', { name: '生成输入核对' });
-    await expect(snapshot.getByText('商品实拍 1 张')).toBeVisible();
+    const draftPrompt = await prompt.inputValue();
+    const closeComposer = composer.getByRole('button', { name: '关闭画布浮层' });
+    await closeComposer.click();
+    if (width === 1280) {
+      await expect(page.getByRole('alert').filter({ hasText: '草稿保存失败' })).toBeVisible();
+      await expect(prompt).toHaveValue(draftPrompt);
+      await closeComposer.click();
+    }
+    await expect(composer).toHaveCount(0);
+    assert.equal(draft.prompt, draftPrompt);
+    await page.reload();
+    await target.click();
+    await expect(prompt).toHaveValue(draftPrompt);
+    await specTrigger.click();
+    await expect(settings.getByRole('button', { name: '核对生成输入' })).toHaveCount(0);
     await page.keyboard.press('Escape');
-    await composer.getByRole('button', { name: '图片参数' }).click();
-    const count = settings.getByLabel('张数');
-    await count.fill('2');
-    await expect(settings.getByRole('button', { name: '核对生成输入' })).toBeDisabled();
+    await specTrigger.click();
+    await settings.getByRole('button', { name: '16:9', exact: true }).click();
+    await expect(specTrigger).toContainText('16:9 · 2K');
+    await expect(settings).toBeInViewport({ ratio: 1 });
+    await page.screenshot({ path: resolve(artifacts, `image-specs-${width}.png`) });
+    const count = settings.getByRole('group', { name: '生成张数' });
+    await count.getByRole('button', { name: '2 张', exact: true }).click();
     await settings.getByRole('button', { name: '恢复默认参数' }).click();
-    await expect(count).toHaveValue('1');
-    await count.fill('2');
+    await expect(count.getByRole('button', { name: '1 张', pressed: true })).toBeVisible();
+    await count.getByRole('button', { name: '2 张', exact: true }).click();
     await page.keyboard.press('Escape');
+    await expect(specTrigger).toBeFocused();
     const generate = composer.getByRole('button', { name: '生成 2 张' });
     await generate.click();
     await expect(composer.getByRole('alert')).toBeVisible();
@@ -317,6 +497,29 @@ try {
     await expect(composer).toHaveCount(0);
     await expect(target).toBeFocused();
     await expect(zoom).toHaveText('45%');
+    if (width === 1280) {
+      await target.click();
+      const toolPrompt = `${draftPrompt}，加强鞋底细节。`;
+      await prompt.fill(toolPrompt);
+      await composer.getByRole('button', { name: '提示词工具' }).click();
+      const tools = page.getByRole('dialog', { name: '提示词工具' });
+      await expect(tools.getByRole('button', { name: '优化提示词' })).toBeEnabled();
+      assert.equal(draft.prompt, toolPrompt);
+      await page.keyboard.press('Escape');
+      await thumb.hover();
+      await locate.click();
+      await expect(composer).toHaveCount(0);
+      await expect(assetNode).toHaveClass(/canvas-focused/);
+      await target.click();
+      await thumb.hover();
+      await remove.hover();
+      await expect(page.getByRole('tooltip', { name: '移除参考' })).toBeVisible();
+      await remove.click();
+      await expect(thumb).toHaveCount(0);
+      await expect(link).toHaveCount(0);
+      await expect(composer.getByText('提示词含已移除的引用标签。')).toBeVisible();
+    }
+    console.log(`${width}px: image node, parameter popovers, save and generation passed.`);
 
     video = true;
     writes.length = 0;
@@ -339,7 +542,8 @@ try {
     await expect(videoSpec).toContainText('Seedance 2.0');
     await expect(videoSpec).toContainText('16:9 · 720p · 5s · 1 条');
     await expect(videoFooter.getByRole('button', { name: '生成视频' })).toBeDisabled();
-    await expect(videoFooter.getByRole('button')).toHaveCount(3);
+    await expect(videoFooter.getByRole('button', { name: '成片分镜' })).toBeVisible();
+    await expect(videoFooter.getByRole('button', { name: '保存草稿' })).toHaveCount(0);
     await videoToolbar.getByRole('button', { name: '画布参考' }).click();
     await pick.getByRole('button', { name: /帆布鞋实拍/ }).click();
     await pick.getByLabel('引用用途').selectOption('first_frame');
@@ -349,7 +553,10 @@ try {
     await videoPrompt.fill('镜头缓慢推进，展示鞋面纹理。');
     await videoSpec.click();
     const videoSettings = page.getByRole('dialog', { name: '视频参数' });
-    await videoSettings.getByLabel('比例 / 清晰度').selectOption('9:16');
+    await expect(videoSettings.getByRole('button', { name: '核对生成输入' })).toHaveCount(0);
+    await videoSettings.getByRole('combobox').filter({
+      has: page.getByRole('option', { name: '9:16', exact: true }),
+    }).selectOption('9:16');
     await videoSettings.getByLabel('时长').selectOption('10');
     await page.keyboard.press('Escape');
     await expect(videoSpec).toContainText('9:16 · 720p · 10s · 1 条');

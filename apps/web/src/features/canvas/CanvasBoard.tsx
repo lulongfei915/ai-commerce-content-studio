@@ -20,7 +20,6 @@ import type { CanvasProps, SaveQueue } from './CanvasPage';
 import { CanvasHeader } from './CanvasHeader';
 import { CanvasPanelContent } from './CanvasPanelContent';
 import { AddChoices, CanvasTools, ToolButton } from './CanvasTools';
-import type { AddKind } from './CanvasTools';
 import type { Canvas, CanvasNode, Positions, Viewport } from './api';
 import {
   defaultPositions,
@@ -34,6 +33,7 @@ import type { FlowNode } from './graph';
 import { MediaNode } from './MediaNode';
 import { useCanvasCamera } from './useCanvasCamera';
 import { useComposerCamera } from './useComposerCamera';
+import { useCanvasDraftPanel } from './useCanvasDraftPanel';
 
 const nodeTypes = { studio: MediaNode };
 
@@ -43,11 +43,6 @@ type BoardProps = CanvasProps & {
   viewport: SaveQueue<Viewport>;
   reload: () => Promise<Canvas>;
 };
-
-export type PanelState =
-  | { kind: AddKind; position?: XYPosition }
-  | { kind: 'edit' | 'preview'; id: string }
-  | { kind: 'connect'; source: string; target: string };
 
 export function CanvasBoard(props: BoardProps) {
   return (
@@ -84,8 +79,8 @@ function Board(props: BoardProps) {
   const [moving, setMoving] = useState(false);
   const [menu, setMenu] = useState<{ position?: XYPosition; screen?: XYPosition }>();
   const [linking, setLinking] = useState('');
-  const [panel, setPanel] = useState<PanelState>();
   const [error, setError] = useState('');
+  const [panel, setPanel] = useCanvasDraftPanel(props, setError);
   const editable = session.permissions.includes('create');
   const token = session.csrf_token;
   const edges = useMemo(() => projectEdges(canvas), [canvas]);
@@ -169,31 +164,35 @@ function Board(props: BoardProps) {
       if (!editable || busy || !source || !target) return;
       const message = referenceIssue(source, target, edges);
       setError(message);
-      if (!message) setPanel({ kind: 'connect', source: sourceId, target: targetId });
+      if (!message) void setPanel({ kind: 'connect', source: sourceId, target: targetId });
     },
-    [byId, busy, editable, edges, props.drafts],
+    [byId, busy, editable, edges, props.drafts, setPanel],
   );
 
   const saveCamera = viewport.save;
 
   const camera = useCanvasCamera(flow, focused, saveCamera);
 
-  function open(node: CanvasNode) {
+  function open(node: CanvasNode, after?: () => void) {
     if (node.kind === 'creation' && !editable) return;
-    if (node.kind === 'creation') onSelect(node.source_id);
-    setPanel({ kind: node.kind === 'creation' ? 'edit' : 'preview', id: node.id });
+    void setPanel({ kind: node.kind === 'creation' ? 'edit' : 'preview', id: node.id }, () => {
+      if (node.kind === 'creation') onSelect(node.source_id);
+      after?.();
+    });
   }
 
   function selectNode(event: MouseEvent, node: FlowNode) {
     setMenu(undefined);
     if (moving || busy) return;
-    setSelectedEdge('');
-    setFocused(node.id);
-    if (event.currentTarget instanceof HTMLElement)
-      event.currentTarget.focus({ preventScroll: true });
+    const target = event.currentTarget;
+    const select = () => {
+      setSelectedEdge('');
+      setFocused(node.id);
+      if (target instanceof HTMLElement) target.focus({ preventScroll: true });
+    };
     if (linking && node.data.kind === 'creation') connect(linking, node.id);
-    else if (node.data.kind === 'creation') open(node.data);
-    else setPanel(undefined);
+    else if (node.data.kind === 'creation') open(node.data, select);
+    else clearPanel(select);
   }
 
   function addPosition(id: string, requested?: XYPosition) {
@@ -225,9 +224,11 @@ function Board(props: BoardProps) {
     }
   }
 
-  function clearPanel() {
-    setPanel(undefined);
-    setLinking('');
+  function clearPanel(after?: () => void) {
+    void setPanel(undefined, () => {
+      setLinking('');
+      after?.();
+    });
   }
 
   const selectedReference = canvas.edges.find((edge) => edge.id === selectedEdge);
@@ -261,14 +262,12 @@ function Board(props: BoardProps) {
         viewport={viewport}
         reload={reload}
         onError={setError}
-        onSku={(next) => {
-          clearPanel();
+        onSku={(next) => clearPanel(() => {
           setSku(next);
           setFocused('');
-          setLinking('');
           setRelations(false);
           requestAnimationFrame(() => void camera('fit'));
-        }}
+        })}
       />
       <div
         className="canvas-stage"
@@ -313,19 +312,17 @@ function Board(props: BoardProps) {
             onMoveEnd={(event, next) => {
               if (event) saveCamera(next);
             }}
-            onEdgeClick={(_event, edge) => {
-              clearPanel();
+            onEdgeClick={(_event, edge) => clearPanel(() => {
               setFocused('');
               setSelectedEdge(edge.id);
               setRelations(false);
-            }}
-            onPaneClick={() => {
-              clearPanel();
+            })}
+            onPaneClick={() => clearPanel(() => {
               setFocused('');
               setSelectedEdge('');
               setRelations(false);
               setMenu(undefined);
-            }}
+            })}
             nodesDraggable={editable && !moving && !busy}
             nodesConnectable={editable && !moving && !busy}
             elementsSelectable={!moving}
@@ -478,14 +475,13 @@ function Board(props: BoardProps) {
             anchor={anchor}
             sku={sku}
             addPosition={addPosition}
-            onClose={clearPanel}
+            onClose={() => clearPanel()}
             onRefresh={refreshAfter}
-            onLocate={(id) => {
+            onLocate={(id) => clearPanel(() => {
               setFocused(id);
               setSku('');
-              clearPanel();
               requestAnimationFrame(() => void camera('focus', id));
-            }}
+            })}
             onActivate={(draft) => {
               setFocused(`creation:${draft.id}`);
               setSku(draft.product_id);

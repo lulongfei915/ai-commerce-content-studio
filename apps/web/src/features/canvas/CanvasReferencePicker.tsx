@@ -1,9 +1,10 @@
 import { NodeIndexOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { Modal } from '../../shared/ui/Modal';
-import { actionError, draftWrite, usageLabel, type Draft } from '../creation/api';
+import { actionError, usageLabel, type Draft, type ReferenceUsage } from '../creation/api';
 import { nodePreview, type Canvas } from './api';
-import { allowedUsages, projectEdges, referenceIssue } from './graph';
+import { allowedUsages } from './graph';
+import { attachCanvasReference, referenceCandidates } from './referenceCandidates';
 
 export function CanvasReferencePicker({
   canvas,
@@ -20,13 +21,10 @@ export function CanvasReferencePicker({
 }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState('');
-  const [usage, setUsage] = useState('');
+  const [usage, setUsage] = useState<ReferenceUsage>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const edges = open ? projectEdges(canvas) : [];
-  const choices = open
-    ? canvas.nodes.filter((node) => node.kind !== 'creation' && !referenceIssue(node, draft, edges))
-    : [];
+  const choices = open ? referenceCandidates(canvas, draft) : [];
   const source = choices.find((item) => item.id === selected);
   const usages = source ? allowedUsages(source, draft) : [];
   async function attach() {
@@ -34,13 +32,7 @@ export function CanvasReferencePicker({
     setSaving(true);
     setError('');
     try {
-      const updated = await draftWrite(draft, token, '/references', {
-        kind: source.kind,
-        source_id: source.source_id,
-        usage: usage || usages[0],
-        file_version: source.file_version,
-        source_version: source.source_version,
-      });
+      const updated = await attachCanvasReference(draft, token, source, usage ?? usages[0]);
       await onSaved(updated);
       setOpen(false);
     } catch (cause) {
@@ -56,7 +48,7 @@ export function CanvasReferencePicker({
         disabled={busy}
         onClick={() => {
           setSelected('');
-          setUsage('');
+          setUsage(undefined);
           setError('');
           setOpen(true);
         }}
@@ -75,7 +67,7 @@ export function CanvasReferencePicker({
                 disabled={saving}
                 onClick={() => {
                   setSelected(item.id);
-                  setUsage('');
+                  setUsage(undefined);
                 }}
               >
                 {item.previewable && item.file_version && (
@@ -99,8 +91,8 @@ export function CanvasReferencePicker({
               引用用途{' '}
               <select
                 disabled={saving}
-                value={usage || usages[0]}
-                onChange={(event) => setUsage(event.target.value)}
+                value={usage ?? usages[0]}
+                onChange={(event) => setUsage(event.target.value as ReferenceUsage)}
               >
                 {usages.map((item) => (
                   <option key={item} value={item}>
