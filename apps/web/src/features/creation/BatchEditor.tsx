@@ -3,6 +3,7 @@ import { DownOutlined, PlusOutlined, RightOutlined, ThunderboltOutlined, UndoOut
 
 import { apiFetch, apiWrite } from '../../shared/api/client';
 import type { components } from '../../shared/api/generated';
+import { isSelectPickerOpen } from '../../shared/ui/selectPicker';
 import { CaseBrowser } from '../cases/CaseBrowser';
 import type { Category, Product } from '../products/api';
 import { photoPreviewUrl } from '../products/preview';
@@ -192,7 +193,7 @@ export function BatchEditor({ draft, product, categories, token, purpose, busy, 
         <div className="batch-parameter-bar" onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) setParameterMenu(undefined);
         }} onKeyDown={(event) => {
-          if (event.key !== 'Escape' || !parameterMenu) return;
+          if (event.key !== 'Escape' || !parameterMenu || isSelectPickerOpen(event.target)) return;
           event.currentTarget.querySelector<HTMLButtonElement>('[aria-expanded="true"]')?.focus();
           setParameterMenu(undefined);
           event.preventDefault();

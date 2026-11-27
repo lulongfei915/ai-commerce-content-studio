@@ -1,6 +1,7 @@
 import { SessionGate } from '../features/auth/SessionGate';
 import studioMark from '../features/tasks/studio-mark.svg';
 import '../styles/global.css';
+import '../styles/select.css';
 
 export function App() {
   return (

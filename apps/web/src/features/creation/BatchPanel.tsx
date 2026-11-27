@@ -2,6 +2,7 @@ import { useId, useSyncExternalStore, type ReactNode } from 'react';
 import { ArrowLeftOutlined, CloseOutlined } from '@ant-design/icons';
 
 import { Modal } from '../../shared/ui/Modal';
+import { isSelectPickerOpen } from '../../shared/ui/selectPicker';
 
 const desktop = '(min-width: 1100px)';
 function subscribe(onChange: () => void) {
@@ -43,7 +44,7 @@ export function BatchPanel(props: {
     <aside className="batch-panel" aria-labelledby={heading}
       onKeyDown={(event) => {
         if (event.key === 'Escape' && !busy && event.target instanceof Node
-          && event.currentTarget.contains(event.target)) {
+          && event.currentTarget.contains(event.target) && !isSelectPickerOpen(event.target)) {
           event.stopPropagation();
           onClose();
         }

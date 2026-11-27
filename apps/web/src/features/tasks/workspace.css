@@ -304,8 +304,7 @@
 .workspace button,
 .studio-dialog button,
 .workspace input,
-.studio-dialog input,
-.studio-dialog select {
+.studio-dialog input {
   min-height: 40px;
   padding: 6px 12px;
   border: 1px solid var(--work-line);
@@ -325,7 +324,7 @@
   cursor: default;
 }
 .workspace :is(button, input, summary):focus-visible,
-.studio-dialog :is(button, input, select):focus-visible {
+.studio-dialog :is(button, input):focus-visible {
   outline: 2px solid var(--work-focus);
   outline-offset: 2px;
 }

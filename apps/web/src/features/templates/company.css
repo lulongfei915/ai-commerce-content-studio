@@ -120,6 +120,8 @@
 .company-editor-fields :is(select, input:not([type='checkbox']), textarea) {
   width: 100%;
   min-width: 0;
+}
+.company-editor-fields :is(input:not([type='checkbox']), textarea) {
   min-height: 40px;
 }
 .company-editor-fields .work-grid {

@@ -15,7 +15,6 @@ import { Modal } from '../../shared/ui/Modal';
 import { updateFacts, uploadPhoto, type Category, type Product } from '../products/api';
 import { TemplatePicker } from '../templates/TemplatePicker';
 import type { Template } from '../templates/api';
-import { CreationEditor } from './CreationEditor';
 import { QuickMaterials, SelectedQuickMaterials } from './QuickMaterials';
 import { QuickParameters } from './QuickParameters';
 import { StoryboardDialog } from './StoryboardControl';
@@ -24,7 +23,6 @@ import {
   addProductPhotoReference,
   defaults,
   draftWrite,
-  referencePreview,
   removeReference,
   saveDraftInputs,
   uploadReference,
@@ -76,7 +74,7 @@ export function QuickCreation({
   execution,
   onSubmitting,
 }: Props) {
-  const [panel, setPanel] = useState<'tools' | 'storyboard' | 'product' | 'reference' | 'optimize' | 'template'>();
+  const [panel, setPanel] = useState<'storyboard' | 'product' | 'reference' | 'optimize' | 'template'>();
   const [feedback, setFeedback] = useState<{ id: string; message: string; error?: boolean }>();
   const [suggestion, setSuggestion] = useState<components['schemas']['AssistanceView']>();
   const isVideo = purpose === 'video';
@@ -347,10 +345,6 @@ export function QuickCreation({
         <button disabled={disabled} onClick={() => setPanel('reference')}>
           更多灵感 ›
         </button>
-        <button type="button" className="studio-draft-tools" disabled={disabled}
-          onClick={() => void withDraft(async () => setPanel('tools'))}>
-          <FileTextOutlined aria-hidden="true" /> 草稿工具
-        </button>
       </div>
       {(panel === 'product' || panel === 'reference') && (
         <QuickMaterials
@@ -374,23 +368,6 @@ export function QuickCreation({
             )
           }
         />
-      )}
-      {panel === 'tools' && selected && (
-        <Modal title="草稿工具" busy={busy} onClose={() => setPanel(undefined)}>
-          <CreationEditor
-            draft={selected}
-            quickTools
-            product={product}
-            token={token}
-            categories={categories}
-            edits={edits ? value : undefined}
-            onEdit={(next) => onEdit(editorId, next)}
-            onSaved={onSaved}
-            onBusy={onBusy}
-            imageExecution={execution}
-            previewUrl={isVideo ? undefined : (ref) => referencePreview(selected, ref)}
-          />
-        </Modal>
       )}
       {panel === 'template' && (
         <TemplatePicker

@@ -242,10 +242,9 @@
 }
 .batch-parameter-bar { border-top: 1px solid #e8ece8; padding-top: 3px; }
 :is(.workspace .batch-creation, .studio-dialog.batch-drawer) .batch-parameter-bar > select {
-  min-height: 28px;
-  padding: 2px 4px;
-  border: 0;
-  background: transparent;
+  --select-height: 28px;
+  --select-padding: 8px;
+  padding-block: 2px;
 }
 .batch-parameter-bar .batch-parameter-popover {
   inset: auto 0 calc(100% + 3px);

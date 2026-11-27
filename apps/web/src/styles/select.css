@@ -1,0 +1,112 @@
+:where(.workspace, .studio-dialog) select {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  min-block-size: var(--select-height, 40px);
+  padding: 6px var(--select-padding, 12px);
+  border: 1px solid var(--work-line);
+  border-radius: 6px;
+  background-color: var(--select-background, var(--work-field));
+  color: var(--work-text);
+  font: inherit;
+}
+
+:where(.workspace, .studio-dialog) select:not([multiple], [size]):enabled {
+  cursor: pointer;
+}
+
+:where(.workspace, .studio-dialog) select:enabled:hover {
+  border-color: var(--work-muted);
+}
+
+:where(.workspace, .studio-dialog) select:focus-visible {
+  border-color: var(--work-focus);
+  outline: 2px solid var(--work-focus);
+  outline-offset: 2px;
+}
+
+:where(.workspace, .studio-dialog) select:disabled {
+  opacity: 0.55;
+}
+
+/* Keep native pickers in browsers without customizable select support. */
+@supports (appearance: base-select) and selector(::picker(select)) {
+  :where(.workspace, .studio-dialog) select:not([multiple], [size]),
+  :where(.workspace, .studio-dialog) select:not([multiple], [size])::picker(select) {
+    appearance: base-select;
+  }
+
+  :where(.workspace, .studio-dialog) select:not([multiple], [size]) {
+    align-items: center;
+    gap: 8px;
+  }
+
+  :where(.workspace, .studio-dialog) select:not([multiple], [size])::picker-icon {
+    content: '';
+    flex: none;
+    inline-size: 7px;
+    block-size: 7px;
+    margin-inline: auto 2px;
+    border: solid var(--work-muted);
+    border-width: 0 1.5px 1.5px 0;
+    transform: translateY(-2px) rotate(45deg);
+  }
+
+  :where(.workspace, .studio-dialog) select:not([multiple], [size]):open {
+    border-color: var(--work-focus);
+  }
+
+  :where(.workspace, .studio-dialog) select:not([multiple], [size]):open::picker-icon {
+    transform: translateY(2px) rotate(225deg);
+  }
+
+  :where(.workspace, .studio-dialog) select:not([multiple], [size])::picker(select) {
+    max-inline-size: calc(100dvw - 16px);
+    max-block-size: min(20rem, 60dvh);
+    margin-block: 4px;
+    padding: 4px;
+    border: 1px solid var(--work-line);
+    border-radius: 8px;
+    background-color: var(--work-surface);
+    color: var(--work-text);
+    box-shadow: 0 8px 24px #101b1424;
+  }
+
+  :where(.workspace, .studio-dialog) select:not([multiple], [size]) option {
+    min-block-size: 36px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  :where(.workspace, .studio-dialog) select:not([multiple], [size]) option::checkmark {
+    display: none;
+  }
+
+  :where(.workspace, .studio-dialog) select:not([multiple], [size]) option:enabled:hover {
+    background-color: color-mix(in srgb, var(--work-focus) 10%, var(--work-surface));
+  }
+
+  :where(.workspace, .studio-dialog) select:not([multiple], [size]) option:checked {
+    background-color: color-mix(in srgb, var(--work-focus) 17%, var(--work-surface));
+  }
+
+  :where(.workspace, .studio-dialog) select:not([multiple], [size]) option:focus-visible {
+    background-color: color-mix(in srgb, var(--work-focus) 30%, var(--work-surface));
+    outline: none;
+  }
+
+  @media (forced-colors: active) {
+    :where(.workspace, .studio-dialog) select:not([multiple], [size]) option:checked {
+      forced-color-adjust: none;
+      background-color: ButtonFace;
+      color: ButtonText;
+    }
+
+    :where(.workspace, .studio-dialog) select:not([multiple], [size]) option:focus-visible {
+      forced-color-adjust: none;
+      background-color: Highlight;
+      color: HighlightText;
+    }
+  }
+}

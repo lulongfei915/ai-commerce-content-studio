@@ -6,8 +6,8 @@
 .workspace .studio-toolbar .quick-parameter-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding-inline: 8px;
+  gap: 4px;
+  padding-inline: 4px;
   text-align: start;
   overflow-wrap: anywhere;
 }

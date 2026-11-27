@@ -455,13 +455,15 @@ try {
   await page.getByRole('button', { name: '返回工作台' }).click();
   const quickPrompt = '快捷草稿使用独立提示词';
   await expect(page.getByRole('textbox', { name: '提示词', exact: true })).toHaveValue('');
-  await page.getByRole('textbox', { name: '提示词', exact: true }).fill(quickPrompt);
-  await page.getByRole('button', { name: /^(草稿工具|创作设置)$/ }).click();
-  const quickTools = page.getByRole('dialog', { name: /^(草稿工具|创作设置)$/ });
-  await quickTools.getByRole('button', { name: '保存草稿', exact: true }).click();
-  await expect(quickTools.getByText('草稿已保存', { exact: true })).toBeVisible();
-  await quickTools.getByRole('button', { name: '关闭', exact: true }).click();
-  const [quickDraft] = await api(`/tasks/${scenario.id}/creations?entry=quick`);
+  const quickDraft = await api(`/tasks/${scenario.id}/creations`, 'POST', {
+    product_id: firstDraft.product_id,
+    purpose: firstDraft.purpose,
+    entry: 'quick',
+    primary: true,
+    prompt: quickPrompt,
+  }, 201);
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: '提示词', exact: true })).toHaveValue(quickPrompt);
   assert.notEqual(quickDraft.id, firstDraft.id);
   assert.equal(firstDraft.prompt, prompt);
   await navigateEntry('画布');

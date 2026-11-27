@@ -46,8 +46,9 @@
   font-weight: 600;
 }
 .workspace .canvas-top select {
-  min-height: 32px;
-  padding: 4px 7px;
+  --select-height: 32px;
+  --select-padding: 8px;
+  padding-block: 4px;
   max-width: 145px;
 }
 .canvas-count {
@@ -539,9 +540,14 @@
   opacity: 0;
   cursor: pointer;
 }
-.workspace .canvas-panel .creative-output-settings :is(input, select) {
+.workspace .canvas-panel .creative-output-settings input {
   min-height: 34px;
   padding: 4px 6px;
+}
+.workspace .canvas-panel .creative-output-settings select {
+  --select-height: 34px;
+  --select-padding: 8px;
+  padding-block: 4px;
 }
 .canvas-photo-picker {
   display: flex;

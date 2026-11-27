@@ -36,10 +36,8 @@
   object-fit: cover;
 }
 .workspace .studio-product select {
-  border: 0;
-  background: transparent;
-  min-height: 25px;
-  padding: 2px;
+  --select-height: 30px;
+  --select-padding: 8px;
   font-size: 12px;
   font-weight: 600;
 }
@@ -193,12 +191,13 @@
   gap: 4px 10px;
 }
 .studio-toolbar {
+  column-gap: 4px;
   color: #526052;
   margin-top: 7px;
 }
 .studio-toolbar b {
   color: #426c2e;
-  padding: 0 4px;
+  padding: 0 2px;
 }
 .workspace .studio-toolbar button,
 .workspace .studio-tabs button {
@@ -219,10 +218,10 @@
 .studio-prompt-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 2px;
 }
 .workspace .studio-toolbar .studio-prompt-actions button {
-  padding-inline: 6px;
+  padding-inline: 4px;
   white-space: nowrap;
 }
 .workspace .studio-toolbar .studio-prompt-actions button:hover:not(:disabled) {
@@ -244,14 +243,6 @@
 .workspace .studio-shortcuts button[aria-pressed='true'] {
   background: #e3f1d9;
   color: #335728;
-}
-.workspace .studio-shortcuts .studio-draft-tools {
-  margin-left: auto;
-  background: transparent;
-  border-radius: 6px;
-}
-.workspace .studio-shortcuts .studio-draft-tools:hover:not(:disabled) {
-  background: #edf1ed;
 }
 .studio-generation-feedback {
   display: flex;
@@ -297,15 +288,13 @@
   border-color: #71964d;
   font-weight: 650;
 }
-.workspace .studio-filter {
-  margin-left: auto;
-  min-height: 30px;
+.studio-status-filter {
+  --select-height: 32px;
+  --select-padding: 8px;
+  margin-inline-start: auto;
+  margin-block: 3px;
+  padding-block: 4px;
   font-size: 12px;
-}
-.studio-filter-options {
-  display: block;
-  text-align: right;
-  padding: 8px;
 }
 .studio-result-grid {
   display: grid;
@@ -521,18 +510,21 @@
     font-size: 16px;
   }
   .studio-toolbar {
-    gap: 3px;
+    row-gap: 3px;
     font-size: 11px;
   }
   .workspace .studio-toolbar .studio-save {
     min-width: 88px;
   }
   .studio-results header {
-    gap: 9px;
+    gap: 4px 6px;
     flex-wrap: wrap;
   }
   .studio-tabs {
     gap: 4px;
+  }
+  .workspace .studio-tabs button {
+    padding-inline: 3px;
   }
   .studio-art.editorial strong {
     font-size: 17px;

@@ -1,6 +1,8 @@
 import { useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { DownOutlined } from '@ant-design/icons';
 
+import { isSelectPickerOpen } from '../../shared/ui/selectPicker';
+
 export function QuickParameterPopover({
   label, value, open, disabled, width, onOpen, children, anchored = false, icon,
 }: {
@@ -72,7 +74,7 @@ export function QuickParameterPopover({
 
   return (
     <div className="quick-parameter-anchor" data-parameter-open={open || undefined} ref={anchor} onKeyDown={(event) => {
-      if (event.key !== 'Escape' || !open) return;
+      if (event.key !== 'Escape' || !open || isSelectPickerOpen(event.target)) return;
       event.preventDefault();
       event.stopPropagation();
       closeAndFocus();

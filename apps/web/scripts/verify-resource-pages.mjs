@@ -335,11 +335,7 @@ try {
   await expect(feedback).toBeInViewport({ ratio: 1 });
   await shoot('quick-error-390');
 
-  await page.getByRole('button', { name: '草稿工具' }).click();
-  const tools = page.getByRole('dialog', { name: '草稿工具' });
-  await expect(tools.getByRole('button', { name: '优化提示词' })).toHaveCount(0);
-  await expect(tools.getByLabel('解析参考图')).toHaveCount(0);
-  await tools.getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(page.getByRole('button', { name: '更多创作操作' })).toHaveCount(0);
   blockSubmission = false;
   await generate.click();
   await expect(page.getByRole('button', { name: '制作中', exact: true })).toBeDisabled();

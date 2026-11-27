@@ -50,9 +50,11 @@
 .studio-dialog .requirement-fields :is(select, input) {
   min-width: 0;
   width: 100%;
+  font-size: 12px;
+}
+.studio-dialog .requirement-fields input {
   height: 40px;
   padding: 0 11px;
-  font-size: 12px;
   background: white;
 }
 .requirements-body {

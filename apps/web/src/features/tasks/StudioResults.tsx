@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   CheckOutlined,
-  ControlOutlined,
   PictureOutlined,
   SafetyOutlined,
   VideoCameraOutlined,
@@ -110,7 +109,6 @@ export function StudioResults({
   const [media, setMedia] = useState('all');
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<Artwork[]>([]);
-  const [filter, setFilter] = useState(false);
   useEffect(() => {
     if (submittingCount)
       setMedia((current) => (current === 'all' ? current : submittingMedia));
@@ -174,19 +172,12 @@ export function StudioResults({
           ))}
         </div>
         {onStatus && (
-          <button
-            className="studio-filter"
-            aria-expanded={filter}
-            onClick={() => setFilter(!filter)}
+          <select
+            aria-label="审核状态"
+            className="studio-status-filter"
+            value={status}
+            onChange={(event) => onStatus(event.target.value)}
           >
-            <ControlOutlined /> {statusLabel[status] ?? '筛选'}
-          </button>
-        )}
-      </header>
-      {filter && (
-        <label className="studio-filter-options">
-          审核状态{' '}
-          <select value={status} onChange={(e) => onStatus?.(e.target.value)}>
             <option value="">全部状态</option>
             {Array.from(
               new Set([
@@ -201,8 +192,8 @@ export function StudioResults({
               </option>
             ))}
           </select>
-        </label>
-      )}
+        )}
+      </header>
       <div className="studio-result-grid">
         {cards.map(({ id, item, slot }) => (
           <article

@@ -1,4 +1,4 @@
-/* global console, document, localStorage, process, URL */
+/* global console, document, FormData, getComputedStyle, localStorage, process, URL */
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { chromium, expect } from '@playwright/test';
@@ -32,6 +32,34 @@ const reference = {
   source_id: 'file', file_id: 'file', file_version: 1, source_version: 1,
   label: 'sneaker-white.jpg', media: 'image',
 };
+
+async function checkSelectStyle(select, screenshot, focusColor = 'rgb(82, 126, 61)') {
+  const page = select.page();
+  await expect(select).toHaveCSS('appearance', 'base-select');
+  await select.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(select).toBeFocused();
+  await expect(select).toHaveCSS('outline-color', focusColor);
+  await select.click();
+  await expect.poll(() => select.evaluate((field) => field.matches(':open'))).toBe(true);
+  expect(await select.evaluate((field) =>
+    getComputedStyle(field, '::picker(select)').borderRadius)).toBe('8px');
+  const focused = select.locator('option:focus-visible');
+  const selected = select.locator('option:checked');
+  await expect(focused).toHaveCSS('outline-style', 'none');
+  await expect(focused).toHaveCSS('border-top-width', '0px');
+  expect(await selected.evaluate((option) => getComputedStyle(option, '::checkmark').display)).toBe('none');
+  await expect(selected).toBeInViewport({ ratio: 1 });
+  await page.keyboard.press('ArrowDown');
+  expect(await focused.evaluate((option) => getComputedStyle(option).backgroundColor))
+    .not.toBe(await selected.evaluate((option) => getComputedStyle(option).backgroundColor));
+  await page.keyboard.press('ArrowUp');
+  await page.screenshot({ path: resolve(artifacts, screenshot) });
+  await page.keyboard.press('Escape');
+  await expect.poll(() => select.evaluate((field) => field.matches(':open'))).toBe(false);
+  await expect(select).toBeFocused();
+}
 
 await mkdir(artifacts, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome' });
@@ -68,10 +96,21 @@ try {
       const reply = (json) => route.fulfill({ json });
       if (path === '/me') return reply({
         tenant: { id: 'studio', slug: 'studio', name: '造物' }, user_id: 'user',
-        email: 'test@example.test', csrf_token: 'test', role: 'admin', permissions: ['view', 'create'],
+        email: 'test@example.test', csrf_token: 'test', role: 'admin', permissions: ['view', 'create', 'manage'],
       });
       if (path === '/tasks') return reply({ items: [task], next_cursor: null });
+      if (path === '/products/categories') return reply([
+        { id: 'apparel', label: '鞋服' }, { id: 'beauty', label: '美妆个护' },
+      ]);
+      if (path === '/products') return reply({ items: [], next_cursor: null });
       if (path === '/tasks/t') return reply(task);
+      if (path === '/tasks/t/canvas') return reply({
+        nodes: [], edges: [], creations: [], layout: { positions: [], version: 0 },
+        viewport: { x: 0, y: 0, zoom: 1, version: 0 },
+      });
+      if (path === '/tasks/t/batches/image') return reply({
+        prompt: '', ratio: '1:1', resolution: '1K', count: 1, version: 0,
+      });
       if (path === '/tasks/t/results') return reply(artwork.map((name, index) => ({
         asset_id: `asset-${index}`, version_id: name, label: `帆布鞋 · 方案 ${index + 1}`,
         media: 'image', status: 'pending_review', version: 1, file_version: 1, previewable: true,
@@ -187,6 +226,26 @@ try {
     }
     const cards = results.getByRole('article');
     await expect(cards).toHaveCount(4);
+    await expect(results.getByRole('button', { name: /筛选$/ })).toHaveCount(0);
+    const status = results.locator(':scope > header').getByRole('combobox', { name: '审核状态' });
+    await expect(status).toBeVisible();
+    await expect(status).toHaveValue('');
+    const tabsBox = await results.locator('.studio-tabs').boundingBox();
+    const statusBox = await status.boundingBox();
+    expect(statusBox.y).toBeLessThan(tabsBox.y + tabsBox.height);
+    const firstCardTop = await cards.first().evaluate((card) => card.offsetTop);
+    await status.click();
+    await expect.poll(() => status.evaluate((field) => field.matches(':open'))).toBe(true);
+    expect(await cards.first().evaluate((card) => card.offsetTop)).toBe(firstCardTop);
+    await page.keyboard.press('Escape');
+    await checkSelectStyle(status, `select-review-${width}-${media}.png`);
+    await page.keyboard.press('Space');
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await expect(status).toHaveValue('rejected');
+    await expect(cards).toHaveCount(0);
+    await status.selectOption('');
+    await expect(cards).toHaveCount(4);
     const boxes = await Promise.all((await cards.all()).map((card) => card.boundingBox()));
     if (width >= 1280) {
       expect(boxes.every((box) => box.y === boxes[0].y && box.width >= 230)).toBe(true);
@@ -202,6 +261,8 @@ try {
     expect(tile.y + tile.height).toBeGreaterThan(input.y);
     const toolbar = editor.locator('.studio-toolbar');
     await expect(toolbar).toHaveCSS('border-top-width', '0px');
+    await expect(toolbar).toHaveCSS('column-gap', '4px');
+    await expect(editor.getByRole('button', { name: '更多创作操作' })).toHaveCount(0);
     const optimize = toolbar.getByRole('button', { name: '优化提示词', exact: true });
     const applyTemplate = toolbar.getByRole('button', { name: '应用模板', exact: true });
     await expect(optimize).toBeVisible();
@@ -283,14 +344,6 @@ try {
       await expect.poll(() => thumbnail.evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
       const editedPrompt = '保留这段尚未保存的正文。';
       await prompt.fill(editedPrompt);
-      await editor.getByRole('button', { name: '草稿工具' }).click();
-      const tools = page.getByRole('dialog', { name: '草稿工具' });
-      await expect(tools.getByRole('button', { name: '应用模板' })).toHaveCount(0);
-      await expect(tools.getByRole('button', { name: '优化提示词' })).toHaveCount(0);
-      await expect(tools.getByLabel('解析参考图')).toHaveCount(0);
-      await expect(tools.getByRole('button', { name: '保存草稿', exact: true })).toBeEnabled();
-      await expect(tools.getByLabel('比例 / 清晰度')).toHaveCount(0);
-      await tools.getByRole('button', { name: '关闭' }).click();
       const templatePicker = page.getByRole('dialog', { name: '应用公司模板' });
       await applyTemplate.click();
       await templatePicker.getByRole('radio', { name: '商品摄影 · V1' }).check();
@@ -326,6 +379,52 @@ try {
       expect(draft.video_parameters).toEqual({
         model: 'seedance-2.5', ratio: '9:16', resolution: '1080p', duration: 10, count: 2,
       });
+    }
+    const nav = async (name) => {
+      const openNav = page.getByRole('button', { name: '打开工作区导航' });
+      if (await openNav.isVisible()) await openNav.click();
+      await page.getByRole('navigation', { name: '工作区' }).getByRole('button', { name, exact: true }).click();
+    };
+    await nav('案例灵感');
+    const category = page.getByRole('combobox', { name: '筛选案例品类' });
+    await checkSelectStyle(category, `select-cases-${width}-${media}.png`);
+    const caseCount = await page.locator('.resource-card').count();
+    await category.click();
+    await category.getByRole('option', { name: '鞋服' }).click();
+    await expect.poll(() => page.locator('.resource-card').count()).toBeLessThan(caseCount);
+    if (media === 'image' && (width === 1280 || width === 390)) {
+      await page.getByRole('button', { name: '新增案例' }).click();
+      const dialog = page.getByRole('dialog', { name: '新增案例' });
+      const formCategory = dialog.getByRole('combobox', { name: '案例品类' });
+      await checkSelectStyle(formCategory, `select-case-dialog-${width}.png`);
+      await formCategory.click();
+      await formCategory.getByRole('option', { name: '美妆个护' }).click();
+      expect(await formCategory.evaluate((field) => new FormData(field.form).get('category'))).toBe('beauty');
+      await dialog.getByRole('button', { name: '取消' }).click();
+      await nav('商品资料');
+      await page.getByRole('button', { name: '添加商品' }).click();
+      const productDialog = page.getByRole('dialog', { name: '添加新商品' });
+      await checkSelectStyle(productDialog.getByRole('combobox', { name: '商品品类' }),
+        `select-product-${width}.png`);
+      await productDialog.getByRole('button', { name: '关闭', exact: true }).click();
+      await nav('公司管理');
+      await checkSelectStyle(page.getByRole('combobox', { name: '模板状态' }),
+        `select-template-${width}.png`);
+      await nav('资产与交付');
+      await page.getByRole('button', { name: '公司素材', exact: true }).click();
+      await page.getByRole('button', { name: '更多筛选' }).click();
+      await checkSelectStyle(page.getByRole('combobox', { name: '素材审核状态' }),
+        `select-library-${width}.png`);
+      await nav('批量制作');
+      await page.getByRole('button', { name: '调整公共设置' }).click();
+      const batchSize = page.getByRole('combobox', { name: '公共比例 / 清晰度' });
+      await checkSelectStyle(batchSize, `select-batch-${width}.png`);
+      await page.keyboard.press('Escape');
+      await expect(batchSize).toHaveCount(0);
+      await nav('画布');
+      const sku = page.getByRole('combobox', { name: '画布 SKU' });
+      await expect(sku).toHaveCSS('background-color', 'rgb(37, 39, 42)');
+      await checkSelectStyle(sku, `select-canvas-${width}.png`, 'rgb(232, 232, 232)');
     }
     expect(errors).toEqual([]);
     await page.close();

@@ -57,9 +57,8 @@
   min-width: 0;
 }
 .workspace .task-studio-canvas .canvas-top select {
-  min-height: 27px;
-  min-width: 0;
-  padding: 2px 4px;
+  --select-height: 28px;
+  padding-block: 2px;
 }
 .task-studio-canvas .canvas-count,
 .task-studio-canvas .canvas-saves {

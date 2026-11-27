@@ -66,8 +66,13 @@
 
 .case-create .case-fields :is(input:not([type='checkbox']), select) {
   width: 100%;
-  min-height: 36px;
   font-weight: 400;
+}
+.case-create .case-fields input:not([type='checkbox']) {
+  min-height: 36px;
+}
+.case-create .case-fields select {
+  --select-height: 36px;
 }
 
 .case-create .case-file {

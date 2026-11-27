@@ -188,9 +188,12 @@
   color: #53634e;
   font-size: 12px;
 }
-.product-fields :is(input:not([type='checkbox'], [type='file']), select) {
+.product-fields input:not([type='checkbox'], [type='file']) {
   min-height: 36px;
   color: var(--work-text);
+}
+.product-fields select {
+  --select-height: 36px;
 }
 .product-fields textarea {
   min-width: 0;

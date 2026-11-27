@@ -1,5 +1,3 @@
-.workspace select,
-.studio-dialog select,
 .workspace textarea,
 .studio-dialog textarea {
   min-height: 40px;
